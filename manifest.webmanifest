@@ -1,0 +1,37 @@
+{
+  "id": "./",
+  "name": "Notes & Planner",
+  "short_name": "Notes",
+  "description": "Notes, reminders, groceries and habits. Everything stays on this phone.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Note",
+      "short_name": "New note",
+      "url": "./?new=note",
+      "icons": [{ "src": "icons/sc-note.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "New Reminder",
+      "short_name": "Reminder",
+      "url": "./?new=task",
+      "icons": [{ "src": "icons/sc-task.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Add Grocery",
+      "short_name": "Groceries",
+      "url": "./?open=groceries",
+      "icons": [{ "src": "icons/sc-cart.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ]
+}
