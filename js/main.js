@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.1';
+const APP_BUILD = '1.2';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 
 // What a shortcut (?new=note) or a notification (?task=id) asks for.
