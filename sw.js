@@ -1,7 +1,7 @@
 // Offline support and reminders. Bump VERSION whenever the app files change: the phone notices
 // the new service worker, downloads the whole new version at once, and the app reloads into it.
 // This site shares its address with the Budget app, so only "notes-" caches are ours.
-const VERSION = 'notes-v8';
+const VERSION = 'notes-v9';
 importScripts('js/config.js', 'js/store.js', 'js/remind.js');
 
 const SHELL = [
@@ -33,9 +33,12 @@ const SHELL = [
 ];
 const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(self.location.hostname);
 
+// '?v=' makes GitHub's servers hand over this version's files, never a copy they kept of the old ones
+// (the fetch handler below matches with ignoreSearch, so the address works without it).
+const fresh = (u) => new Request(u + (u.includes('?') ? '&' : '?') + 'v=' + VERSION, { cache: 'reload' });
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    (LOCAL ? Promise.resolve() : caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))))
+    (LOCAL ? Promise.resolve() : caches.open(VERSION).then((c) => c.addAll(SHELL.map(fresh))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -63,7 +66,7 @@ self.addEventListener('fetch', (e) => {
         if (res && res.ok) cache.put(key, res.clone());
         return res;
       } catch (err) {
-        return (req.mode === 'navigate' && (await cache.match('./index.html'))) || Response.error();
+        return (req.mode === 'navigate' && (await cache.match('./index.html', { ignoreSearch: true }))) || Response.error();
       }
     }),
   );
