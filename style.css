@@ -454,9 +454,19 @@ h1, h2, h3, p { margin: 0; }
 .wd-r { position: relative; width: 36px; height: 36px; display: grid; place-items: center; }
 .wd-r svg { position: absolute; inset: 0; }
 .wd-r b { font-size: 14px; font-weight: 600; }
-.wd.sel { background: var(--fill); }
 .wd.today .wd-l, .wd.today b { color: var(--tint); }
 .wd:disabled { opacity: .35; }
+/* The chosen day's highlight is its own piece: it glides from day to day and follows a finger
+   sliding along the row */
+.week { position: relative; isolation: isolate; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+.wd { position: relative; z-index: 1; }
+.wd-ind {
+  position: absolute; z-index: 0; top: 8px; bottom: 8px; left: 28px; width: calc((100% - 56px) / 7);
+  border-radius: 12px; background: var(--fill); pointer-events: none;
+  transform: translateX(calc(var(--i) * 100%)); animation: seg-slide .38s cubic-bezier(.3, .8, .25, 1);
+  transition: transform .32s cubic-bezier(.3, 1.2, .5, 1), background .2s;
+}
+.week.sliding .wd-ind { transition: background .2s; background: color-mix(in srgb, var(--tint) 18%, var(--fill)); }
 .habit { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; background: var(--card); }
 .h-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; }
 .h-main .tile { width: 36px; height: 36px; border-radius: 10px; }
@@ -569,9 +579,19 @@ h1, h2, h3, p { margin: 0; }
 .switch input:checked + i { background: var(--green); }
 .switch input:checked + i::after { transform: translateX(20px); }
 .switch input:focus-visible + i { outline: 2px solid var(--tint); outline-offset: 2px; }
-.seg { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; }
-.seg button { flex: 1; min-width: 0; height: 32px; border-radius: 7px; font-size: 14px; font-weight: 500; padding: 0 4px; white-space: nowrap; }
-.seg button.on { background: var(--seg-on); box-shadow: 0 1px 4px rgba(0, 0, 0, .13); font-weight: 600; }
+.seg { position: relative; isolation: isolate; display: flex; background: var(--fill); border-radius: 9px; padding: 2px; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+.seg button { position: relative; z-index: 1; flex: 1; min-width: 0; height: 32px; border-radius: 7px; font-size: 14px; font-weight: 500; padding: 0 4px; white-space: nowrap; transition: opacity .2s; }
+.seg button.on { font-weight: 600; }
+.seg button:active { opacity: .6; }
+/* The white "thumb" glides to the new choice; press on the control and slide to move it */
+.seg-thumb {
+  position: absolute; z-index: 0; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n));
+  border-radius: 7px; background: var(--seg-on); box-shadow: 0 1px 4px rgba(0, 0, 0, .13);
+  transform: translateX(calc(var(--i) * 100%)); animation: seg-slide .38s cubic-bezier(.3, .8, .25, 1);
+  transition: transform .32s cubic-bezier(.3, 1.2, .5, 1), box-shadow .2s;
+}
+@keyframes seg-slide { from { transform: translateX(calc(var(--from) * 100%)); } }
+.seg.sliding .seg-thumb { transition: box-shadow .2s; box-shadow: 0 4px 12px rgba(0, 0, 0, .16); }
 .stepper { display: flex; align-items: center; gap: 12px; }
 .stepper button { width: 34px; height: 34px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; }
 .stepper button:disabled { opacity: .35; }
@@ -605,7 +625,7 @@ h1, h2, h3, p { margin: 0; }
 .icon-grid button { width: 44px; height: 44px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; color: var(--text-2); transition: background .2s, color .2s; }
 .icon-grid button.on { background: var(--c); color: #fff; }
 .icon-grid .gl { width: 22px; height: 22px; }
-.days { display: flex; justify-content: space-between; gap: 4px; margin-bottom: 12px; }
+.days { display: flex; justify-content: space-between; gap: 4px; margin-bottom: 12px; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
 .days button { width: 40px; height: 40px; border-radius: 50%; background: var(--fill); font-weight: 600; font-size: 15px; }
 .days button.on { background: var(--tint); color: #fff; }
 

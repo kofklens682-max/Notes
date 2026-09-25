@@ -3,9 +3,13 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.8';
+const APP_BUILD = '1.9';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
+// Press and slide: the tab bar, the segmented controls, the Habits week and a habit's Repeat days.
 bindTabSlide($('#tabs'), (t) => goTab(t));
+bindSegSlide();
+bindWeekSlide((b, pos) => { wdFrom = pos; ACTIONS['h-day'](b); });
+bindDaysSlide('.days', (i, on) => { if (HS) HS.days[i] = on ? 1 : 0; }, () => redrawHabit());
 
 // What a shortcut (?new=note) or a notification (?task=id) asks for.
 function openLink(p) {

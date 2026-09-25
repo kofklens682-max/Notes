@@ -272,6 +272,7 @@ let TS = null; // { d: draft, isNew }
 function taskSheet(t, preset = {}) {
   if (t === undefined) return;
   TS = { d: t ? JSON.parse(JSON.stringify(t)) : makeTask(preset), isNew: !t };
+  delete segMem['task-prio']; // a newly opened sheet shows its priority at once, without a glide
   openSheet(taskSheetHtml(), (sh) => {
     mountTaskSheet(sh);
     if (TS.isNew) $('.f-title', sh).focus();
@@ -300,7 +301,7 @@ function taskSheetHtml() {
     </div>
     ${d.due ? notifHint(d.time ? `You'll be reminded at ${d.time}.` : `You'll be reminded at ${S.settings.allDay} on the day.`) : ''}
     <div class="card form">
-      <div class="frow col"><span class="frow-top">${tile('bang', '#FF9500')}<span class="lbl">Priority</span></span><div class="seg">${PRIO.map((x, i) => `<button data-act="task-prio" data-v="${i}" class="${d.prio === i ? 'on' : ''}">${x}</button>`).join('')}</div></div>
+      <div class="frow col"><span class="frow-top">${tile('bang', '#FF9500')}<span class="lbl">Priority</span></span><div class="seg">${segButtons('task-prio', PRIO.map((x, i) => [i, x]), d.prio)}</div></div>
       <label class="frow">${tile(L.g || 'list', L.color)}<span class="lbl">List</span><select name="list">${S.lists.map((l) => `<option value="${l.id}" ${l.id === d.list ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select></label>
     </div>
     <h2 class="sec">Subtasks</h2>

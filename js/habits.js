@@ -71,13 +71,19 @@ function habitRow(h, day) {
       <button class="h-btn" data-act="h-tick" data-id="${h.id}" data-day="${day}" aria-label="${h.kind === 'sleep' ? (done ? 'Change the night' : 'Log the night') : done ? 'Done — tap to undo' : tg > 1 ? `Add one (${cnt} of ${tg})` : 'Mark as done'}">${ring(cnt / tg, 42, 3.6)}${done ? glyph('check') : tg > 1 ? `<small>${cnt}</small>` : h.kind === 'sleep' ? glyph('moon', 'h-moon') : ''}</button>
     </div>`, { right: swBtn('h-edit', h.id, 'Edit', 'pencil', 'var(--gray)') + swBtn('h-del', h.id, 'Delete', 'trash', 'var(--red)') });
 }
+// The highlight in the week row is a piece of its own (.wd-ind): it glides from day to day and
+// follows a finger sliding along the row. wdFrom: where the next glide starts (the finger's place).
+let wdFrom = null;
 SCREENS.habits = {
   tint: () => '#FF9500',
   render(e) {
     const today = todayIso();
     const day = e.day && e.day <= today ? e.day : today;
-    const week = weekOf(day);
-    const strip = `<div class="week">
+    const week = weekOf(day), di = week.indexOf(day);
+    const from = wdFrom != null ? wdFrom : e.wdi != null ? e.wdi : di;
+    wdFrom = null;
+    e.wdi = di;
+    const strip = `<div class="week"><i class="wd-ind" style="--i:${di};--from:${from}"></i>
       <button class="wk-arrow" data-act="h-week" data-v="-7" aria-label="Previous week">${glyph('chevL')}</button>
       ${week.map((d, i) => {
         const hs = S.habits.filter((h) => habitOn(h, d));
@@ -320,7 +326,7 @@ function sleepBody(h, e) {
   const rows = dates.filter((d) => h.times[d]).map((d) => `<tr><td>${dayName(d, true)}</td><td>${h.times[d].bed}</td><td>${h.times[d].wake}</td></tr>`).join('');
   return `${logCard}
     <div class="card pad charts">
-      <div class="seg c-range">${[[14, '2 weeks'], [30, 'Month']].map(([v, l]) => `<button data-act="sl-range" data-v="${v}" class="${range === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="seg c-range">${segButtons('sl-range', [[14, '2 weeks'], [30, 'Month']], range)}</div>
       ${timeChart('Went to bed', 'var(--bed)', dates, dates.map((d) => (h.times[d] ? bedScale(h.times[d].bed) : null)), bedClock)}
       ${timeChart('Woke up', 'var(--wake)', dates, dates.map((d) => (h.times[d] ? toMin(h.times[d].wake) : null)), clockOf)}
       <table class="sr-only"><caption>Sleep, last ${range} days</caption><tr><th>Morning</th><th>Went to bed</th><th>Woke up</th></tr>${rows}</table>

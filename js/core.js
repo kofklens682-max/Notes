@@ -372,6 +372,162 @@ function bindTabSlide(tabs, go) {
   // the end of a slide must not also count as a tap
   tabs.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
+
+// Segmented control (Automatic | Light | Dark …). The rounded "thumb" glides from the old choice to
+// the new one, and you can press on it and slide along — like the tab bar.
+const segMem = {};
+function segButtons(act, items, current) {
+  const i = items.findIndex(([v]) => String(v) === String(current));
+  const from = segMem[act] != null && segMem[act] >= 0 ? segMem[act] : i;
+  segMem[act] = i;
+  const thumb = i >= 0 ? `<i class="seg-thumb" style="--n:${items.length};--i:${i};--from:${from}"></i>` : '';
+  return thumb + items.map(([v, label]) => `<button data-act="${act}" data-v="${esc(v)}" class="${i >= 0 && String(v) === String(current) ? 'on' : ''}">${label}</button>`).join('');
+}
+function bindSegSlide() {
+  let st = null, slidAt = 0;
+  document.addEventListener('pointerdown', (e) => {
+    const seg = e.button > 0 ? null : e.target.closest('.seg');
+    const thumb = seg && $(':scope > .seg-thumb', seg);
+    st = thumb ? { seg, thumb, id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, over: -1, x: 0, w: 1 } : null;
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    if (!st.on) {
+      const dx = Math.abs(e.clientX - st.x0), dy = Math.abs(e.clientY - st.y0);
+      if (dy > 10 && dy > dx) { st = null; return; }
+      if (dx < 8) return;
+      st.on = true;
+      try { st.seg.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      st.seg.classList.add('sliding');
+    }
+    const bs = $$(':scope > button', st.seg), r = st.seg.getBoundingClientRect();
+    st.w = (r.width - 4) / bs.length;
+    st.x = clamp(e.clientX - r.left - 2 - st.w / 2, 0, st.w * (bs.length - 1));
+    st.thumb.style.animation = 'none';
+    st.thumb.style.transform = `translateX(${st.x.toFixed(1)}px)`;
+    const over = clamp(Math.round(st.x / st.w), 0, bs.length - 1);
+    if (over !== st.over) {
+      if (st.over >= 0) buzz(8);
+      st.over = over;
+      bs.forEach((b, i) => b.classList.toggle('over', i === over));
+    }
+  });
+  const end = (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const s = st;
+    st = null;
+    if (!s.on) return;
+    slidAt = Date.now();
+    s.seg.classList.remove('sliding');
+    const bs = $$(':scope > button', s.seg), b = bs[s.over];
+    bs.forEach((x) => x.classList.remove('over'));
+    if (e.type !== 'pointerup' || !b || b.classList.contains('on') || !ACTIONS[b.dataset.act]) { s.thumb.style.transform = ''; return; }
+    segMem[b.dataset.act] = s.x / s.w; // the new thumb glides on from where the finger left it
+    ACTIONS[b.dataset.act](b, e);
+  };
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+  document.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350 && e.target.closest('.seg')) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+
+// A row of days where a finger can slide (the Habits week): the highlight follows it and the day
+// under it opens when you let go. Days that can't be chosen (the future) are skipped.
+// strip: .week; pos: where the highlight sits, counted in days from the first.
+function stripPaint(strip, pos, lift) {
+  const ind = $('.wd-ind', strip);
+  if (!ind) return;
+  ind.style.animation = 'none';
+  ind.style.transform = `translateX(${(pos * ind.offsetWidth).toFixed(1)}px)${lift ? ' scale(1.08)' : ''}`;
+}
+function bindWeekSlide(onPick) {
+  let st = null, slidAt = 0;
+  document.addEventListener('pointerdown', (e) => {
+    const strip = e.button > 0 ? null : e.target.closest('.week');
+    st = strip && !e.target.closest('.wk-arrow') ? { strip, id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, over: -1, pos: 0 } : null;
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const days = $$(':scope > .wd', st.strip);
+    if (!st.on) {
+      const dx = Math.abs(e.clientX - st.x0), dy = Math.abs(e.clientY - st.y0);
+      if (dy > 10 && dy > dx) { st = null; return; }
+      if (dx < 8) return;
+      st.on = true;
+      try { st.strip.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      st.strip.classList.add('sliding');
+    }
+    const last = days.reduce((m, b, i) => (b.disabled ? m : i), 0);
+    const a = days[0].getBoundingClientRect(), z = days[days.length - 1].getBoundingClientRect(), w = (z.right - a.left) / days.length;
+    st.pos = clamp((e.clientX - a.left) / w - 0.5, 0, last);
+    stripPaint(st.strip, st.pos, true);
+    const over = Math.round(st.pos);
+    if (over !== st.over) {
+      if (st.over >= 0) buzz(8);
+      st.over = over;
+      days.forEach((b, i) => b.classList.toggle('over', i === over));
+    }
+  });
+  const end = (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const s = st;
+    st = null;
+    if (!s.on) return;
+    slidAt = Date.now();
+    s.strip.classList.remove('sliding');
+    const days = $$(':scope > .wd', s.strip), b = days[s.over];
+    days.forEach((x) => x.classList.remove('over'));
+    if (e.type === 'pointerup' && b && !b.classList.contains('sel') && s.strip.isConnected) { onPick(b, s.pos); return; }
+    const ind = $('.wd-ind', s.strip);
+    if (ind) ind.style.transform = '';
+  };
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+  document.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350 && e.target.closest('.week')) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+
+// Round day buttons that tick on and off (a habit's Repeat days): tap one, or press on a day and
+// slide across the others to set them all the same way. set(i, on) changes one day; done() runs
+// once at the end.
+function bindDaysSlide(sel, set, done) {
+  let st = null, slidAt = 0;
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.button > 0 ? null : e.target.closest(`${sel} > button`);
+    st = b ? { row: b.parentElement, id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, to: !b.classList.contains('on'), last: $$(':scope > button', b.parentElement).indexOf(b) } : null;
+  });
+  const paint = (j) => {
+    const b = $$(':scope > button', st.row)[j];
+    if (!b || b.classList.contains('on') === st.to) return;
+    b.classList.toggle('on', st.to);
+    set(j, st.to);
+    buzz(8);
+  };
+  document.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    if (!st.on) {
+      const dx = Math.abs(e.clientX - st.x0), dy = Math.abs(e.clientY - st.y0);
+      if (dy > 10 && dy > dx) { st = null; return; }
+      if (dx < 8) return;
+      st.on = true;
+      try { st.row.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      paint(st.last);
+    }
+    const n = st.row.children.length, r = st.row.getBoundingClientRect();
+    const i = clamp(Math.floor(((e.clientX - r.left) / r.width) * n), 0, n - 1);
+    for (let j = Math.min(i, st.last); j <= Math.max(i, st.last); j++) paint(j); // a quick slide can skip some
+    st.last = i;
+  });
+  const end = (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const s = st;
+    st = null;
+    if (!s.on) return;
+    slidAt = Date.now();
+    done();
+  };
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+  document.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350 && e.target.closest(sel)) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
 function chrome() {
   const e = cur(), sc = SCREENS[e.s];
   document.body.dataset.tab = UI.tab;

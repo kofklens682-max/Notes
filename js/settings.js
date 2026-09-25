@@ -30,10 +30,10 @@ SCREENS.settings = {
       <p class="foot">To lock a note, open it and tap ••• → Lock Note. Locked notes are encrypted with your 4-digit code; if you forget it they can't be recovered. They close again after a minute in the background.</p>
 
       <h2 class="sec">Appearance</h2>
-      <div class="card pad"><div class="seg">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button data-act="theme" data-v="${v}" class="${S.settings.theme === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="card pad"><div class="seg">${segButtons('theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], S.settings.theme)}</div></div>
 
       <h2 class="sec">Voice Typing Language</h2>
-      <div class="card pad"><div class="seg">${VOICE_LANGS.map(([v, , l]) => `<button data-act="voice-lang" data-v="${v}" class="${S.settings.voiceLang === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>
+      <div class="card pad"><div class="seg">${segButtons('voice-lang', VOICE_LANGS.map(([v, , l]) => [v, esc(l)]), S.settings.voiceLang)}</div></div>
 
       <h2 class="sec">Backup</h2>
       <div class="card">
