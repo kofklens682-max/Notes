@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.0';
+const APP_BUILD = '1.1';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 
 // What a shortcut (?new=note) or a notification (?task=id) asks for.
@@ -42,6 +42,7 @@ function openLink(p) {
   planLocal();
   setTimeout(() => {
     cleanPhotos().catch(() => {});
+    bodiesReady.then(() => cleanBodies()).catch(() => {});
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     checkDueNow(15 * 60e3);
     connectPush(false);
@@ -74,7 +75,10 @@ async function reloadIfChanged() {
   let d = null;
   try { d = await dbGet('state', 'S'); } catch (e) { return; }
   if (d && (+d.rev || 0) > S.rev) {
+    const old = new Map(S.notes.map((n) => [n.id, n]));
     S = normalize(d);
+    // The saved state has no note text (it's stored per note): keep what's already in memory.
+    for (const n of S.notes) { const o = old.get(n.id); if (o) BODY_KEYS.forEach((k) => { n[k] = o[k]; }); }
     if (!ED && !sheet) render();
   }
 }

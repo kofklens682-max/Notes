@@ -84,6 +84,7 @@ ACTIONS['lock-reset'] = async () => {
 // ---------- Backup ----------
 const BACKUP_APP = 'notes-planner';
 async function makeBackup() {
+  await bodiesReady;
   if (ED) await saveEditor();
   await flush();
   const photos = {};
@@ -142,7 +143,10 @@ document.addEventListener('change', async (e) => {
     st.rev = (S.rev || 0) + 1;
     forgetKey();
     photoUrls.clear();
+    await dbClear('bodies');
     S = st;
+    S.notes.forEach((n) => dirtyBodies.add(n.id));
+    bodiesLoaded = true;
     await flush();
   } catch (err) { toast("Couldn't restore — " + ((err && err.message) || err)); return; }
   applyTheme();
@@ -164,8 +168,10 @@ ACTIONS.erase = async () => {
   const sure = await ask({ title: 'Are you sure?', msg: S.settings.lastBackup ? '' : "You haven't saved a backup.", ok: 'Yes, Erase', destructive: true });
   if (!sure) return;
   await dbClear('blobs');
+  await dbClear('bodies');
   await dbClear('meta');
   forgetKey();
+  dirtyBodies.clear();
   S = blank();
   await flush();
   applyTheme();

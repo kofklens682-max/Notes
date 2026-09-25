@@ -104,8 +104,8 @@ function normalize(d) {
     html: str(n.html, 5e6), title: str(n.title, 200), preview: str(n.preview, 300), text: str(n.text, 5e6),
     blobs: arr(n.blobs).filter((x) => typeof x === 'string' && ID_RE.test(x)),
     pinned: !!n.pinned,
-    locked: !!(n.locked && n.enc && typeof n.enc.iv === 'string' && typeof n.enc.ct === 'string'),
-    enc: n.locked && n.enc ? { iv: str(n.enc.iv, 100), ct: str(n.enc.ct, 1e7) } : null,
+    locked: !!n.locked,
+    enc: cleanEnc(n.locked && n.enc),
     edited: +n.edited || Date.now(), created: +n.created || +n.edited || Date.now(),
   }));
   out.tasks = out.tasks.map((t) => ({
@@ -132,21 +132,66 @@ function normalize(d) {
   });
   return out;
 }
-async function loadState() {
-  try { S = normalize(await dbGet('state', 'S')); } catch (e) { S = blank(); storageBroken = e; }
-}
+const cleanEnc = (e) => (e && typeof e.iv === 'string' && typeof e.ct === 'string' ? { iv: str(e.iv, 100), ct: str(e.ct, 1e7) } : null);
+
+// Notes' text ("bodies": html, text, enc) is saved per note, apart from everything else, so typing
+// only rewrites that one note. Bodies are read in the background right after the app appears.
 let storageBroken = null;
+let bodiesLoaded = false;
+let bodiesReady = null; // resolves once every note's text is in memory
+const dirtyBodies = new Set();
+const BODY_KEYS = ['html', 'text', 'enc'];
+async function loadState() {
+  let d = null;
+  try { d = await dbGet('state', 'S'); } catch (e) { storageBroken = e; }
+  S = normalize(d);
+  // Older versions kept the text inside the state: move it out on the next save.
+  if (d && Array.isArray(d.notes) && d.notes.some((n) => n && (n.html || n.enc))) S.notes.forEach((n) => dirtyBodies.add(n.id));
+  bodiesReady = dirtyBodies.size || storageBroken ? Promise.resolve() : loadBodies();
+  if (dirtyBodies.size || storageBroken) bodiesLoaded = true;
+}
+async function loadBodies() {
+  let rows = [];
+  try { rows = await dbEntries('bodies'); } catch (e) { /* keep what we have */ }
+  const byId = new Map(S.notes.map((n) => [n.id, n]));
+  for (const [id, b] of rows) {
+    const n = byId.get(id);
+    if (!n || !b || dirtyBodies.has(id)) continue; // unknown, or already changed since start
+    n.html = str(b.html, 5e6);
+    n.text = str(b.text, 5e6);
+    n.enc = cleanEnc(n.locked && b.enc);
+  }
+  bodiesLoaded = true;
+}
 let saveT = 0;
-function save() {
+// Call after any change. `note` = the note whose text changed (only that note's text is rewritten).
+function save(note) {
   S.rev++;
+  if (note) dirtyBodies.add(note.id);
   clearTimeout(saveT);
   saveT = setTimeout(flush, 250);
-  if (typeof remindSoon === 'function') remindSoon();
+  if (!note && typeof remindSoon === 'function') remindSoon();
 }
+const stateRecord = () => ({ ...S, notes: S.notes.map((n) => { const m = { ...n }; BODY_KEYS.forEach((k) => delete m[k]); return m; }) });
 async function flush() {
   clearTimeout(saveT);
   saveT = 0;
-  try { await dbPut('state', 'S', S); } catch (e) { toast("Couldn't save — " + ((e && e.message) || e)); }
+  const ids = [...dirtyBodies];
+  dirtyBodies.clear();
+  try {
+    const byId = new Map(S.notes.map((n) => [n.id, n]));
+    await dbPutMany('bodies', ids.filter((id) => byId.has(id)).map((id) => { const n = byId.get(id); return [id, { html: n.html || '', text: n.text || '', enc: n.enc || null }]; }));
+    await dbPut('state', 'S', stateRecord());
+  } catch (e) {
+    ids.forEach((id) => dirtyBodies.add(id));
+    toast("Couldn't save — " + ((e && e.message) || e));
+  }
+}
+// Remove the text of notes that were deleted (kept until the next start so Undo still works).
+async function cleanBodies() {
+  const ids = new Set(S.notes.map((n) => n.id));
+  const gone = (await dbKeys('bodies')).filter((k) => !ids.has(k));
+  await dbPutMany('bodies', gone.map((k) => [k, undefined]));
 }
 
 // ---------- Screens & navigation ----------
@@ -175,15 +220,23 @@ function paint(el, e) {
   const tint = sc.tint ? sc.tint(e) : null;
   if (tint) el.style.setProperty('--tint', tint); else el.style.removeProperty('--tint');
   const scr = $('.scroll', el);
-  if (scr) scr.addEventListener('scroll', () => navState(el), { passive: true });
+  el._th = null;
+  el._scr = scr;
+  if (scr) {
+    // At most one update per frame, and the title position is measured only once.
+    let raf = 0;
+    scr.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; navState(el); }); }, { passive: true });
+  }
   if (sc.mount) sc.mount(el, e);
 }
 function navState(el) {
-  const scr = $('.scroll', el), big = $('.big', el);
-  const y = scr ? scr.scrollTop : 0;
-  el.classList.toggle('scrolled', y > 2);
-  el.classList.toggle('titled', !big || y > big.offsetTop + big.offsetHeight - 52);
+  const scr = el._scr, y = scr ? scr.scrollTop : 0;
+  if (el._th == null) { const big = $('.big', el); el._th = big ? big.offsetTop + big.offsetHeight - 52 : -1; }
+  const scrolled = y > 2, titled = el._th < 0 || y > el._th;
+  if (el.classList.contains('scrolled') !== scrolled) el.classList.toggle('scrolled', scrolled);
+  if (el.classList.contains('titled') !== titled) el.classList.toggle('titled', titled);
 }
+window.addEventListener('resize', () => { const el = curEl(); if (el) { el._th = null; navState(el); } });
 function show(dir) {
   const stage = $('#stage');
   const old = curEl();

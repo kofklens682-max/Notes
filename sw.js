@@ -1,6 +1,7 @@
-// Offline support and reminders. Bump VERSION whenever the app files change so phones pick up
-// the update. This site shares its address with the Budget app, so only "notes-" caches are ours.
-const VERSION = 'notes-v1';
+// Offline support and reminders. Bump VERSION whenever the app files change: the phone notices
+// the new service worker, downloads the whole new version at once, and the app reloads into it.
+// This site shares its address with the Budget app, so only "notes-" caches are ours.
+const VERSION = 'notes-v2';
 importScripts('js/config.js', 'js/store.js', 'js/remind.js');
 
 const SHELL = [
@@ -25,6 +26,10 @@ const SHELL = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/badge-96.png',
+  './fonts/inter-latin.woff2',
+  './fonts/inter-latin-ext.woff2',
+  './fonts/inter-cyrillic.woff2',
+  './fonts/inter-cyrillic-ext.woff2',
 ];
 const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(self.location.hostname);
 
@@ -41,22 +46,25 @@ self.addEventListener('activate', (e) => {
       .then(() => self.clients.claim()),
   );
 });
-// Serve from the cache instantly and refresh it in the background (stale-while-revalidate).
+// The app opens straight from the phone's copy: no waiting for the network, and no re-downloading
+// every file at each start. (New versions arrive through a new service worker, see VERSION.)
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (LOCAL || req.method !== 'GET') return;
   const url = new URL(req.url);
-  const ours = url.origin === self.location.origin && url.pathname.startsWith(new URL(self.registration.scope).pathname);
-  const font = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
-  if (!ours && !font) return;
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
   e.respondWith(
     caches.open(VERSION).then(async (cache) => {
       const key = req.mode === 'navigate' ? './index.html' : req;
-      const cached = await cache.match(key, { ignoreSearch: true });
-      const network = fetch(req)
-        .then((res) => { if (res && res.ok) cache.put(key, res.clone()); return res; })
-        .catch(() => cached || Response.error());
-      return cached || network;
+      const hit = await cache.match(key, { ignoreSearch: true });
+      if (hit) return hit;
+      try {
+        const res = await fetch(req);
+        if (res && res.ok) cache.put(key, res.clone());
+        return res;
+      } catch (err) {
+        return (req.mode === 'navigate' && (await cache.match('./index.html'))) || Response.error();
+      }
     }),
   );
 });

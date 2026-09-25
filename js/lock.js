@@ -122,8 +122,11 @@ async function changeCode() {
     });
   });
   if (!newKey) return false;
+  await bodiesReady;
   for (const n of lockedNotes()) {
+    if (!n.enc) continue;
     n.enc = await encText(newKey, await decText(oldKey, n.enc));
+    dirtyBodies.add(n.id);
     for (const id of n.blobs) await rekeyPhoto(id, oldKey, newKey);
   }
   S.settings.lock = fresh.lock;
@@ -183,7 +186,7 @@ async function lockNote(n, html) {
   n.html = ''; n.preview = ''; n.text = '';
   n.locked = true;
   for (const id of n.blobs) await lockPhoto(id, key);
-  save();
+  save(n);
   return true;
 }
 async function unlockNote(n) {

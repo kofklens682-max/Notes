@@ -8,9 +8,8 @@ let ED = null; // { el, ed, id, range, t, dirty, wasFocused }
 const KEEP_TAGS = new Set(['DIV', 'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'H1', 'H2', 'H3', 'UL', 'OL', 'LI', 'IMG']);
 const DROP_TAGS = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'TEMPLATE', 'SVG', 'MATH', 'NOSCRIPT', 'CANVAS', 'VIDEO', 'AUDIO', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'FORM', 'TITLE', 'HEAD']);
 const parseBody = (html) => new DOMParser().parseFromString(`<!doctype html><body>${html}</body>`, 'text/html').body;
-// Only simple formatting survives: no styles, links, scripts or outside images.
-function cleanHtml(html) {
-  const body = parseBody(html || '');
+// Only simple formatting survives: no styles, links, scripts or outside images. Cleans in place.
+function cleanBody(body) {
   const walk = (node) => {
     for (const ch of [...node.childNodes]) {
       if (ch.nodeType === 3) continue;
@@ -41,16 +40,24 @@ function cleanHtml(html) {
     img.replaceWith(ph);
     ph.appendChild(img);
   });
-  return body.innerHTML;
+  return body;
 }
+const cleanHtml = (html) => cleanBody(parseBody(html || '')).innerHTML;
 // Title (first line), preview (the rest), plain text for search, and the photos used.
-function noteInfo(html) {
-  const body = parseBody(html);
+// Changes the body it's given.
+function infoOf(body) {
   const blobs = $$('img[data-blob]', body).map((i) => i.getAttribute('data-blob'));
   $$('br', body).forEach((b) => b.replaceWith('\n'));
   $$('div, p, h1, h2, h3, li', body).forEach((b) => b.append('\n'));
   const lines = body.textContent.replace(/ /g, ' ').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   return { title: (lines[0] || '').slice(0, 120), preview: lines.slice(1).join(' ').slice(0, 160), text: lines.join('\n'), blobs };
+}
+const noteInfo = (html) => infoOf(parseBody(html));
+// The editor's content, cleaned, plus its title/preview/text — read in one pass.
+function readEditor(ed) {
+  const body = cleanBody(parseBody(ed.innerHTML));
+  const html = body.innerHTML;
+  return { html, info: infoOf(body) };
 }
 
 // ---------- Screen ----------
@@ -149,6 +156,10 @@ function mountEditor(el, e) {
     }
   };
   if (!n) { load(''); return; }
+  if (!bodiesLoaded && !e.fresh) { bodiesReady.then(() => { if (ED === me) openBody(n, load); }); return; }
+  openBody(n, load);
+}
+function openBody(n, load) {
   if (n.locked) {
     if (!LOCK.key) { setTimeout(() => pop(), 0); return; }
     decText(LOCK.key, n.enc).then(load, () => { toast("Couldn't open this note"); pop(); });
@@ -184,8 +195,7 @@ async function saveEditor() {
   me.dirty = false;
   const n = noteOf(me.id);
   if (!n) return;
-  const html = cleanHtml(me.ed.innerHTML);
-  const info = noteInfo(html);
+  const { html, info } = readEditor(me.ed);
   n.title = info.title;
   n.blobs = info.blobs;
   n.edited = Date.now();
@@ -196,14 +206,14 @@ async function saveEditor() {
   } else {
     n.html = html; n.preview = info.preview; n.text = info.text;
   }
-  save();
+  save(n);
   const d = $('.ed-date', me.el);
   if (d) d.innerHTML = `${n.locked ? glyph('lock', 'inl') : ''}${fullDate(n.edited)}`;
 }
 // The note's current HTML (saving first).
 async function editorHtml() {
   await saveEditor();
-  return cleanHtml(ED.ed.innerHTML);
+  return readEditor(ED.ed).html;
 }
 
 // ---------- Selection helpers ----------
@@ -344,7 +354,7 @@ ACTIONS['note-menu'] = async (el) => {
       if (plain != null) {
         const info = noteInfo(plain);
         n.html = plain; n.preview = info.preview; n.text = info.text;
-        save();
+        save(n);
         toast('Lock removed');
         refreshDate(n);
       }
