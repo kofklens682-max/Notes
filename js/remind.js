@@ -80,12 +80,13 @@ function reminders(S, now = Date.now(), days = 14) {
     if (!h.remind) continue;
     for (let i = -1; i < days; i++) {
       const date = isoAdd(today, i);
-      if (!habitOn(h, date) || habitDone(h, date)) continue;
+      // A sleep habit is logged in the morning, so the evening reminder doesn't depend on it.
+      if (!habitOn(h, date) || (h.kind !== 'sleep' && habitDone(h, date))) continue;
       let at = atMs(date, h.remind);
       if (h.snooze && h.snooze.date === date && h.snooze.at > at) at = h.snooze.at;
       if (at < now - LATE_OK) continue;
-      const body = h.target > 1 ? `${habitCount(h, date)} of ${h.target} done` : 'Time for your habit';
-      out.push({ key: `h:${h.id}:${date}`, at, kind: 'habit', id: h.id, date, title: h.name, body });
+      const body = h.kind === 'sleep' ? 'Time to get ready for bed' : h.target > 1 ? `${habitCount(h, date)} of ${h.target} done` : 'Time for your habit';
+      out.push({ key: `h:${h.id}:${date}`, at, kind: 'habit', id: h.id, date, title: h.name, body, sleep: h.kind === 'sleep' });
     }
   }
   return out.sort((a, b) => a.at - b.at);
@@ -128,7 +129,7 @@ async function showDueNow(reg, lateMs) {
     await reg.showNotification(r.title, {
       body: r.body, tag: r.key, icon, badge, timestamp: r.at,
       data: { kind: r.kind, id: r.id, date: r.date || null },
-      actions: [{ action: 'done', title: 'Done' }, { action: 'snooze', title: 'In 10 min' }],
+      actions: r.sleep ? [{ action: 'snooze', title: 'In 10 min' }] : [{ action: 'done', title: 'Done' }, { action: 'snooze', title: 'In 10 min' }],
     });
     shown[r.key] = now;
   }

@@ -121,10 +121,17 @@ function normalize(d) {
   out.habits = out.habits.map((h) => {
     const log = {};
     if (h.log && typeof h.log === 'object') for (const [k, v] of Object.entries(h.log)) if (DATE_RE.test(k) && +v > 0) log[k] = Math.min(50, Math.round(+v));
+    const sleep = h.kind === 'sleep';
+    // Sleep habits keep bedtime and wake-up per morning: { 'YYYY-MM-DD': { bed: 'HH:MM', wake: 'HH:MM' } }.
+    const times = {};
+    if (sleep && h.times && typeof h.times === 'object') {
+      for (const [k, v] of Object.entries(h.times)) if (DATE_RE.test(k) && v && TIME_RE.test(v.bed) && TIME_RE.test(v.wake)) { times[k] = { bed: v.bed, wake: v.wake }; log[k] = 1; }
+    }
     return {
       id: h.id, name: str(h.name, 80) || 'Habit', g: G[h.g] ? h.g : 'flame', c: HEX_RE.test(h.c) ? h.c : '#FF9500',
+      kind: sleep ? 'sleep' : 'check', times,
       days: Array.isArray(h.days) && h.days.length === 7 && h.days.some(Boolean) ? h.days.map((x) => (x ? 1 : 0)) : [1, 1, 1, 1, 1, 1, 1],
-      target: clamp(Math.round(+h.target) || 1, 1, 50),
+      target: sleep ? 1 : clamp(Math.round(+h.target) || 1, 1, 50),
       remind: TIME_RE.test(h.remind) ? h.remind : null,
       snooze: h.snooze && DATE_RE.test(h.snooze.date) ? { date: h.snooze.date, at: +h.snooze.at || 0 } : null,
       log, start: DATE_RE.test(h.start) ? h.start : todayIso(),

@@ -429,6 +429,7 @@ h1, h2, h3, p { margin: 0; }
 .round-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; flex: none; }
 .round-btn:disabled { opacity: .35; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.stats + .card, .charts + .stats { margin-top: 12px; }
 .stat { background: var(--card); border-radius: 13px; padding: 12px 14px; display: flex; flex-direction: column; }
 .stat b { font-size: 26px; font-weight: 700; color: var(--tint); line-height: 1.2; }
 .stat span { font-size: 13px; color: var(--text-2); font-weight: 500; }
@@ -443,6 +444,27 @@ h1, h2, h3, p { margin: 0; }
 .hm-col .off { background: transparent; box-shadow: inset 0 0 0 1px var(--fill); }
 .hm-col .fut { background: transparent; }
 .hm-col .now { box-shadow: 0 0 0 1.5px var(--text); }
+.h-btn > .gl.h-moon { color: var(--c); width: 18px; height: 18px; stroke-width: 2; }
+
+/* Sleep graphs (colours checked for colour-blindness and contrast in both themes) */
+:root { --bed: #5856D6; --wake: #D06E00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bed: #7D7AFF; --wake: #D97800; } }
+:root[data-theme="dark"] { --bed: #7D7AFF; --wake: #D97800; }
+.charts { padding-bottom: 10px; }
+.c-range { margin-bottom: 4px; }
+.c-head { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin: 14px 0 4px; }
+.c-head span { margin-left: auto; color: var(--text-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+.c-key { width: 14px; height: 3px; border-radius: 2px; background: var(--k); flex: none; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; cursor: crosshair; }
+.c-grid { stroke: var(--sep); stroke-width: 1; shape-rendering: crispEdges; }
+.c-ax { fill: var(--text-2); font-size: 10px; font-variant-numeric: tabular-nums; }
+.c-line { fill: none; stroke: var(--k); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.c-dot { fill: var(--k); stroke: var(--card); stroke-width: 2; }
+.c-cross { stroke: var(--text-3); stroke-width: 1; }
+.c-hi { fill: var(--k); stroke: var(--card); stroke-width: 2.5; }
+.c-tip { position: absolute; top: -26px; transform: translateX(-50%); background: var(--elev); color: var(--text); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 16px rgba(0, 0, 0, .14), 0 0 0 .5px var(--sep); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* ---------- Sheets & forms ---------- */
 .overlay { position: fixed; inset: 0; background: var(--overlay); opacity: 0; transition: opacity .3s; z-index: 40; }
