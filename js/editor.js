@@ -63,7 +63,7 @@ function readEditor(ed) {
 // ---------- Screen ----------
 function editorBackLabel() {
   const st = UI.stacks.notes, prev = st[st.length - 2];
-  return prev && prev.s === 'notes' ? folderName(prev.folder) : 'Folders';
+  return prev && prev.s === 'folders' && prev.folder && prev.folder !== 'all' ? folderName(prev.folder) : 'Notes';
 }
 function fullDate(ms) {
   const d = new Date(ms);

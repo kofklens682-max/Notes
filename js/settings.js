@@ -50,7 +50,7 @@ SCREENS.settings = {
 
       <button class="danger-btn" data-act="erase">Erase Everything</button>
       <div class="about">Notes &amp; Planner · version ${APP_BUILD}</div>`;
-    return page({ title: 'Settings', back: UI.tab === 'notes' ? 'Folders' : 'Planner', body });
+    return page({ title: 'Settings', back: UI.tab === 'notes' ? 'Notes' : 'Today', body });
   },
   mount(el) {
     const t = $('input[name="allDay"]', el);
@@ -157,7 +157,7 @@ document.addEventListener('change', async (e) => {
 });
 function resetScreens() {
   if (sheet) closeSheetNow();
-  UI.stacks = { notes: [{ s: 'folders' }], planner: [{ s: 'planner' }] };
+  UI.stacks = { notes: [{ s: 'folders', folder: 'all' }], planner: [{ s: 'planner' }] };
   ED = null;
   $('#stage').innerHTML = '';
   show();

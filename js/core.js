@@ -206,7 +206,7 @@ async function cleanBodies() {
 // SCREENS[name] = { render(e) → html, mount(el, e), hide(e, el), leave(e), fab(e), tint(e), bar, plain, keep }
 const SCREENS = {};
 const ACTIONS = {}; // data-act → (el, event)
-const UI = { tab: 'notes', stacks: { notes: [{ s: 'folders' }], planner: [{ s: 'planner' }] } };
+const UI = { tab: 'notes', stacks: { notes: [{ s: 'folders', folder: 'all' }], planner: [{ s: 'planner' }] } };
 const cur = () => { const st = UI.stacks[UI.tab]; return st[st.length - 1]; };
 const curEl = () => $('#stage > .screen.cur');
 

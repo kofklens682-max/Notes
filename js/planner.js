@@ -1,6 +1,6 @@
 'use strict';
-/* Planner tab: the home page (Today / Scheduled / All / Completed, Groceries, Habits, your lists),
-   task lists like iPhone Reminders, the task details sheet and the list editor. */
+/* Planner tab: the Today page (reminders and habits to tick, groceries, coming up; Scheduled / All /
+   Lists / Completed), task lists like iPhone Reminders, the task details sheet and the list editor. */
 
 const listOf = (id) => S.lists.find((l) => l.id === id);
 const taskOf = (id) => S.tasks.find((t) => t.id === id);
@@ -108,35 +108,60 @@ function taskBody(e) {
   return groups.map((x) => tsec(x.g) + taskCard(x.items.map((t) => taskRow(t, true)).join(''))).join('');
 }
 
-// ---------- Planner home ----------
+// ---------- Planner home: Today ----------
+// Opens on today: reminders to tick (overdue first), today's habits as circles to tap, the
+// groceries still to buy, what's coming up, and small buttons for everything else.
 function habitsToday() {
   const d = todayIso();
   const hs = S.habits.filter((h) => habitOn(h, d));
   return { total: hs.length, done: hs.filter((h) => habitDone(h, d)).length };
 }
+function habitCircle(h, day) {
+  const cnt = habitCount(h, day), tg = h.target, done = cnt >= tg;
+  const inside = done ? glyph('check') : h.kind === 'sleep' ? glyph('moon', 'h-moon') : tg > 1 ? `<small>${cnt}/${tg}</small>` : glyph(h.g, 'h-ic');
+  const label = h.kind === 'sleep' ? (done ? 'Change the night' : 'Log the night') : done ? 'Done — tap to undo' : tg > 1 ? `Add one (${cnt} of ${tg})` : 'Mark as done';
+  return `<div class="hc${done ? ' is-done' : ''}" style="--c:${h.c}"><button class="h-btn" data-act="h-tick" data-id="${h.id}" data-day="${day}" aria-label="${esc(h.name)}: ${label}">${ring(cnt / tg, 52, 4)}${inside}</button><button class="hc-name" data-act="h-open" data-id="${h.id}">${esc(h.name)}</button></div>`;
+}
 SCREENS.planner = {
   render() {
-    const card = (id) => {
-      const n = id === 'done' ? '' : smartTasks(id).length;
-      return `<button class="smart" data-act="open-smart" data-id="${id}"><span class="sm-top">${tile(SMART[id].g, SMART[id].c, 'round')}<b>${n}</b></span><span class="sm-name">${SMART[id].name}</span></button>`;
-    };
-    const toBuy = S.grocery.items.filter((i) => !i.done).length;
-    const h = habitsToday();
+    const today = todayIso();
+    const due = smartTasks('today').sort(SORTS.due);
+    const late = due.filter((t) => t.due < today), now = due.filter((t) => t.due === today);
+    let body = late.length ? tsec('Overdue', 'late') + taskCard(late.map((t) => taskRow(t, true)).join('')) + tsec('Today') : '';
+    if (!due.length) body += `<div class="p-clear">${glyph('checkCircle')}Nothing left for today</div>`;
+    body += taskCard(now.map((t) => taskRow(t, true)).join(''), addRow(S.lists[0].id, today));
+
+    const hs = S.habits.filter((h) => habitOn(h, today));
+    body += tsec('Habits', '', `<button class="sec-btn" data-act="open-habits">${S.habits.length ? 'All' : 'Add'}</button>`);
+    body += hs.length
+      ? `<div class="hcs">${hs.map((h) => habitCircle(h, today)).join('')}</div>`
+      : `<button class="hint-btn" data-act="open-habits" style="margin-top:0">${glyph('flame')}<span><b>Build a routine</b>${S.habits.length ? 'No habits planned for today.' : 'Water, reading, sleep — tick them off here every day.'}</span></button>`;
+
+    const toBuy = S.grocery.items.filter((i) => !i.done);
+    body += `<button class="p-line" data-act="open-groceries">${tile('cart', '#34C759', 'round')}<span class="w-main"><b>${toBuy.length ? `Groceries · ${toBuy.length} to buy` : 'Groceries'}</b><span>${toBuy.length ? toBuy.slice(0, 8).map((i) => esc(i.name)).join(', ') : 'Your list is empty'}</span></span>${glyph('chevR', 'chev')}</button>`;
+
+    const soon = S.tasks.filter((t) => !t.done && t.due && t.due > today).sort(SORTS.due);
+    if (soon.length) body += tsec('Coming up', '', soon.length > 5 ? '<button class="sec-btn" data-act="open-smart" data-id="scheduled">All</button>' : '') + taskCard(soon.slice(0, 5).map((t) => taskRow(t, true)).join(''));
+
+    const tileBtn = (act, id, n, label) => `<button data-act="${act}" data-id="${id}"><b>${n}</b>${label}</button>`;
+    body += `<div class="p-more">${tileBtn('open-smart', 'scheduled', smartTasks('scheduled').length, 'Scheduled')}${tileBtn('open-smart', 'all', smartTasks('all').length, 'All')}${tileBtn('open-lists', '', S.lists.length, 'Lists')}${tileBtn('open-smart', 'done', glyph('checkCircle'), 'Done')}</div>`;
+    return page({ title: 'Today', right: navBtn('settings', 'gear', 'Settings'), body, sub: longDate(today) });
+  },
+  mount(el) { bindAddRows(el); },
+  fab: () => ({ g: 'plus', act: 'new-task', label: 'New reminder' }),
+};
+// Your own lists (Personal, Work, …): swipe for Info / Delete, add new ones.
+SCREENS.lists = {
+  render() {
     const lists = S.lists.map((l) => swipeRow(
       `<button class="row" data-act="open-list" data-id="${l.id}">${tile(l.g || 'list', l.color, 'round')}<span class="lbl">${esc(l.name)}</span><span class="val">${S.tasks.filter((t) => t.list === l.id && !t.done).length}</span>${glyph('chevR', 'chev')}</button>`,
       { right: swBtn('list-edit', l.id, 'Info', 'info', 'var(--gray)') + (S.lists.length > 1 ? swBtn('list-del', l.id, 'Delete', 'trash', 'var(--red)') : '') },
     )).join('');
-    const body = `<div class="smart-grid">${['today', 'scheduled', 'all', 'done'].map(card).join('')}</div>
-      <div class="wide-cards">
-        <button class="wide" data-act="open-groceries">${tile('cart', '#34C759', 'round')}<span class="w-main"><b>Groceries</b><span>${toBuy ? `${plural(toBuy, 'item')} to buy` : 'Your list is empty'}</span></span>${glyph('chevR', 'chev')}</button>
-        <button class="wide" data-act="open-habits"><span class="w-ring" style="--c:#FF9500">${ring(h.total ? h.done / h.total : 0, 36, 4)}${glyph('flame')}</span><span class="w-main"><b>Habits</b><span>${h.total ? `${h.done} of ${h.total} done today` : 'Build a daily routine'}</span></span>${glyph('chevR', 'chev')}</button>
-      </div>
-      <h2 class="sec lg">My Lists</h2><div class="card">${lists}</div>
-      <button class="add-link" data-act="new-list">${glyph('plus')}Add List</button>`;
-    return page({ title: 'Planner', right: navBtn('settings', 'gear', 'Settings'), body, sub: longDate(todayIso()) });
+    return page({ title: 'My Lists', back: 'Today', body: `<div class="card">${lists}</div><button class="add-link" data-act="new-list">${glyph('plus')}Add List</button>` });
   },
   fab: () => ({ g: 'plus', act: 'new-task', label: 'New reminder' }),
 };
+ACTIONS['open-lists'] = () => push({ s: 'lists' });
 ACTIONS['open-smart'] = (el) => push({ s: 'tasks', smart: el.dataset.id });
 ACTIONS['open-list'] = (el) => push({ s: 'tasks', list: el.dataset.id });
 
@@ -161,8 +186,8 @@ function bindAddRows(el) {
       S.tasks.push(t);
       save();
       input.value = '';
-      input.closest('.add-row').insertAdjacentHTML('beforebegin', taskRow(t, cur().smart === 'today'));
-      $$('.hint-empty, .all-done', el).forEach((x) => x.remove());
+      input.closest('.add-row').insertAdjacentHTML('beforebegin', taskRow(t, cur().smart === 'today' || cur().s === 'planner'));
+      $$('.hint-empty, .all-done, .p-clear', el).forEach((x) => x.remove());
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
     input.addEventListener('blur', () => { if (input.value.trim()) { add(); render(); } });

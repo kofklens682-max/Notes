@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.6';
+const APP_BUILD = '1.7';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 bindTabSlide($('#tabs'), (t) => goTab(t));
 
@@ -54,10 +54,10 @@ function openLink(p) {
   }), 4000);
 })();
 
-// A copy of the Folders screen for the next start: index.html draws it at once while the app loads.
+// A copy of the Notes screen (first cards) for the next start: index.html draws it at once while the app loads.
 function saveFirst() {
   try {
-    localStorage.setItem('notes-first', JSON.stringify({ v: 1, theme: document.documentElement.dataset.theme || '', html: SCREENS.folders.render({ s: 'folders' }), fab: glyph('compose') }));
+    localStorage.setItem('notes-first', JSON.stringify({ v: 1, theme: document.documentElement.dataset.theme || '', html: SCREENS.folders.render({ s: 'folders', folder: 'all', limit: 12 }), fab: glyph('compose') }));
   } catch (e) { /* not important */ }
 }
 
