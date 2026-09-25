@@ -651,6 +651,8 @@ const undoToast = (msg, restore) => toast(msg, { label: 'Undo', run: () => { res
 
 // ---------- Swipe actions ----------
 // A row is <div class="sw"><div class="sw-acts l">…</div><div class="sw-acts r">…</div><div class="sw-row">…</div></div>.
+// A row only carries a short description of its buttons (data-swl / data-swr); they are drawn the
+// first time the row is touched, so long lists open quickly.
 // Swipe left to show the right-hand buttons (a long swipe runs the last one, e.g. Delete),
 // swipe right for the left-hand button (e.g. Pin).
 let swOpen = null, swMoved = 0;
@@ -664,7 +666,13 @@ document.addEventListener('pointerdown', (e) => {
   const row = e.target.closest('.sw-row');
   if (swOpen && row !== swOpen && !e.target.closest('.sw-acts')) closeSwipe();
   if (!row || e.button > 0) return;
-  const sw = row.parentElement, R = $(':scope > .sw-acts.r', sw), L = $(':scope > .sw-acts.l', sw);
+  const sw = row.parentElement;
+  if (!sw.dataset.woke) {
+    sw.dataset.woke = '1';
+    if (sw.dataset.swr) sw.insertAdjacentHTML('afterbegin', `<div class="sw-acts r">${swHtml(sw.dataset.swr)}</div>`);
+    if (sw.dataset.swl) sw.insertAdjacentHTML('afterbegin', `<div class="sw-acts l">${swHtml(sw.dataset.swl)}</div>`);
+  }
+  const R = $(':scope > .sw-acts.r', sw), L = $(':scope > .sw-acts.l', sw);
   if (!R && !L) return;
   const x0 = e.clientX, y0 = e.clientY, W = row.offsetWidth;
   const rw = R ? R.offsetWidth : 0, lw = L ? L.offsetWidth : 0;
@@ -716,8 +724,13 @@ document.addEventListener('click', (e) => {
   if (row && row === swOpen) { e.stopPropagation(); e.preventDefault(); closeSwipe(); }
 }, true);
 const swipeRow = (inner, { left = '', right = '', cls = '', attrs = '' } = {}) =>
-  `<div class="sw ${cls}" ${attrs}>${left ? `<div class="sw-acts l">${left}</div>` : ''}${right ? `<div class="sw-acts r">${right}</div>` : ''}<div class="sw-row">${inner}</div></div>`;
-const swBtn = (act, id, label, g, color) => `<button data-act="${act}" data-id="${esc(id)}" style="--c:${color}">${glyph(g)}<span>${esc(label)}</span></button>`;
+  `<div class="sw ${cls}" ${attrs}${left ? ` data-swl="${left}"` : ''}${right ? ` data-swr="${right}"` : ''}><div class="sw-row">${inner}</div></div>`;
+// A swipe button is written down as "action|id|label|icon|colour;" and drawn by swHtml() when needed.
+const swBtn = (act, id, label, g, color) => [act, id, label, g, color].map(encodeURIComponent).join('|') + ';';
+const swHtml = (spec) => spec.split(';').filter(Boolean).map((b) => {
+  const [act, id, label, g, color] = b.split('|').map(decodeURIComponent);
+  return `<button data-act="${esc(act)}" data-id="${esc(id)}" style="--c:${esc(color)}">${glyph(g)}<span>${esc(label)}</span></button>`;
+}).join('');
 
 // ---------- Small building blocks ----------
 function searchField(value, placeholder = 'Search') {

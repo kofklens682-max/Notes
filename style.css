@@ -218,7 +218,7 @@ h1, h2, h3, p { margin: 0; }
 .search-x .gl { width: 13px; height: 13px; stroke-width: 3; }
 
 /* Swipe actions */
-.sw { position: relative; overflow: hidden; background: var(--card); }
+.sw { position: relative; overflow: hidden; background: var(--card); content-visibility: auto; contain-intrinsic-size: auto 62px; } /* rows far off-screen are not laid out or painted */
 .sw-row { position: relative; z-index: 1; background: var(--card); transition: transform .38s cubic-bezier(.2, .9, .3, 1); touch-action: pan-y; }
 .sw-row.dragging { transition: none; }
 .sw-acts { position: absolute; top: 0; bottom: 0; display: flex; z-index: 0; }

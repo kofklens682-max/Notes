@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.4';
+const APP_BUILD = '1.5';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 bindTabSlide($('#tabs'), (t) => goTab(t));
 

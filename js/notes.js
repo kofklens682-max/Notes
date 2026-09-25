@@ -47,15 +47,19 @@ function noteRow(n, showFolder) {
     right: swBtn('note-move', n.id, 'Move', 'folderMove', 'var(--purple)') + swBtn('note-del', n.id, 'Delete', 'trash', 'var(--red)'),
   });
 }
-function notesListHtml(fid) {
+// Long lists draw the first notes straight away and the rest as you scroll towards them.
+const NOTES_PAGE = 80;
+function notesListHtml(fid, limit = NOTES_PAGE) {
   const list = sortNotes(notesIn(fid));
   if (!list.length) return empty('note', 'No Notes', 'Tap the pencil button to write one.');
   const all = fid === 'all';
-  const pinned = list.filter((n) => n.pinned), rest = list.filter((n) => !n.pinned);
+  const ordered = [...list.filter((n) => n.pinned), ...list.filter((n) => !n.pinned)].slice(0, limit);
+  const pinned = ordered.filter((n) => n.pinned), rest = ordered.filter((n) => !n.pinned);
+  const more = list.length > limit ? `<button class="add-link muted more-notes" data-act="more-notes">Show more notes</button>` : '';
   let html = pinned.length ? section('Pinned', pinned.map((n) => noteRow(n, all)).join(''), 'pin') : '';
   if (S.settings.noteSort === 'title') {
     if (rest.length) html += section(pinned.length ? 'Notes' : '', rest.map((n) => noteRow(n, all)).join(''));
-    return html;
+    return html + more;
   }
   const groups = [];
   for (const n of rest) {
@@ -63,8 +67,24 @@ function notesListHtml(fid) {
     if (!groups.length || groups[groups.length - 1].g !== g) groups.push({ g, items: [] });
     groups[groups.length - 1].items.push(n);
   }
-  return html + groups.map((x) => section(x.g, x.items.map((n) => noteRow(n, all)).join(''))).join('');
+  return html + groups.map((x) => section(x.g, x.items.map((n) => noteRow(n, all)).join(''))).join('') + more;
 }
+// The "Show more notes" button loads the next notes by itself when it comes near the screen.
+function watchMoreNotes(el, e) {
+  if (el._moreObs) el._moreObs.disconnect();
+  const b = $('.more-notes', el), scr = $('.scroll', el);
+  if (!b || !scr || !('IntersectionObserver' in window)) return;
+  el._moreObs = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) moreNotes(el, e); }, { root: scr, rootMargin: '0px 0px 800px 0px' });
+  el._moreObs.observe(b);
+}
+function moreNotes(el, e) {
+  if (e.q && e.q.trim()) return;
+  e.limit = (e.limit || NOTES_PAGE) + NOTES_PAGE;
+  $('.results', el).innerHTML = notesListHtml(e.folder, e.limit);
+  fillPhotos($('.results', el));
+  watchMoreNotes(el, e);
+}
+ACTIONS['more-notes'] = (b) => { const el = b.closest('.screen'); if (el) moreNotes(el, cur()); };
 function searchResults(q, fid) {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const hit = (n) => {
@@ -81,6 +101,7 @@ function bindSearch(el, e, fid, plain) {
     e.q = input.value;
     $('.results', el).innerHTML = e.q.trim() ? searchResults(e.q.trim(), fid) : plain();
     fillPhotos($('.results', el));
+    watchMoreNotes(el, e);
   });
 }
 
@@ -147,11 +168,11 @@ SCREENS.notes = {
     const n = notesIn(e.folder).length;
     return page({
       title: folderName(e.folder), back: 'Folders', right: navBtn('notes-menu', 'more', 'More'),
-      body: `${searchField(e.q, 'Search')}<div class="results">${e.q && e.q.trim() ? searchResults(e.q.trim(), e.folder) : notesListHtml(e.folder)}</div>
+      body: `${searchField(e.q, 'Search')}<div class="results">${e.q && e.q.trim() ? searchResults(e.q.trim(), e.folder) : notesListHtml(e.folder, e.limit)}</div>
         ${n ? `<div class="count">${plural(n, 'Note')}</div>` : ''}`,
     });
   },
-  mount(el, e) { bindSearch(el, e, e.folder, () => notesListHtml(e.folder)); fillPhotos(el); },
+  mount(el, e) { bindSearch(el, e, e.folder, () => notesListHtml(e.folder, e.limit)); fillPhotos(el); watchMoreNotes(el, e); },
   fab: () => ({ g: 'compose', act: 'new-note', label: 'New note' }),
 };
 ACTIONS['notes-menu'] = async (el) => {
