@@ -14,6 +14,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
+  <!-- Stay upright: the installed app could otherwise start sideways or upside down. -->
+  <script>try { screen.orientation.lock('portrait-primary').catch(function () {}); } catch (e) {}</script>
 </head>
 <body>
   <div id="stage"></div>
@@ -32,6 +34,21 @@
     </div>
     <button class="fab" id="fab" data-act="new-note" aria-label="New note"></button>
   </nav>
+  <script>
+    // Draw the Folders screen at once from the copy saved last time (see saveFirst in main.js); the
+    // app replaces it with the real, working screen as soon as it has loaded.
+    try {
+      var f = JSON.parse(localStorage.getItem('notes-first') || 'null');
+      if (f && f.v === 1 && f.html) {
+        if (f.theme) document.documentElement.setAttribute('data-theme', f.theme);
+        document.getElementById('stage').innerHTML = '<section class="screen cur snap" data-s="folders" aria-hidden="true">' + f.html + '</section>';
+        document.body.setAttribute('data-tab', 'notes');
+        document.body.classList.add('snap');
+        document.querySelector('#tabs [data-tab="notes"]').classList.add('on');
+        document.getElementById('fab').innerHTML = f.fab || '';
+      }
+    } catch (e) { /* no copy yet: the app draws it normally */ }
+  </script>
 
   <div id="sheet-root"></div>
   <div id="dialog-root"></div>
@@ -41,19 +58,18 @@
   <input type="file" id="take-photo" accept="image/*" capture="environment" hidden>
   <input type="file" id="import-file" accept=".txt,.json,text/plain,application/json" hidden>
 
-  <script src="icons.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/remind.js"></script>
-  <script src="js/core.js"></script>
-  <script src="js/lock.js"></script>
-  <script src="js/notes.js"></script>
-  <script src="js/editor.js"></script>
-  <script src="js/planner.js"></script>
-  <script src="js/groceries.js"></script>
-  <script src="js/habits.js"></script>
-  <script src="js/notify.js"></script>
-  <script src="js/settings.js"></script>
-  <script src="js/main.js"></script>
+  <script>
+    // With a saved first screen on show, the app's code loads just after it has been drawn, so it
+    // appears at once; the code runs in this order.
+    (function () {
+      var files = ['icons.js', 'js/config.js', 'js/store.js', 'js/remind.js', 'js/core.js', 'js/lock.js', 'js/notes.js', 'js/editor.js', 'js/planner.js', 'js/groceries.js', 'js/habits.js', 'js/notify.js', 'js/settings.js', 'js/main.js'], started = false;
+      function go() {
+        if (started) return;
+        started = true;
+        files.forEach(function (src) { var el = document.createElement('script'); el.src = src; el.async = false; document.body.appendChild(el); });
+      }
+      if (document.querySelector('.screen.snap')) { requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 60); } else go();
+    })();
+  </script>
 </body>
 </html>

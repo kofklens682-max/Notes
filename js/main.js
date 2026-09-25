@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.5';
+const APP_BUILD = '1.6';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 bindTabSlide($('#tabs'), (t) => goTab(t));
 
@@ -36,25 +36,37 @@ function openLink(p) {
   const p = new URLSearchParams(location.search);
   history.replaceState({ n: 0 }, '', location.search ? location.pathname : undefined);
   show();
+  document.body.classList.remove('snap');
   document.body.classList.add('ready');
+  setTimeout(() => wakeBodies(), 400);
   if (storageBroken) toast("This phone's storage isn't available — changes won't be kept");
   openLink(p);
   registerSW();
   planLocal();
-  setTimeout(() => {
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1));
+  setTimeout(() => idle(() => {
+    saveFirst();
     cleanPhotos().catch(() => {});
     bodiesReady.then(() => cleanBodies()).catch(() => {});
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     checkDueNow(15 * 60e3);
     connectPush(false);
-  }, 3000);
+  }), 4000);
 })();
+
+// A copy of the Folders screen for the next start: index.html draws it at once while the app loads.
+function saveFirst() {
+  try {
+    localStorage.setItem('notes-first', JSON.stringify({ v: 1, theme: document.documentElement.dataset.theme || '', html: SCREENS.folders.render({ s: 'folders' }), fab: glyph('compose') }));
+  } catch (e) { /* not important */ }
+}
 
 // ---------- Background / foreground ----------
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) {
     hiddenAt = Date.now();
+    saveFirst();
     if (ED) await saveEditor();
     flush();
     return;

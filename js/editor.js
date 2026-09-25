@@ -156,7 +156,7 @@ function mountEditor(el, e) {
     }
   };
   if (!n) { load(''); return; }
-  if (!bodiesLoaded && !e.fresh) { bodiesReady.then(() => { if (ED === me) openBody(n, load); }); return; }
+  if (!bodiesLoaded && !e.fresh) { wakeBodies(); bodiesReady.then(() => { if (ED === me) openBody(n, load); }); return; }
   openBody(n, load);
 }
 function openBody(n, load) {

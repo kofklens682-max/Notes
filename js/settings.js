@@ -84,6 +84,7 @@ ACTIONS['lock-reset'] = async () => {
 // ---------- Backup ----------
 const BACKUP_APP = 'notes-planner';
 async function makeBackup() {
+  wakeBodies();
   await bodiesReady;
   if (ED) await saveEditor();
   await flush();

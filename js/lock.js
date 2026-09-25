@@ -122,6 +122,7 @@ async function changeCode() {
     });
   });
   if (!newKey) return false;
+  wakeBodies();
   await bodiesReady;
   for (const n of lockedNotes()) {
     if (!n.enc) continue;

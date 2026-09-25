@@ -98,6 +98,7 @@ function searchResults(q, fid) {
 function bindSearch(el, e, fid, plain) {
   const input = $('.search input', el);
   input.addEventListener('input', () => {
+    if (!bodiesLoaded) { wakeBodies(); bodiesReady.then(() => { if (e.q && e.q.trim() && input.isConnected) input.dispatchEvent(new Event('input')); }); }
     e.q = input.value;
     $('.results', el).innerHTML = e.q.trim() ? searchResults(e.q.trim(), fid) : plain();
     fillPhotos($('.results', el));

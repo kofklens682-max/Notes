@@ -146,6 +146,7 @@ const cleanEnc = (e) => (e && typeof e.iv === 'string' && typeof e.ct === 'strin
 let storageBroken = null;
 let bodiesLoaded = false;
 let bodiesReady = null; // resolves once every note's text is in memory
+let wakeBodies = () => {}; // starts reading the texts (main.js does it right after the first screen)
 const dirtyBodies = new Set();
 const BODY_KEYS = ['html', 'text', 'enc'];
 async function loadState() {
@@ -154,8 +155,8 @@ async function loadState() {
   S = normalize(d);
   // Older versions kept the text inside the state: move it out on the next save.
   if (d && Array.isArray(d.notes) && d.notes.some((n) => n && (n.html || n.enc))) S.notes.forEach((n) => dirtyBodies.add(n.id));
-  bodiesReady = dirtyBodies.size || storageBroken ? Promise.resolve() : loadBodies();
-  if (dirtyBodies.size || storageBroken) bodiesLoaded = true;
+  if (dirtyBodies.size || storageBroken) { bodiesReady = Promise.resolve(); bodiesLoaded = true; return; }
+  bodiesReady = new Promise((done) => { wakeBodies = () => { wakeBodies = () => {}; loadBodies().then(done, done); }; });
 }
 async function loadBodies() {
   let rows = [];
