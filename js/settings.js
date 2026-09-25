@@ -102,7 +102,7 @@ ACTIONS['backup-save'] = async () => {
   // Android can share .txt files to Telegram / Drive; the content is JSON.
   const name = `notes-backup-${todayIso()}.txt`;
   const file = new File([JSON.stringify(data)], name, { type: 'text/plain' });
-  const done = () => { S.settings.lastBackup = Date.now(); save(); if (cur().s === 'settings') render(); };
+  const done = () => { S.settings.lastBackup = Date.now(); save(); if (!ED && !sheet) render(); };
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'Notes backup' }); done(); toast('Backup saved'); return; } catch (e) { if (e.name === 'AbortError') return; }
   }

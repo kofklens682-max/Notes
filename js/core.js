@@ -221,9 +221,14 @@ function page({ title = '', back = '', right = '', body = '', big = true, sub = 
 const navBtn = (act, g, label, extra = '') => `<button class="nbtn" data-act="${act}" aria-label="${esc(label)}" ${extra}>${glyph(g)}</button>`;
 const navText = (act, label, extra = '') => `<button class="ntext" data-act="${act}" ${extra}>${esc(label)}</button>`;
 
+// A screen that fails to draw shows this instead of a blank page (nothing is deleted).
+const screenError = (err) => page({
+  title: 'Sorry', back: UI.stacks[UI.tab].length > 1 ? 'Back' : '',
+  body: empty('bang', "This screen couldn't be shown", `Your notes are safe. Go back, or close the app and open it again.<br><small>${esc((err && err.message) || err)}</small>`),
+});
 function paint(el, e) {
   const sc = SCREENS[e.s];
-  el.innerHTML = sc.render(e);
+  try { el.innerHTML = sc.render(e); } catch (err) { console.error(err); el.innerHTML = screenError(err); el._broken = true; }
   const tint = sc.tint ? sc.tint(e) : null;
   if (tint) el.style.setProperty('--tint', tint); else el.style.removeProperty('--tint');
   const scr = $('.scroll', el);
@@ -234,7 +239,8 @@ function paint(el, e) {
     let raf = 0;
     scr.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; navState(el); }); }, { passive: true });
   }
-  if (sc.mount) sc.mount(el, e);
+  if (sc.mount && !el._broken) { try { sc.mount(el, e); } catch (err) { console.error(err); } }
+  el._broken = false;
 }
 function navState(el) {
   const scr = el._scr, y = scr ? scr.scrollTop : 0;
@@ -316,8 +322,54 @@ function goTab(t, keepStack) {
   rememberScroll();
   hideCur();
   UI.tab = t;
-  show('fade');
+  show(t === 'planner' ? 'tabr' : 'tabl'); // slides in from the side of its tab
   syncHistory();
+}
+
+// Tab bar: tap a tab, or press anywhere on the bar and slide — the highlight follows the finger
+// and the tab under it opens when you let go (like the iPhone's tab bar).
+function bindTabSlide(tabs, go) {
+  const ind = $('.tab-ind', tabs);
+  const btns = () => $$('[data-tab]', tabs);
+  let st = null, slidAt = 0;
+  tabs.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    st = { id: e.pointerId, x0: e.clientX, on: false, over: -1 };
+  });
+  tabs.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    if (!st.on) {
+      if (Math.abs(e.clientX - st.x0) < 8) return;
+      st.on = true;
+      try { tabs.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      tabs.classList.add('sliding');
+    }
+    const bs = btns(), r = tabs.getBoundingClientRect(), w = (r.width - 10) / bs.length;
+    const x = clamp(e.clientX - r.left - 5 - w / 2, 0, w * (bs.length - 1));
+    ind.style.transform = `translateX(${x.toFixed(1)}px) scale(1.05)`;
+    const over = clamp(Math.round(x / w), 0, bs.length - 1);
+    if (over !== st.over) {
+      if (st.over >= 0) buzz(8);
+      st.over = over;
+      bs.forEach((b, i) => b.classList.toggle('over', i === over));
+    }
+  });
+  const end = (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const s = st;
+    st = null;
+    if (!s.on) return;
+    slidAt = Date.now();
+    const b = btns()[s.over];
+    tabs.classList.remove('sliding');
+    ind.style.transform = '';
+    btns().forEach((x) => x.classList.remove('over'));
+    if (e.type === 'pointerup' && b && !b.classList.contains('on')) go(b.dataset.tab);
+  };
+  tabs.addEventListener('pointerup', end);
+  tabs.addEventListener('pointercancel', end);
+  // the end of a slide must not also count as a tap
+  tabs.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
 function chrome() {
   const e = cur(), sc = SCREENS[e.s];

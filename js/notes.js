@@ -85,12 +85,18 @@ function bindSearch(el, e, fid, plain) {
 }
 
 // ---------- Folders ----------
+// Once a month: one tap sends a backup file to Telegram / Drive (safe even if the phone is lost).
+function backupNudge() {
+  const last = S.settings.lastBackup;
+  if (S.notes.length + S.tasks.length + S.habits.length < 5 || (last && Date.now() - last < 30 * 864e5)) return '';
+  return `<button class="hint-btn nudge" data-act="backup-save">${glyph('share')}<span><b>Time for a backup</b>${last ? 'Your last one was over a month ago.' : "You haven't saved one yet."} Tap to send it to Telegram or Drive.</span></button>`;
+}
 function folderList() {
   const row = (id, name, g, custom) => {
     const inner = `<button class="row" data-act="open-folder" data-id="${id}">${glyph(g, 'row-g')}<span class="lbl">${esc(name)}</span><span class="val">${notesIn(id).length}</span>${glyph('chevR', 'chev')}</button>`;
     return custom ? swipeRow(inner, { right: swBtn('folder-rename', id, 'Rename', 'pencil', 'var(--gray)') + swBtn('folder-del', id, 'Delete', 'trash', 'var(--red)') }) : inner;
   };
-  return `<div class="card">${row('all', 'All Notes', 'tray')}${S.folders.map((f) => row(f.id, f.name, 'folder', f.id !== 'notes')).join('')}</div>
+  return `${backupNudge()}<div class="card">${row('all', 'All Notes', 'tray')}${S.folders.map((f) => row(f.id, f.name, 'folder', f.id !== 'notes')).join('')}</div>
     <button class="add-link" data-act="new-folder">${glyph('folderPlus')}New Folder</button>`;
 }
 SCREENS.folders = {
