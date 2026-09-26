@@ -270,7 +270,7 @@ function show(dir) {
     if (dir && !reduceMotion()) {
       el.classList.add(dir + '-in');
       old.classList.add(dir + '-out');
-      setTimeout(() => { old.remove(); el.classList.remove(dir + '-in'); }, 460);
+      setTimeout(() => { old.remove(); el.classList.remove(dir + '-in'); }, 380);
     } else old.remove();
   }
   chrome();

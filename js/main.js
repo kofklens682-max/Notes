@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '1.9';
+const APP_BUILD = '2.0';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 // Press and slide: the tab bar, the segmented controls, the Habits week and a habit's Repeat days.
 bindTabSlide($('#tabs'), (t) => goTab(t));

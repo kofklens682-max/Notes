@@ -89,7 +89,7 @@ SCREENS.note = {
         </div>
       </div>
       <div class="ed-bar">
-        <button data-act="ed-fmt" aria-label="Text style"><span class="aa">Aa</span></button>
+        <button data-act="ed-fmt" class="ed-style" aria-label="Text style"><span class="aa">Aa</span><span class="st-name">Body</span></button>
         <button data-act="ed-check" aria-label="Checklist">${glyph('checklist')}</button>
         <button data-act="ed-photo" aria-label="Add photo">${glyph('camera')}</button>
         <button data-act="ed-mic" aria-label="Voice typing">${glyph('mic')}</button>
@@ -123,6 +123,15 @@ function mountEditor(el, e) {
   });
   ed.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') setTimeout(() => { const li = caretLi(); if (li && !li.textContent.trim()) li.classList.remove('done'); }, 0);
+  });
+  // A new line keeps the style you were writing in (Title, Heading, Subheading) — the phone would
+  // otherwise switch back to Body. Change it with Aa.
+  ed.addEventListener('beforeinput', (ev) => { if (ev.inputType === 'insertParagraph') me.keepTag = caretStyle(); });
+  ed.addEventListener('input', (ev) => {
+    if (ev.inputType !== 'insertParagraph' || !me.keepTag) return;
+    const tag = me.keepTag;
+    me.keepTag = null;
+    if (/^h[1-3]$/.test(tag) && caretStyle() !== tag && !caretLi()) { document.execCommand('formatBlock', false, tag); afterCmd(); }
   });
   ed.addEventListener('pointerdown', (ev) => {
     if (checkboxHit(ev)) { ED.wasFocused = document.activeElement === ed; ev.preventDefault(); }
@@ -256,9 +265,31 @@ function afterCmd() {
   prepareEd();
   queueSave();
   updateFmt();
+  styleLabel();
   const sel = getSelection();
   if (sel.rangeCount && ED.ed.contains(sel.anchorNode)) ED.range = sel.getRangeAt(0).cloneRange();
 }
+// The style of the line the cursor is on: 'h1' Title, 'h2' Heading, 'h3' Subheading, 'div' Body.
+function caretStyle() {
+  if (!ED) return 'div';
+  const sel = getSelection();
+  let n = sel.rangeCount ? sel.anchorNode : null;
+  while (n && n !== ED.ed) {
+    if (n.nodeType === 1 && /^H[1-3]$/.test(n.tagName)) return n.tagName.toLowerCase();
+    n = n.parentNode;
+  }
+  return 'div';
+}
+const STYLE_NAMES = { h1: 'Title', h2: 'Heading', h3: 'Subheading', div: 'Body' };
+// The toolbar's Aa button names the style you're writing in.
+function styleLabel() {
+  if (!ED) return;
+  const sel = getSelection();
+  if (!sel.rangeCount || !ED.ed.contains(sel.anchorNode)) return;
+  const t = $('.ed-style .st-name', ED.el), name = STYLE_NAMES[caretStyle()];
+  if (t && t.textContent !== name) t.textContent = name;
+}
+document.addEventListener('selectionchange', () => { if (ED) styleLabel(); });
 
 // ---------- Toolbar ----------
 ACTIONS['ed-done'] = () => { if (ED) { ED.ed.blur(); saveEditor(); } };
@@ -487,21 +518,32 @@ function voiceUi(on) {
     $('.v-text', v).textContent = `Listening… (${l[2]})`;
   }
 }
+// One long listening session instead of one per sentence: each new session makes Android play its
+// microphone sound and loses the words said while it restarts. It only restarts after a long pause.
 function listen() {
   if (!voice || !voice.on || !ED) return;
   const rec = new SpeechRec();
   voice.rec = rec;
   rec.lang = S.settings.voiceLang;
   rec.interimResults = true;
-  rec.continuous = false;
+  rec.continuous = true;
+  let said = ''; // what this session has written so far (some phones repeat it at the start of each new result)
+  const seen = new Map(); // result number → text already written
+  rec.onstart = () => { if (voice && !voice.started) { voice.started = true; buzz(25); } };
   rec.onresult = (e) => {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const r = e.results[i];
-      if (r.isFinal) speak(r[0].transcript); else interim += r[0].transcript;
+      const r = e.results[i], text = r[0].transcript;
+      if (!r.isFinal) { interim += text; continue; }
+      if (seen.get(i) === text) continue;
+      seen.set(i, text);
+      let add = text.trim();
+      if (said && add.toLowerCase().startsWith(said.toLowerCase())) add = add.slice(said.length).trim();
+      said = (said + ' ' + add).trim();
+      if (add) speak(add);
     }
     const t = ED && $('.v-text', ED.el);
-    if (t && interim) t.textContent = interim;
+    if (t) t.textContent = interim || 'Listening…';
   };
   rec.onerror = (e) => {
     const msg = { 'not-allowed': 'Allow the microphone for this app to use voice typing', 'service-not-allowed': 'Voice typing is turned off on this phone', 'audio-capture': 'No microphone found', network: 'Voice typing needs an internet connection', 'language-not-supported': "This language isn't available for voice typing" }[e.error];
@@ -516,6 +558,7 @@ function stopVoice() {
   const r = voice.rec;
   voice = null;
   try { if (r) r.stop(); } catch (e) { /* ignore */ }
+  buzz(25); // a short vibration instead of a sound when it stops
   voiceUi(false);
 }
 // Insert what was said at the cursor, with sensible spaces and capitals.

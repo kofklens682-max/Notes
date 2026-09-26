@@ -17,7 +17,7 @@ SCREENS.settings = {
         <label class="row">${tile('clock', '#007AFF')}<span class="lbl">Default time</span><input class="row-input" type="time" name="allDay" value="${S.settings.allDay}"></label>
       </div>
       <p class="foot">Reminders with a date but no time alert you at the default time. ${perm === 'denied' ? "Notifications are blocked. Open the phone's Settings → Apps → Notes → Notifications and allow them." : pushReady()
-        ? 'Reminders arrive even when the app is closed. Only the times are sent to the reminder server — never what your notes or reminders say.'
+        ? "Reminders arrive even when the app is closed. Only the times are sent to the reminder server — never what your notes or reminders say. If some arrive late, set Chrome's battery use to “Unrestricted” in the phone's Settings → Apps → Chrome → Battery."
         : "The reminder server isn't set up yet, so reminders appear only while the app is open or was used recently."}</p>
 
       <h2 class="sec">Locked Notes</h2>

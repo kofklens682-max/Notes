@@ -43,11 +43,42 @@ function noteCard(n, showFolder) {
   const text = n.locked ? `<p class="lk">${glyph('lock', 'inl')}Locked</p>` : `<p>${esc(n.preview || 'No additional text')}</p>`;
   return `<button class="ncard${n.pinned ? ' pin' : ''}${img ? ' has-img' : ''}" data-act="open-note" data-id="${n.id}" data-hold="note">${img}<b>${esc(noteTitle(n))}</b>${text}<span><i>${showFolder ? esc(folderName(n.folder)) : ''}</i><em>${n.pinned ? glyph('pin', 'inl') : ''}${noteWhen(noteTime(n))}</em></span></button>`;
 }
+// Pinned notes get their own section at the top; the rest follow under "Notes".
 function cardsHtml(list, limit, fid) {
-  const ordered = [...list.filter((n) => n.pinned), ...list.filter((n) => !n.pinned)];
-  return `<div class="ngrid">${ordered.slice(0, limit).map((n) => noteCard(n, fid === 'all')).join('')}</div>`
+  const pinned = list.filter((n) => n.pinned), rest = list.filter((n) => !n.pinned);
+  const grid = (arr) => `<div class="ngrid">${arr.map((n) => noteCard(n, fid === 'all')).join('')}</div>`;
+  const shownPins = pinned.slice(0, limit), shownRest = rest.slice(0, Math.max(0, limit - shownPins.length));
+  return (pinned.length ? `<h2 class="sec nsec">${glyph('pin', 'inl')}Pinned</h2>${grid(shownPins)}${shownRest.length ? '<h2 class="sec nsec">Notes</h2>' : ''}` : '')
+    + (shownRest.length ? grid(shownRest) : '')
     + (list.length > limit ? '<button class="add-link muted more-notes" data-act="more-notes">Show more notes</button>' : '');
 }
+// A short note in one line: type it at the top of the Notes screen and press Enter — it is saved
+// without opening the editor. The microphone opens a new note with voice typing on.
+const quickNoteHtml = () => `<div class="qn"><span class="qn-ic">${glyph('compose')}</span><input class="qn-in" placeholder="Quick note — Enter saves it" enterkeyhint="done" autocapitalize="sentences" maxlength="1000" aria-label="Quick note"><button class="qn-mic" data-act="qn-voice" aria-label="New note by voice">${glyph('mic')}</button></div>`;
+function bindQuickNote(el, e) {
+  const input = $('.qn-in', el);
+  if (!input) return;
+  const add = () => {
+    const text = input.value.replace(/\s+/g, ' ').trim();
+    if (!text) return;
+    const n = newNote(e.folder && e.folder !== 'all' ? e.folder : 'notes');
+    n.html = `<div>${esc(text)}</div>`;
+    n.title = text.slice(0, 120);
+    n.text = text;
+    save(n);
+    input.value = '';
+    buzz();
+    showResults(el, e);
+    const card = $(`.ncard[data-id="${n.id}"]`, el);
+    if (card) card.classList.add('flash');
+    toast('Note saved');
+  };
+  input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); add(); input.blur(); } });
+}
+ACTIONS['qn-voice'] = () => {
+  ACTIONS['new-note']();
+  setTimeout(() => { if (ED) ACTIONS['ed-mic'](); }, 500);
+};
 function notesGridHtml(fid, limit = NOTES_PAGE) {
   const list = sortNotes(notesIn(fid));
   if (!list.length) return empty('note', 'No Notes', fid === 'all' ? 'Tap the pencil button to write one.' : 'Nothing in this folder yet — tap the pencil button to write here.');
@@ -79,10 +110,10 @@ SCREENS.folders = {
     if (e.folder !== 'all' && !folderOf(e.folder)) e.folder = 'all';
     return page({
       title: 'Notes', right: navBtn('notes-menu', 'more', 'Sort and folder') + navBtn('settings', 'gear', 'Settings'),
-      body: `${searchField(e.q, 'Search')}${backupNudge()}${folderChips(e.folder)}<div class="results">${homeResults(e)}</div>`,
+      body: `${searchField(e.q, 'Search')}${backupNudge()}${quickNoteHtml()}${folderChips(e.folder)}<div class="results">${homeResults(e)}</div>`,
     });
   },
-  mount(el, e) { bindSearch(el, e); fillPhotos(el); watchMoreNotes(el, e); },
+  mount(el, e) { bindSearch(el, e); bindQuickNote(el, e); fillPhotos(el); watchMoreNotes(el, e); },
   fab: () => ({ g: 'compose', act: 'new-note', label: 'New note' }),
 };
 function bindSearch(el, e) {

@@ -122,12 +122,24 @@ function habitCircle(h, day) {
   const label = h.kind === 'sleep' ? (done ? 'Change the night' : 'Log the night') : done ? 'Done — tap to undo' : tg > 1 ? `Add one (${cnt} of ${tg})` : 'Mark as done';
   return `<div class="hc${done ? ' is-done' : ''}" style="--c:${h.c}"><button class="h-btn" data-act="h-tick" data-id="${h.id}" data-day="${day}" aria-label="${esc(h.name)}: ${label}">${ring(cnt / tg, 52, 4)}${inside}</button><button class="hc-name" data-act="h-open" data-id="${h.id}">${esc(h.name)}</button></div>`;
 }
+// Deadlines (reminders with the Deadline switch on) as cards with a countdown: the ring fills up over
+// the last 30 days; orange in the last two weeks, red in the last 3 days. On the day itself they are in Today.
+function deadlineStrip(today) {
+  const list = S.tasks.filter((t) => t.deadline && !t.done && t.due && t.due > today).sort(SORTS.due);
+  if (!list.length) return '';
+  return tsec('Deadlines') + `<div class="dl-strip">${list.map((t) => {
+    const n = daysFromToday(t.due);
+    const c = n <= 3 ? 'var(--red)' : n <= 14 ? 'var(--orange)' : 'var(--blue)';
+    return `<button class="dl" data-act="task-open" data-id="${t.id}" style="--dc:${c}"><span class="dl-r">${ring(clamp(1 - n / 30, 0.05, 1), 52, 4.5)}<span><b>${n}</b><small>${n === 1 ? 'day' : 'days'}</small></span></span><span class="dl-t"><b>${esc(t.title || 'Deadline')}</b><span>${dayName(t.due, true)}${t.time && t.time !== '23:59' ? `, ${t.time}` : ''}</span></span></button>`;
+  }).join('')}</div>`;
+}
 SCREENS.planner = {
   render() {
     const today = todayIso();
     const due = smartTasks('today').sort(SORTS.due);
     const late = due.filter((t) => t.due < today), now = due.filter((t) => t.due === today);
-    let body = late.length ? tsec('Overdue', 'late') + taskCard(late.map((t) => taskRow(t, true)).join('')) + tsec('Today') : '';
+    let body = deadlineStrip(today);
+    body += late.length ? tsec('Overdue', 'late') + taskCard(late.map((t) => taskRow(t, true)).join('')) + tsec('Today') : '';
     if (!due.length) body += `<div class="p-clear">${glyph('checkCircle')}Nothing left for today</div>`;
     body += taskCard(now.map((t) => taskRow(t, true)).join(''), addRow(S.lists[0].id, today));
 
@@ -140,7 +152,7 @@ SCREENS.planner = {
     const toBuy = S.grocery.items.filter((i) => !i.done);
     body += `<button class="p-line" data-act="open-groceries">${tile('cart', '#34C759', 'round')}<span class="w-main"><b>${toBuy.length ? `Groceries · ${toBuy.length} to buy` : 'Groceries'}</b><span>${toBuy.length ? toBuy.slice(0, 8).map((i) => esc(i.name)).join(', ') : 'Your list is empty'}</span></span>${glyph('chevR', 'chev')}</button>`;
 
-    const soon = S.tasks.filter((t) => !t.done && t.due && t.due > today).sort(SORTS.due);
+    const soon = S.tasks.filter((t) => !t.done && t.due && t.due > today && !t.deadline).sort(SORTS.due); // deadlines are at the top
     if (soon.length) body += tsec('Coming up', '', soon.length > 5 ? '<button class="sec-btn" data-act="open-smart" data-id="scheduled">All</button>' : '') + taskCard(soon.slice(0, 5).map((t) => taskRow(t, true)).join(''));
 
     const tileBtn = (act, id, n, label) => `<button data-act="${act}" data-id="${id}"><b>${n}</b>${label}</button>`;
@@ -294,6 +306,7 @@ function taskSheetHtml() {
     </div>
     <div class="card form">
       <div class="frow">${tile('calendar', '#FF3B30')}<span class="lbl">Date${d.due ? `<small class="${d.due < today ? 'late' : ''}">${dayName(d.due, true)}</small>` : ''}</span>${toggle('hasDate', !!d.due, 'Date')}</div>
+      ${d.due ? `<div class="frow">${tile('flag', '#FF9500')}<span class="lbl">Deadline<small>${d.deadline ? 'Counting down on Today' : 'Show a countdown on Today'}</small></span>${toggle('isDeadline', !!d.deadline, 'Deadline')}</div>` : ''}
       ${d.due ? `<div class="frow sub"><input type="date" name="due" value="${d.due}"><div class="chips">${chips}</div></div>` : ''}
       <div class="frow">${tile('clock', '#007AFF')}<span class="lbl">Time${d.time ? `<small>${d.time}</small>` : ''}</span>${toggle('hasTime', !!d.time, 'Time')}</div>
       ${d.time ? `<div class="frow sub"><input type="time" name="time" value="${d.time}"></div>` : ''}
@@ -323,7 +336,8 @@ function mountTaskSheet(sh) {
   });
   sh.addEventListener('change', (e) => {
     const t = e.target;
-    if (t.name === 'hasDate') { d.due = t.checked ? d.due || todayIso() : null; if (!d.due) { d.time = null; d.repeat = null; } redrawTask(); }
+    if (t.name === 'hasDate') { d.due = t.checked ? d.due || todayIso() : null; if (!d.due) { d.time = null; d.repeat = null; d.deadline = false; } redrawTask(); }
+    if (t.name === 'isDeadline') { d.deadline = t.checked; redrawTask(); }
     if (t.name === 'hasTime') {
       if (t.checked) { d.due = d.due || todayIso(); const n = new Date(); d.time = d.time || `${pad2(Math.min(23, n.getHours() + 1))}:00`; } else d.time = null;
       redrawTask();

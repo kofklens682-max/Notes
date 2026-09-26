@@ -146,15 +146,15 @@ h1, h2, h3, p { margin: 0; }
 .big + :not(.big-sub) { margin-top: 10px; }
 .screen[data-s="tasks"] .big, .screen[data-s="groceries"] .big, .screen[data-s="habits"] .big, .screen[data-s="habit"] .big { color: var(--tint); }
 
-.screen.push-in { animation: push-in .44s cubic-bezier(.25, .85, .3, 1) both; z-index: 2; box-shadow: -8px 0 30px rgba(0, 0, 0, .08); }
-.screen.push-out { animation: push-out .44s cubic-bezier(.25, .85, .3, 1) both; }
-.screen.pop-in { animation: pop-in .44s cubic-bezier(.25, .85, .3, 1) both; }
-.screen.pop-out { animation: pop-out .44s cubic-bezier(.25, .85, .3, 1) both; z-index: 2; box-shadow: -8px 0 30px rgba(0, 0, 0, .08); }
+.screen.push-in { animation: push-in .36s cubic-bezier(.25, .85, .3, 1) both; z-index: 2; box-shadow: -8px 0 30px rgba(0, 0, 0, .08); }
+.screen.push-out { animation: push-out .36s cubic-bezier(.25, .85, .3, 1) both; }
+.screen.pop-in { animation: pop-in .36s cubic-bezier(.25, .85, .3, 1) both; }
+.screen.pop-out { animation: pop-out .36s cubic-bezier(.25, .85, .3, 1) both; z-index: 2; box-shadow: -8px 0 30px rgba(0, 0, 0, .08); }
 .screen.fade-in { animation: fade-in .22s ease both; }
 .screen.fade-out { animation: fade-out .18s ease both; }
 /* Switching tabs: the new tab slides in from its side while the old one slides out */
-.screen.tabr-in, .screen.tabl-in { animation: tab-in .34s cubic-bezier(.2, .8, .2, 1) .07s both; }
-.screen.tabr-out, .screen.tabl-out { animation: tab-out .16s cubic-bezier(.4, 0, 1, 1) both; }
+.screen.tabr-in, .screen.tabl-in { animation: tab-in .28s cubic-bezier(.2, .8, .2, 1) .04s both; }
+.screen.tabr-out, .screen.tabl-out { animation: tab-out .14s cubic-bezier(.4, 0, 1, 1) both; }
 .screen.tabr-in, .screen.tabr-out { --d: 1; }
 .screen.tabl-in, .screen.tabl-out { --d: -1; }
 @keyframes tab-in { from { opacity: 0; transform: translate3d(calc(var(--d) * 44px), 0, 0); } }
@@ -269,6 +269,18 @@ h1, h2, h3, p { margin: 0; }
 .nc-img { display: block; width: calc(100% + 26px); height: 96px; margin: -12px -13px 2px; object-fit: cover; background: var(--fill); }
 .ncard .lk { display: flex; align-items: center; }
 .results > .sec:first-child { margin-top: 2px; }
+.ncard.flash { animation: flash 1.4s ease-out; }
+/* Pinned / Notes headings between the card grids */
+.sec.nsec { font-size: 15px; font-weight: 600; color: var(--text-2); margin: 16px 4px 8px; }
+.sec.nsec .gl.inl { width: 14px; height: 14px; color: var(--yellow-t); margin-right: 2px; }
+/* A quick note in one line at the top of the Notes screen */
+.qn { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 12px; padding: 4px 6px 4px 12px; margin: 0 0 12px; }
+.qn-ic { display: grid; color: var(--yellow-t); }
+.qn-ic .gl { width: 21px; height: 21px; }
+.qn-in { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: 16px; padding: 10px 0; color: var(--text); }
+.qn-mic { width: 36px; height: 36px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; color: var(--text-2); flex: none; }
+.qn-mic .gl { width: 19px; height: 19px; }
+.qn-mic:active { opacity: .6; }
 
 /* Editor */
 .ed-date { text-align: center; color: var(--text-2); font-size: 13px; margin: 4px 0 12px; }
@@ -300,6 +312,10 @@ h1, h2, h3, p { margin: 0; }
 .ed-bar button.on { background: color-mix(in srgb, var(--yellow) 26%, transparent); }
 .ed-bar button:active { opacity: .5; }
 .aa { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+/* The Aa button also names the style you're writing in */
+.ed-bar button.ed-style { width: auto; min-width: 48px; padding: 0 8px; display: flex; flex-direction: column; justify-content: center; gap: 0; line-height: 1; }
+.ed-style .aa { font-size: 17px; }
+.ed-style .st-name { font-size: 10.5px; font-weight: 700; margin-top: 3px; letter-spacing: .01em; }
 .fmt {
   position: absolute; z-index: 7; left: 8px; right: 8px; bottom: calc(56px + env(safe-area-inset-bottom));
   max-width: 520px; margin: 0 auto; background: var(--elev); border-radius: 16px; padding: 10px;
@@ -362,6 +378,19 @@ h1, h2, h3, p { margin: 0; }
 .ring-fg { fill: none; stroke: var(--tint); stroke-linecap: round; transition: stroke-dashoffset .5s cubic-bezier(.3, .9, .3, 1); }
 
 /* Planner: the Today page */
+/* Deadlines on Today: cards with a countdown ring, swipe sideways when there are several */
+.dl-strip { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px 4px; padding: 2px 16px 4px; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
+.dl-strip::-webkit-scrollbar { display: none; }
+.dl { flex: none; width: min(262px, 78vw); display: flex; gap: 12px; align-items: center; background: var(--card); border-radius: 12px; padding: 12px; text-align: left; scroll-snap-align: start; transition: transform .15s; }
+.dl:active { transform: scale(.97); }
+.dl-r { position: relative; width: 52px; height: 52px; flex: none; display: grid; place-items: center; }
+.dl-r svg { position: absolute; inset: 0; }
+.dl-r .ring-fg { stroke: var(--dc); }
+.dl-r b { display: block; font-size: 17px; font-weight: 800; line-height: 1; text-align: center; color: var(--dc); }
+.dl-r small { display: block; font-size: 10px; color: var(--text-2); text-align: center; }
+.dl-t { min-width: 0; }
+.dl-t b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-t span { font-size: 13px; color: var(--text-2); }
 .p-clear { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 15px; font-weight: 500; margin: 0 4px 10px; }
 .p-clear .gl { width: 22px; height: 22px; color: var(--green); }
 .hcs { display: flex; flex-wrap: wrap; gap: 12px 0; background: var(--card); border-radius: 12px; padding: 14px 4px 12px; }
@@ -540,7 +569,7 @@ h1, h2, h3, p { margin: 0; }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; max-width: 600px; margin: 0 auto;
   max-height: calc(100% - env(safe-area-inset-top) - 36px);
   background: var(--bg); border-radius: 22px 22px 0 0; display: flex; flex-direction: column;
-  transform: translateY(100%); transition: transform .42s cubic-bezier(.32, .72, 0, 1);
+  transform: translateY(100%); transition: transform .36s cubic-bezier(.32, .72, 0, 1);
   box-shadow: 0 -6px 30px rgba(0, 0, 0, .12);
 }
 .sheet.tall { height: calc(100% - env(safe-area-inset-top) - 36px); }
