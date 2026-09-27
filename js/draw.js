@@ -230,7 +230,8 @@ function cropPng(items, max = 512, pad = 24) {
   x.fillStyle = '#fff';
   x.fillRect(0, 0, c.width, c.height);
   x.setTransform(k, 0, 0, k, (pad - bb.x0) * k, (pad - bb.y0) * k);
-  items.forEach((it) => paintItem(x, { ...it, c: it.t === 's' ? '#1C1C1E' : it.c }, 1));
+  const minW = Math.max(bb.w, bb.h) / 70; // thin pen on a big sum is hard to read
+  items.forEach((it) => paintItem(x, { ...it, c: it.t === 's' ? '#1C1C1E' : it.c, w: it.t === 's' ? Math.max(it.w, minW) : it.w }, 1));
   return c.toDataURL('image/png');
 }
 
@@ -317,6 +318,7 @@ function sizeDrawing(img) {
 // ---------- The drawing sheet ----------
 function openDrawing(data, onDone) {
   if (DR) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if (document.fonts) document.fonts.load(`600 60px ${HAND_FONT}`).catch(() => {}); // for the answers
   const wrap = document.createElement('div');
   wrap.className = 'dr-wrap';
@@ -348,7 +350,7 @@ function openDrawing(data, onDone) {
   [base, live].forEach((c) => { c.width = Math.round(w * scale * dpr); c.height = Math.round(h * scale * dpr); });
   DR = {
     wrap, paper, base, live, w, h, k: scale * dpr, scale, onDone,
-    bx: base.getContext('2d'), lx: live.getContext('2d', { desynchronized: true }),
+    bx: base.getContext('2d'), lx: live.getContext('2d'), // (not 'desynchronized': on Android that paints the paper black)
     items: data ? data.items.map((it) => ({ ...it })) : [], hist: [], hi: -1,
     ink: INKS[0][0], size: 1, tool: 'pen', magic: false, stroke: null, busy: new Set(), timers: {},
   };
@@ -548,7 +550,7 @@ function groupOf(it, pool = DR.items) {
   }
   return group;
 }
-const isFlat = (it) => { if (it.t !== 's') return false; const b = bboxOf([{ ...it, w: 0 }]); return b.w > 24 && b.w < 320 && b.h < b.w * 0.3; };
+const isFlat = (it) => { if (it.t !== 's') return false; const b = bboxOf([{ ...it, w: 0 }]); return b.w > 18 && b.w < 420 && b.h < b.w * 0.45; };
 // The last two strokes look like "=": two short level lines, one above the other.
 function equalsSign() {
   const S2 = DR.items.filter((x) => x.t === 's').slice(-2);
@@ -556,7 +558,7 @@ function equalsSign() {
   const [a, b] = S2.map((s) => bboxOf([{ ...s, w: 0 }]));
   const ov = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), len = Math.max(a.w, b.w);
   const gap = Math.abs((a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2);
-  if (ov < 0.45 * Math.min(a.w, b.w) || Math.min(a.w, b.w) < 0.4 * len || gap < 6 || gap > 0.9 * len) return null;
+  if (ov < 0.3 * Math.min(a.w, b.w) || Math.min(a.w, b.w) < 0.35 * len || gap < 5 || gap > 1.3 * len) return null;
   return { ids: S2.map((s) => s.id), box: { x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) }, len };
 }
 function afterStroke(it) {
@@ -585,12 +587,18 @@ async function answerFor(eq, old) {
   const d = DR;
   const work = sparkle(bboxOf(sum.concat(eqItems)));
   try {
-    const r = await aiCall('/read', { img: cropPng(sum.concat(eqItems)), hint: 'math' }, 15000);
+    const img = cropPng(sum.concat(eqItems));
+    let r = await aiCall('/read', { img, hint: 'math' }, 15000);
+    let res = r.kind === 'math' ? solveMath(r.expression) : null;
+    if (!res && DR === d) {
+      r = await aiCall('/read', { img, hint: 'math', alt: true }, 15000);
+      res = r.kind === 'math' ? solveMath(r.expression) : null;
+    }
     if (DR !== d) return;
-    const res = r.kind === 'math' ? solveMath(r.expression) : null;
     if (!res) { if (!old) toast("Couldn't read that sum — try writing it a little bigger"); return; }
     const sb = bboxOf(sum), size = Math.max(40, Math.min(220, sb.h * 0.95));
-    const a = { t: 'a', id: nid(), s: res, x: eq.box.x1 + L * 0.35, y: cy - size / 2, w: size * 0.55 * res.length, h: size, size, c: ANSWER_C, eq, eqx: eq.box.x0, band, read: r.expression };
+    const a = { t: 'a', id: nid(), s: res, x: eq.box.x1 + L * 0.35, y: cy - size / 2, w: size * 0.5 * res.length, h: size, size, c: ANSWER_C, eq, eqx: eq.box.x0, band, read: r.expression };
+    if (a.x + a.w > DR.w - 10) { a.x = Math.max(10, Math.min(eq.box.x0, DR.w - 10 - a.w)); a.y = eq.box.y1 + size * 0.15; }
     DR.items = DR.items.filter((x) => x !== old && !(x.t === 'a' && x.eq && x.eq.ids.join() === key)).concat([a]);
     fadeIn(a);
     drHist();
@@ -664,10 +672,18 @@ async function makeNeat(group) {
   }
   if (DR !== d) return;
   if (read.kind === 'math') {
+    // ✨ on a sum: the answer is written on the paper, after it.
     work();
     d.busy.delete(key);
     const res = solveMath(read.expression);
-    toast(res ? `${read.expression.replace(/\*/g, '×')} = ${res}` : "Couldn't work that out");
+    if (!res) { toast("Couldn't work that out — try writing it a little bigger"); return; }
+    const size = Math.max(40, Math.min(220, b.h * 0.9)), text = /^x =/.test(res) ? res : `= ${res}`;
+    const a = { t: 'a', id: nid(), s: text, x: b.x1 + 24, y: (b.y0 + b.y1) / 2 - size / 2, w: size * 0.5 * text.length, h: size, size, c: ANSWER_C, read: read.expression };
+    if (a.x + a.w > DR.w - 10) { a.x = Math.max(10, b.x0); a.y = b.y1 + size * 0.15; }
+    DR.items = DR.items.concat([a]);
+    fadeIn(a);
+    drHist();
+    buzz(10);
     return;
   }
   if (read.kind !== 'object' || !read.name) {
@@ -743,10 +759,10 @@ async function saveDrawingBlobs(data, locked) {
 }
 ACTIONS['ed-draw'] = () => {
   if (!ED) return;
-  restoreSel();
-  if (!notInTable()) return;
-  const me = ED, range = ED.range && ED.range.cloneRange();
-  ED.ed.blur();
+  const r0 = ED.range;
+  if (r0 && ED.ed.contains(r0.startContainer) && cellOf(r0.startContainer)) { toast('Put the cursor outside the table to add a drawing'); return; }
+  const me = ED, range = r0 && ED.ed.contains(r0.startContainer) ? r0.cloneRange() : null;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // the keyboard goes away
   openDrawing(null, async (data) => {
     if (!data || ED !== me) return;
     const n = noteOf(me.id);
