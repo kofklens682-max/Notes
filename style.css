@@ -29,8 +29,6 @@
   --blue: #007AFF;
   --purple: #AF52DE;
   --hl-ink: #17150F;
-  --hb-y: #FFE45E; --hb-g: #A8ECBA; --hb-b: #B5D7FF; --hb-p: #FFC0D2; --hb-v: #DEC8FF;
-  --he-y: #E3B90F; --he-g: #3DBD61; --he-b: #4D9BFF; --he-p: #FF6E94; --he-v: #A77BFF;
   --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
   --gray: #8E8E93;
   --tint: var(--blue);
@@ -61,9 +59,6 @@
     --blue: #0A84FF;
     --purple: #BF5AF2;
     --hl-ink: #0F0E0A;
-    --hb-y: #EFCB3F; --hb-g: #66D487; --hb-b: #74B1F7; --hb-p: #F78DAA; --hb-v: #BE9EF6;
-    --he-y: #A88A00; --he-g: #23884A; --he-b: #2F6FC4; --he-p: #B84A6D; --he-v: #7B55C4;
-    --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
   }
 }
 :root[data-theme="dark"] {
@@ -90,9 +85,6 @@
   --blue: #0A84FF;
   --purple: #BF5AF2;
   --hl-ink: #0F0E0A;
-  --hb-y: #EFCB3F; --hb-g: #66D487; --hb-b: #74B1F7; --hb-p: #F78DAA; --hb-v: #BE9EF6;
-  --he-y: #A88A00; --he-g: #23884A; --he-b: #2F6FC4; --he-p: #B84A6D; --he-v: #7B55C4;
-  --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
 }
 body[data-tab="notes"] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: #2B2100; }
 body[data-tab="planner"] { --tint: var(--blue); }
@@ -309,27 +301,18 @@ h1, h2, h3, p { margin: 0; }
 .ed ul.cl li.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
 .ed ul.cl li.done { color: var(--text-2); }
 .ed ul.cl ul.cl { padding-left: 0; }
-/* Highlights: solid, clean colour with a sharp darker edge underneath — crisp, not see-through.
-   Words stay dark on the colour in light and dark mode. The swatches (.hlsw) look exactly like
-   the highlight they make. */
-.hl-y { --hb: var(--hb-y); --he: var(--he-y); --hn: var(--hn-y); }
-.hl-g { --hb: var(--hb-g); --he: var(--he-g); --hn: var(--hn-g); }
-.hl-b { --hb: var(--hb-b); --he: var(--he-b); --hn: var(--hn-b); }
-.hl-p { --hb: var(--hb-p); --he: var(--he-p); --hn: var(--hn-p); }
-.hl-v { --hb: var(--hb-v); --he: var(--he-v); --hn: var(--hn-v); }
+/* Highlights: bright neon highlighter colours, solid and sharp-edged, with dark words on top in
+   light and dark mode. The swatches (.hlsw) look exactly like the highlight they make. */
+.hl-y { --hn: var(--hn-y); }
+.hl-g { --hn: var(--hn-g); }
+.hl-b { --hn: var(--hn-b); }
+.hl-p { --hn: var(--hn-p); }
+.hl-v { --hn: var(--hn-v); }
 .ed mark, .hlsw i:not(.hl-none) {
-  color: var(--hl-ink); background: var(--hb); border-radius: 4px; box-shadow: inset 0 -2px 0 var(--he);
+  color: var(--hl-ink); background: var(--hn); border-radius: 2px;
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 .ed mark { padding: 0 3px 1px; margin: 0 -1px; }
-/* (to choose from) B: bright neon highlighter · C: glossy */
-:root[data-hls="neon"] .ed mark, :root[data-hls="neon"] .hlsw i:not(.hl-none) { background: var(--hn); box-shadow: none; border-radius: 2px; }
-:root[data-hls="gloss"] .ed mark, :root[data-hls="gloss"] .hlsw i:not(.hl-none) {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--hb) 45%, #fff) 0%, var(--hb) 62%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--he) 75%, transparent), inset 0 1.5px 0 rgba(255, 255, 255, .7), 0 1px 2px rgba(0, 0, 0, .16);
-  border-radius: 7px;
-}
-:root[data-hls="gloss"] .ed mark { padding: 1px 5px; }
 .ed blockquote { margin: 6px 0; padding: 2px 0 2px 14px; border-left: 3px solid var(--yellow); color: var(--text-2); min-height: 1.5em; }
 .ed blockquote + blockquote { margin-top: -6px; padding-top: 0; }
 .ed hr { border: 0; height: 1.5px; background: var(--text-3); margin: 16px 0; }
