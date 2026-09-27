@@ -28,9 +28,10 @@
   --green: #34C759;
   --blue: #007AFF;
   --purple: #AF52DE;
-  --hl-a: .2; --mk-a: .45;
-  --c-y: 255 204 0; --c-g: 52 199 89; --c-b: 0 122 255; --c-p: 255 45 85; --c-v: 175 82 222;
-  --t-y: #7A5900; --t-g: #17752F; --t-b: #0056C7; --t-p: #C0183F; --t-v: #7B2FB0;
+  --hl-ink: #17150F;
+  --hb-y: #FFE45E; --hb-g: #A8ECBA; --hb-b: #B5D7FF; --hb-p: #FFC0D2; --hb-v: #DEC8FF;
+  --he-y: #E3B90F; --he-g: #3DBD61; --he-b: #4D9BFF; --he-p: #FF6E94; --he-v: #A77BFF;
+  --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
   --gray: #8E8E93;
   --tint: var(--blue);
   --font: "Inter", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
@@ -59,9 +60,10 @@
     --green: #30D158;
     --blue: #0A84FF;
     --purple: #BF5AF2;
-    --hl-a: .26; --mk-a: .5;
-    --c-y: 255 214 10; --c-g: 48 209 88; --c-b: 10 132 255; --c-p: 255 55 95; --c-v: 191 90 242;
-    --t-y: #FFD60A; --t-g: #4ADE78; --t-b: #70B4FF; --t-p: #FF7797; --t-v: #D597F7;
+    --hl-ink: #0F0E0A;
+    --hb-y: #EFCB3F; --hb-g: #66D487; --hb-b: #74B1F7; --hb-p: #F78DAA; --hb-v: #BE9EF6;
+    --he-y: #A88A00; --he-g: #23884A; --he-b: #2F6FC4; --he-p: #B84A6D; --he-v: #7B55C4;
+    --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
   }
 }
 :root[data-theme="dark"] {
@@ -87,9 +89,10 @@
   --green: #30D158;
   --blue: #0A84FF;
   --purple: #BF5AF2;
-  --hl-a: .26; --mk-a: .5;
-  --c-y: 255 214 10; --c-g: 48 209 88; --c-b: 10 132 255; --c-p: 255 55 95; --c-v: 191 90 242;
-  --t-y: #FFD60A; --t-g: #4ADE78; --t-b: #70B4FF; --t-p: #FF7797; --t-v: #D597F7;
+  --hl-ink: #0F0E0A;
+  --hb-y: #EFCB3F; --hb-g: #66D487; --hb-b: #74B1F7; --hb-p: #F78DAA; --hb-v: #BE9EF6;
+  --he-y: #A88A00; --he-g: #23884A; --he-b: #2F6FC4; --he-p: #B84A6D; --he-v: #7B55C4;
+  --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
 }
 body[data-tab="notes"] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: #2B2100; }
 body[data-tab="planner"] { --tint: var(--blue); }
@@ -306,28 +309,27 @@ h1, h2, h3, p { margin: 0; }
 .ed ul.cl li.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
 .ed ul.cl li.done { color: var(--text-2); }
 .ed ul.cl ul.cl { padding-left: 0; }
-/* Highlights: a soft wash of colour with the words in a deeper shade of the same colour, readable
-   in light and dark. The colour swatches (.hlsw) are drawn exactly like the highlight they make. */
-.hl-y { --c: var(--c-y); --t: var(--t-y); }
-.hl-g { --c: var(--c-g); --t: var(--t-g); }
-.hl-b { --c: var(--c-b); --t: var(--t-b); }
-.hl-p { --c: var(--c-p); --t: var(--t-p); }
-.hl-v { --c: var(--c-v); --t: var(--t-v); }
+/* Highlights: solid, clean colour with a sharp darker edge underneath — crisp, not see-through.
+   Words stay dark on the colour in light and dark mode. The swatches (.hlsw) look exactly like
+   the highlight they make. */
+.hl-y { --hb: var(--hb-y); --he: var(--he-y); --hn: var(--hn-y); }
+.hl-g { --hb: var(--hb-g); --he: var(--he-g); --hn: var(--hn-g); }
+.hl-b { --hb: var(--hb-b); --he: var(--he-b); --hn: var(--hn-b); }
+.hl-p { --hb: var(--hb-p); --he: var(--he-p); --hn: var(--hn-p); }
+.hl-v { --hb: var(--hb-v); --he: var(--he-v); --hn: var(--hn-v); }
 .ed mark, .hlsw i:not(.hl-none) {
-  color: var(--t); background: rgb(var(--c) / var(--hl-a)); border-radius: 6px;
+  color: var(--hl-ink); background: var(--hb); border-radius: 4px; box-shadow: inset 0 -2px 0 var(--he);
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
-.ed mark { padding: 1px 3px; margin: 0 -1px; }
-/* (mockup only) two other looks to choose from */
-:root[data-hls="marker"] .ed mark, :root[data-hls="marker"] .hlsw i:not(.hl-none) {
-  color: inherit; border-radius: 3px 9px 4px 10px / 9px 3px 10px 4px;
-  background: linear-gradient(100deg, rgb(var(--c) / 0) 0, rgb(var(--c) / var(--mk-a)) 4%, rgb(var(--c) / calc(var(--mk-a) * .78)) 50%, rgb(var(--c) / var(--mk-a)) 96%, rgb(var(--c) / 0) 100%) 0 78% / 100% 66% no-repeat;
+.ed mark { padding: 0 3px 1px; margin: 0 -1px; }
+/* (to choose from) B: bright neon highlighter · C: glossy */
+:root[data-hls="neon"] .ed mark, :root[data-hls="neon"] .hlsw i:not(.hl-none) { background: var(--hn); box-shadow: none; border-radius: 2px; }
+:root[data-hls="gloss"] .ed mark, :root[data-hls="gloss"] .hlsw i:not(.hl-none) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hb) 45%, #fff) 0%, var(--hb) 62%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--he) 75%, transparent), inset 0 1.5px 0 rgba(255, 255, 255, .7), 0 1px 2px rgba(0, 0, 0, .16);
+  border-radius: 7px;
 }
-:root[data-hls="marker"] .ed mark { padding: 0 4px; margin: 0 -2px; }
-:root[data-hls="under"] .ed mark, :root[data-hls="under"] .hlsw i:not(.hl-none) {
-  color: inherit; border-radius: 0; background: linear-gradient(rgb(var(--c) / .62), rgb(var(--c) / .62)) 0 96% / 100% .34em no-repeat;
-}
-:root[data-hls="under"] .ed mark { padding: 0 1px; margin: 0; }
+:root[data-hls="gloss"] .ed mark { padding: 1px 5px; }
 .ed blockquote { margin: 6px 0; padding: 2px 0 2px 14px; border-left: 3px solid var(--yellow); color: var(--text-2); min-height: 1.5em; }
 .ed blockquote + blockquote { margin-top: -6px; padding-top: 0; }
 .ed hr { border: 0; height: 1.5px; background: var(--text-3); margin: 16px 0; }
@@ -389,12 +391,46 @@ h1, h2, h3, p { margin: 0; }
 .ed table::-webkit-scrollbar { display: none; }
 .ed tbody { display: table; width: 100%; border-collapse: separate; border-spacing: 0; }
 .ed td, .ed th {
-  min-width: 92px; padding: 8px 10px; vertical-align: top; text-align: left; font-size: 16px; line-height: 1.4;
-  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: anywhere; transition: background-color .15s;
+  min-width: 60px; padding: 8px 10px; vertical-align: top; text-align: left; font-size: 16px; line-height: 1.4;
+  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: break-word; transition: background-color .15s;
 }
 .ed tr > :last-child { border-right: 0; }
 .ed tr:last-child > * { border-bottom: 0; }
 .ed th { font-weight: 700; background: color-mix(in srgb, var(--yellow) 15%, var(--paper)); }
+/* Table settings: numbered rows (in a grey strip at the left), stripes, bold first column */
+.ed table.num tbody { counter-reset: tbrow; }
+.ed table.num td:first-child:not(.tk) { position: relative; padding-left: 40px; }
+.ed table.num td:first-child:not(.tk)::before {
+  counter-increment: tbrow; content: counter(tbrow); position: absolute; left: 0; top: 0; bottom: 0; width: 30px; padding-top: 10px;
+  text-align: center; font-size: 13px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; background: var(--fill-2);
+}
+.ed table.zebra tr:nth-child(even) > td { background-color: var(--fill-2); }
+.ed table.fc td:first-child { font-weight: 650; }
+/* Tick boxes: tap to tick; a ticked row fades and is crossed out */
+.ed td.tk { width: 52px; min-width: 52px; text-align: center; vertical-align: middle; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.ed td.tk::before { content: ""; display: inline-block; vertical-align: middle; width: 23px; height: 23px; border-radius: 50%; border: 1.6px solid var(--text-3); box-sizing: border-box; transition: background .15s, border-color .15s, transform .2s; }
+.ed td.tk.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
+.ed td.tk:active::before { transform: scale(.88); }
+.ed tr:has(> td.tk.done) > td:not(.tk) { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-3); }
+/* New Table sheet: layouts to start from, a live preview, size and settings */
+.tb-tpls { display: flex; gap: 8px; overflow-x: auto; margin: 4px -16px 12px; padding: 3px 16px 4px; scrollbar-width: none; }
+.tb-tpls::-webkit-scrollbar { display: none; }
+.tb-tpl { flex: none; width: 122px; display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--card); border-radius: 14px; padding: 10px 11px 12px; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .18s, transform .15s; }
+.tb-tpl.on { box-shadow: inset 0 0 0 2px var(--c); }
+.tb-tpl:active { transform: scale(.96); }
+.tb-tpl-ic { width: 30px; height: 30px; border-radius: 8px; background: var(--c); color: #fff; display: grid; place-items: center; margin-bottom: 6px; }
+.tb-tpl-ic .gl { width: 18px; height: 18px; stroke-width: 2.1; }
+.tb-tpl b { font-size: 15px; font-weight: 600; }
+.tb-tpl small { font-size: 12px; line-height: 1.3; color: var(--text-2); }
+.tb-prev-card { padding: 12px; }
+.ed.tb-prev { min-height: 0; padding: 0; pointer-events: none; }
+.tb-prev table { margin: 0; }
+.tb-prev td, .tb-prev th { min-width: 0; height: 34px; padding: 6px 9px; font-size: 13px; }
+.tb-prev td.tk { width: 44px; min-width: 44px; }
+.tb-prev table.num td:first-child:not(.tk)::before { width: 24px; padding-top: 8px; font-size: 11px; }
+.tb-prev table.num td:first-child:not(.tk) { padding-left: 30px; }
+.tb-more { text-align: center; font-size: 12px; color: var(--text-2); margin-top: 7px; }
+.tb-hint { font-size: 13px; color: var(--text-2); margin: 12px 8px 0; line-height: 1.4; }
 /* The table panel */
 .tbp {
   position: absolute; z-index: 7; left: 8px; right: 8px; bottom: calc(56px + env(safe-area-inset-bottom));
@@ -408,6 +444,8 @@ h1, h2, h3, p { margin: 0; }
 .tbp .fmt-group .gl { width: 15px; height: 15px; stroke-width: 2.4; }
 .tbp button.on { background: var(--yellow); color: #231A00; }
 .tbp [data-act="tb-del"], .tbp [data-v="del"] { color: var(--red); }
+.tbp .tbp-sets button { font-size: 13px; }
+.tbp-l:empty { visibility: hidden; }
 /* Undo / redo in the top bar while typing */
 .undo-btns { display: none; }
 .screen.editing .undo-btns { display: inline-flex; }

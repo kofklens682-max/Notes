@@ -27,6 +27,8 @@ function cleanBody(body) {
       if (tag === 'UL' && ch.classList.contains('cl')) keep.push(['class', 'cl']);
       if (tag === 'LI' && ch.classList.contains('done')) keep.push(['class', 'done']);
       if (tag === 'DIV' && ch.classList.contains('ph')) keep.push(['class', 'ph']);
+      if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
+      if (tag === 'TD' && ch.classList.contains('tk')) keep.push(['class', ch.classList.contains('done') ? 'tk done' : 'tk']);
       if (tag === 'MARK') keep.push(['class', HL.map((c) => 'hl-' + c).find((c) => ch.classList.contains(c)) || 'hl-y']);
       if (tag === 'IMG') {
         const id = ch.getAttribute('data-blob') || '';
@@ -101,8 +103,9 @@ SCREENS.note = {
       <div class="hlq hlsw" hidden>${hlSwatches()}</div>
       <div class="tbp" hidden>
         <div class="tbp-row"><span class="tbp-l">Row</span><div class="fmt-group">${fmtBtn('tb-row', 'above', `${glyph('plus')}Above`, 'Add a row above')}${fmtBtn('tb-row', 'below', `${glyph('plus')}Below`, 'Add a row below')}${fmtBtn('tb-row', 'del', `${glyph('minus')}Delete`, 'Delete this row')}</div></div>
-        <div class="tbp-row"><span class="tbp-l">Column</span><div class="fmt-group">${fmtBtn('tb-col', 'left', `${glyph('plus')}Left`, 'Add a column on the left')}${fmtBtn('tb-col', 'right', `${glyph('plus')}Right`, 'Add a column on the right')}${fmtBtn('tb-col', 'del', `${glyph('minus')}Delete`, 'Delete this column')}</div></div>
-        <div class="tbp-row"><div class="fmt-group">${fmtBtn('tb-head', 'h', 'Header row', 'Header row on or off')}${fmtBtn('tb-sort', 's', 'Sort A–Z', 'Sort the rows by this column')}${fmtBtn('tb-del', 'x', 'Delete table', 'Delete the table')}</div></div>
+        <div class="tbp-row"><span class="tbp-l">Column</span><div class="fmt-group">${fmtBtn('tb-col', 'left', `${glyph('plus')}Left`, 'Add a column on the left')}${fmtBtn('tb-col', 'right', `${glyph('plus')}Right`, 'Add a column on the right')}${fmtBtn('tb-tick', 't', `${glyph('check')}Ticks`, 'Tick boxes in this column')}${fmtBtn('tb-col', 'del', `${glyph('minus')}Delete`, 'Delete this column')}</div></div>
+        <div class="tbp-row"><span class="tbp-l">Table</span><div class="fmt-group tbp-sets">${fmtBtn('tb-set', 'header', 'Header', 'Header row')}${fmtBtn('tb-set', 'num', 'Numbers', 'Number the rows')}${fmtBtn('tb-set', 'zebra', 'Stripes', 'Striped rows')}${fmtBtn('tb-set', 'fc', 'Bold 1st', 'Bold first column')}</div></div>
+        <div class="tbp-row"><span class="tbp-l"></span><div class="fmt-group">${fmtBtn('tb-sort', 's', `${glyph('sort')}Sort A–Z`, 'Sort the rows by this column')}${fmtBtn('tb-del', 'x', `${glyph('trash')}Delete table`, 'Delete the table')}</div></div>
       </div>
       <div class="ed-bar">
         <button data-act="ed-fmt" class="ed-style" aria-label="Text style"><span class="aa">Aa</span><span class="st-name">Body</span></button>
@@ -226,7 +229,7 @@ function openBody(n, load) {
 }
 // Photos can't be typed into; fill in their pictures.
 function prepareEd() {
-  $$('.ph', ED.ed).forEach((p) => { p.contentEditable = 'false'; });
+  $$('.ph, td.tk', ED.ed).forEach((p) => { p.contentEditable = 'false'; });
   $$('.ph img', ED.ed).forEach(async (img) => {
     if (img.src) return;
     const url = await photoUrl(img.dataset.blob);
@@ -307,6 +310,8 @@ function caretLi() {
   return li && ED.ed.contains(li) ? li : null;
 }
 function checkboxHit(ev) {
+  const tk = ev.target.closest && ev.target.closest('td.tk'); // a tick box in a table
+  if (tk && ED.ed.contains(tk)) return tk;
   const li = ev.target.closest && ev.target.closest('li');
   if (!li || !ED.ed.contains(li) || !li.parentElement.classList.contains('cl')) return null;
   const x = ev.clientX - li.getBoundingClientRect().left;
