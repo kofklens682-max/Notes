@@ -104,15 +104,62 @@ function tableSheet() {
 function useTemplate(tp) {
   Object.assign(TB, { tpl: tp.id, cols: tp.heads.length, rows: tp.rows, heads: [...tp.heads], ticks: tp.ticks || [], header: 1, num: tp.num || 0, zebra: tp.zebra || 0, fc: tp.fc || 0 });
 }
-// A small picture of the table that will be made, drawn with the real table styles.
+// A small picture of the table that will be made, drawn with the real table styles. It stays on
+// the screen while you change things: switches only change its classes (so stripes, numbers and
+// bold fade in and out), and new rows/columns fade in.
+const tbPrevRows = () => Math.min(TB.rows, 4);
+function tablePreviewBody(oldRows = Infinity, oldCols = Infinity) {
+  const shown = tbPrevRows(), inn = (r, i) => (r >= oldRows || i >= oldCols ? ' in' : '');
+  let h = `<tr class="hd">${Array.from({ length: TB.cols }, (_, i) => `<th class="${inn(-1, i)}">${esc(TB.heads[i] || '')}</th>`).join('')}</tr>`;
+  for (let r = 0; r < shown; r++) h += `<tr>${Array.from({ length: TB.cols }, (_, i) => (TB.ticks.includes(i) ? `<td class="tk${r === 0 ? ' done' : ''}${inn(r, i)}"></td>` : `<td class="${inn(r, i)}"></td>`)).join('')}</tr>`;
+  return h;
+}
+const tbPrevClass = () => ['num', 'zebra', 'fc'].filter((k) => TB[k]).concat(TB.header ? [] : ['nohead']).join(' ');
+const tbMoreText = () => (TB.rows > tbPrevRows() ? `+ ${TB.rows - tbPrevRows()} more row${TB.rows - tbPrevRows() > 1 ? 's' : ''}` : '');
 function tablePreview() {
-  const cls = ['num', 'zebra', 'fc'].filter((k) => TB[k]).join(' ');
-  const shown = Math.min(TB.rows, 4);
-  let h = '';
-  if (TB.header) h += `<tr>${Array.from({ length: TB.cols }, (_, i) => `<th>${esc(TB.heads[i] || '')}</th>`).join('')}</tr>`;
-  for (let r = 0; r < shown; r++) h += `<tr>${Array.from({ length: TB.cols }, (_, i) => (TB.ticks.includes(i) ? `<td class="tk${r === 0 ? ' done' : ''}"></td>` : '<td></td>')).join('')}</tr>`;
-  return `<div class="ed tb-prev" aria-hidden="true"><table class="${cls}"><tbody>${h}</tbody></table></div>
-    ${TB.rows > shown ? `<div class="tb-more">+ ${TB.rows - shown} more row${TB.rows - shown > 1 ? 's' : ''}</div>` : ''}`;
+  return `<div class="ed tb-prev" aria-hidden="true"><table class="${tbPrevClass()}" data-cols="${TB.cols}" data-rows="${tbPrevRows()}" data-tpl="${TB.tpl}"><tbody>${tablePreviewBody()}</tbody></table></div>
+    <div class="tb-more">${tbMoreText()}</div>`;
+}
+// Change a box's content while its height glides from the old size to the new one.
+function smoothHeight(el, change) {
+  const h0 = el.getBoundingClientRect().height;
+  el.style.height = '';
+  el.style.transition = '';
+  change();
+  const h1 = el.getBoundingClientRect().height;
+  if (Math.abs(h1 - h0) < 1 || reduceMotion()) return;
+  el.style.height = h0 + 'px';
+  void el.offsetHeight;
+  el.style.transition = 'height .3s cubic-bezier(.2, .9, .3, 1)';
+  el.style.height = h1 + 'px';
+  clearTimeout(el._ht);
+  el._ht = setTimeout(() => { el.style.height = ''; el.style.transition = ''; }, 320);
+}
+// Bring the New Table sheet up to date without redrawing it.
+function syncTableSheet() {
+  const sh = sheet && sheet.sh;
+  if (!sh || !TB || !$('.tb-prev', sh)) return;
+  $$('.tb-tpl', sh).forEach((b) => b.classList.toggle('on', b.dataset.v === TB.tpl));
+  const setStep = (act, v, min, max) => {
+    const st = $(`[data-act="${act}"]`, sh).parentElement, num = $('b', st);
+    if (num.textContent !== String(v)) { num.textContent = v; num.classList.remove('bump'); void num.offsetWidth; num.classList.add('bump'); }
+    st.firstElementChild.disabled = v <= min;
+    st.lastElementChild.disabled = v >= max;
+  };
+  setStep('tbs-cols', TB.cols, 1, 6);
+  setStep('tbs-rows', TB.rows, 1, 30);
+  $$('.switch input[name^="tb-"]', sh).forEach((i) => { const on = !!TB[i.name.slice(3)]; if (i.checked !== on) i.checked = on; });
+  const card = $('.tb-prev-card', sh), t = $('.tb-prev table', sh);
+  smoothHeight(card, () => {
+    t.className = tbPrevClass();
+    const oc = +t.dataset.cols, or = +t.dataset.rows, swap = t.dataset.tpl !== TB.tpl;
+    if (swap || oc !== TB.cols || or !== tbPrevRows()) {
+      t.tBodies[0].innerHTML = swap ? tablePreviewBody() : tablePreviewBody(or, oc);
+      Object.assign(t.dataset, { cols: TB.cols, rows: tbPrevRows(), tpl: TB.tpl });
+      if (swap) { t.classList.remove('swap'); void t.offsetWidth; t.classList.add('swap'); }
+    }
+    $('.tb-more', sh).textContent = tbMoreText();
+  });
 }
 const tbStepper = (act, v, min, max) => `<div class="stepper"><button data-act="${act}" data-v="-1" ${v <= min ? 'disabled' : ''} aria-label="Fewer">${glyph('minus')}</button><b>${v}</b><button data-act="${act}" data-v="1" ${v >= max ? 'disabled' : ''} aria-label="More">${glyph('plus')}</button></div>`;
 const tbOption = (k, label, g, c, on) => `<div class="frow">${tile(g, c)}<span class="lbl">${label}</span>${toggle('tb-' + k, on, label)}</div>`;
@@ -136,21 +183,24 @@ function tableSheetHtml() {
 function mountTableSheet(sh) {
   const on = $('.tb-tpl.on', sh);
   if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  sh.addEventListener('change', (e) => {
+  sheetOn(sh, 'change', (e) => {
     const k = (e.target.name || '').replace(/^tb-/, '');
-    if (!(k in TB)) return;
+    if (!TB || !(k in TB)) return;
     TB[k] = e.target.checked ? 1 : 0;
-    redrawTableSheet();
+    syncTableSheet();
   });
 }
-const redrawTableSheet = () => refreshSheet(tableSheetHtml(), mountTableSheet);
-ACTIONS['tbs-tpl'] = (el) => { useTemplate(TABLE_TPLS.find((x) => x.id === el.dataset.v)); redrawTableSheet(); };
+ACTIONS['tbs-tpl'] = (el) => {
+  useTemplate(TABLE_TPLS.find((x) => x.id === el.dataset.v));
+  syncTableSheet();
+  el.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+};
 ACTIONS['tbs-cols'] = (el) => {
   TB.cols = clamp(TB.cols + +el.dataset.v, 1, 6);
   TB.ticks = TB.ticks.filter((i) => i < TB.cols);
-  redrawTableSheet();
+  syncTableSheet();
 };
-ACTIONS['tbs-rows'] = (el) => { TB.rows = clamp(TB.rows + +el.dataset.v, 1, 30); redrawTableSheet(); };
+ACTIONS['tbs-rows'] = (el) => { TB.rows = clamp(TB.rows + +el.dataset.v, 1, 30); syncTableSheet(); };
 ACTIONS['tbs-add'] = () => {
   const o = TB;
   closeSheet();

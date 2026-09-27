@@ -328,13 +328,13 @@ function taskSheetHtml() {
 function mountTaskSheet(sh) {
   const d = TS.d;
   const okBtn = $('[data-act="task-save"]', sh);
-  sh.addEventListener('input', (e) => {
+  sheetOn(sh, 'input', (e) => {
     const t = e.target;
     if (t.name === 'title') { d.title = t.value; okBtn.disabled = !t.value.trim(); }
     if (t.name === 'notes') d.notes = t.value;
     if (t.name === 'sub') { const s = d.subs.find((x) => x.id === t.dataset.sid); if (s) s.title = t.value; }
   });
-  sh.addEventListener('change', (e) => {
+  sheetOn(sh, 'change', (e) => {
     const t = e.target;
     if (t.name === 'hasDate') { d.due = t.checked ? d.due || todayIso() : null; if (!d.due) { d.time = null; d.repeat = null; d.deadline = false; } redrawTask(); }
     if (t.name === 'isDeadline') { d.deadline = t.checked; redrawTask(); }

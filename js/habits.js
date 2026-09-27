@@ -356,7 +356,7 @@ function sleepSheetHtml() {
     </div>`;
 }
 function mountSleepSheet(sh) {
-  sh.addEventListener('change', (e) => {
+  sheetOn(sh, 'change', (e) => {
     const t = e.target;
     if ((t.name === 'bed' || t.name === 'wake') && t.value) { SL[t.name] = t.value; $('.sl-dur', sh).textContent = `${durText(sleepMins(SL))} of sleep`; }
     if (t.name === 'day' && t.value && t.value <= todayIso()) {
@@ -421,7 +421,7 @@ function mountHabitSheet(sh) {
   const name = $('.hero-name', sh);
   name.addEventListener('input', () => { HS.name = name.value; $('[data-act="hs-save"]', sh).disabled = !HS.name.trim() || !HS.days.some(Boolean); });
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter') name.blur(); });
-  sh.addEventListener('change', (e) => {
+  sheetOn(sh, 'change', (e) => {
     if (e.target.name === 'hsSleep') { HS.kind = e.target.checked ? 'sleep' : 'check'; if (HS.kind === 'sleep') HS.target = 1; redrawHabit(); }
     if (e.target.name === 'hsRemind') { HS.remind = e.target.checked ? HS.remind || '20:00' : null; redrawHabit(); }
     if (e.target.name === 'hsTime' && e.target.value) { HS.remind = e.target.value; redrawHabit(); }

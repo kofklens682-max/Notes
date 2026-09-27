@@ -351,6 +351,8 @@ h1, h2, h3, p { margin: 0; }
 .fmt-group button + button { box-shadow: inset .5px 0 0 var(--sep); }
 .fmt-group .gl { width: 22px; height: 22px; }
 .fmt button.on { background: var(--yellow); color: #231A00; }
+.fmt button, .tbp button { transition: background-color .2s, color .2s, transform .12s; }
+.fmt button:active, .tbp button:active { transform: scale(.95); }
 /* Highlight swatches: "Aa" in each colour; the one in use gets a ring */
 .fmt-hl { flex: 3; }
 .fmt .fmt-hl button + button { box-shadow: none; }
@@ -375,18 +377,23 @@ h1, h2, h3, p { margin: 0; }
 .ed tbody { display: table; width: 100%; border-collapse: separate; border-spacing: 0; }
 .ed td, .ed th {
   min-width: 60px; padding: 8px 10px; vertical-align: top; text-align: left; font-size: 16px; line-height: 1.4;
-  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: break-word; transition: background-color .15s;
+  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: break-word;
+  transition: background-color .25s, color .2s, padding .3s cubic-bezier(.2, .9, .3, 1), font-weight .25s, box-shadow .15s;
 }
 .ed tr > :last-child { border-right: 0; }
 .ed tr:last-child > * { border-bottom: 0; }
 .ed th { font-weight: 700; background: color-mix(in srgb, var(--yellow) 15%, var(--paper)); }
-/* Table settings: numbered rows (in a grey strip at the left), stripes, bold first column */
-.ed table.num tbody { counter-reset: tbrow; }
-.ed table.num td:first-child:not(.tk) { position: relative; padding-left: 40px; }
-.ed table.num td:first-child:not(.tk)::before {
-  counter-increment: tbrow; content: counter(tbrow); position: absolute; left: 0; top: 0; bottom: 0; width: 30px; padding-top: 10px;
+/* Table settings: numbered rows (in a grey strip at the left), stripes, bold first column.
+   Every setting glides in and out: the number strip is always there, just 0 wide when it's off. */
+.ed tbody { counter-reset: tbrow; }
+.ed td:first-child:not(.tk) { position: relative; }
+.ed td:first-child:not(.tk)::before {
+  counter-increment: tbrow; content: counter(tbrow); position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; overflow: hidden; padding-top: 10px;
   text-align: center; font-size: 13px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; background: var(--fill-2);
+  transition: width .3s cubic-bezier(.2, .9, .3, 1), opacity .25s;
 }
+.ed table.num td:first-child:not(.tk) { padding-left: 40px; }
+.ed table.num td:first-child:not(.tk)::before { width: 30px; opacity: 1; }
 .ed table.zebra tr:nth-child(even) > td { background-color: var(--fill-2); }
 .ed table.fc td:first-child { font-weight: 650; }
 /* Tick boxes: tap to tick; a ticked row fades and is crossed out */
@@ -407,11 +414,27 @@ h1, h2, h3, p { margin: 0; }
 .tb-tpl small { font-size: 12px; line-height: 1.3; color: var(--text-2); }
 .tb-prev-card { padding: 12px; }
 .ed.tb-prev { min-height: 0; padding: 0; pointer-events: none; }
+.tb-prev-card { overflow: hidden; }
 .tb-prev table { margin: 0; }
 .tb-prev td, .tb-prev th { min-width: 0; height: 34px; padding: 6px 9px; font-size: 13px; }
 .tb-prev td.tk { width: 44px; min-width: 44px; }
-.tb-prev table.num td:first-child:not(.tk)::before { width: 24px; padding-top: 8px; font-size: 11px; }
+.tb-prev td:first-child:not(.tk)::before { padding-top: 8px; font-size: 11px; }
+.tb-prev table.num td:first-child:not(.tk)::before { width: 24px; }
 .tb-prev table.num td:first-child:not(.tk) { padding-left: 30px; }
+/* the header row folds away when it's switched off */
+.tb-prev tr.hd > th { transition: height .32s ease-in-out, padding .32s ease-in-out, font-size .32s ease-in-out, opacity .22s, border-color .32s; }
+.tb-prev table.nohead tr.hd > th { height: 0; padding-top: 0; padding-bottom: 0; font-size: 0; opacity: 0; border-bottom-color: transparent; }
+.tb-prev table.nohead tr.hd + tr > td { border-top: 0; }
+/* without the header row the stripes fall on the same rows as in the real table */
+.tb-prev table.zebra.nohead tr:nth-child(even) > td { background-color: transparent; }
+.tb-prev table.zebra.nohead tr:nth-child(odd):not(.hd) > td { background-color: var(--fill-2); }
+/* new rows and columns fade in; another layout cross-fades */
+.tb-prev .in { animation: tbIn .35s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes tbIn { from { opacity: 0; background-color: color-mix(in srgb, var(--yellow) 30%, transparent); } }
+.tb-prev table.swap { animation: tbSwap .3s ease-out; }
+@keyframes tbSwap { from { opacity: .15; transform: translateY(4px); } }
+.stepper b.bump { animation: bump .25s cubic-bezier(.2, .9, .3, 1); }
+@keyframes bump { 40% { transform: scale(1.25); } }
 .tb-more { text-align: center; font-size: 12px; color: var(--text-2); margin-top: 7px; }
 .tb-hint { font-size: 13px; color: var(--text-2); margin: 12px 8px 0; line-height: 1.4; }
 /* The table panel */
@@ -723,7 +746,8 @@ h1, h2, h3, p { margin: 0; }
 @keyframes seg-slide { from { transform: translateX(calc(var(--from) * 100%)); } }
 .seg.sliding .seg-thumb { transition: box-shadow .2s; box-shadow: 0 4px 12px rgba(0, 0, 0, .16); }
 .stepper { display: flex; align-items: center; gap: 12px; }
-.stepper button { width: 34px; height: 34px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; }
+.stepper button { width: 34px; height: 34px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; transition: opacity .2s, transform .12s; }
+.stepper button:active:not(:disabled) { transform: scale(.88); }
 .stepper button:disabled { opacity: .35; }
 .stepper .gl { width: 18px; height: 18px; stroke-width: 2.4; }
 .stepper b { min-width: 22px; text-align: center; font-size: 17px; }

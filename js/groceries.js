@@ -222,7 +222,7 @@ function gSheetHtml() {
     </div>`;
 }
 function mountGSheet(sh) {
-  sh.addEventListener('input', (e) => {
+  sheetOn(sh, 'input', (e) => {
     if (e.target.name === 'gname') { GS.name = e.target.value; $('[data-act="g-save"]', sh).disabled = !GS.name.trim(); }
     if (e.target.name === 'gqty') GS.qty = e.target.value;
   });

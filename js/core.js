@@ -593,8 +593,20 @@ let pendingReload = false;
 function sheetHead(title, left, right) {
   return `<div class="sheet-grab"><i></i></div><div class="sheet-head"><div class="l">${left || ''}</div><h3>${title}</h3><div class="r">${right || ''}</div></div>`;
 }
+// Listeners a sheet's mount() puts on the sheet element itself. That element is reused when
+// the sheet is redrawn, so they are all taken off before every mount — otherwise each redraw
+// adds another copy, every copy redraws again, and the sheet soon freezes.
+function sheetOn(sh, type, fn) {
+  (sh._ons || (sh._ons = [])).push([type, fn]);
+  sh.addEventListener(type, fn);
+}
+function sheetOff(sh) {
+  (sh._ons || []).forEach(([type, fn]) => sh.removeEventListener(type, fn));
+  sh._ons = [];
+}
 function openSheet(html, mount, cls = '') {
   if (sheet) {
+    sheetOff(sheet.sh);
     sheet.sh.innerHTML = html;
     sheet.sh.className = 'sheet show ' + cls;
     sheet.sh.classList.remove('swap');
@@ -621,11 +633,22 @@ function openSheet(html, mount, cls = '') {
 }
 function refreshSheet(html, mount) {
   if (!sheet) return;
-  const b = $('.sheet-body', sheet.sh), top = b ? b.scrollTop : 0;
-  sheet.sh.innerHTML = html;
-  if (mount) mount(sheet.sh);
-  const nb = $('.sheet-body', sheet.sh);
+  const sh = sheet.sh;
+  const b = $('.sheet-body', sh), top = b ? b.scrollTop : 0;
+  const was = {};
+  $$('.switch input[name]', sh).forEach((i) => { was[i.name] = i.checked; });
+  sheetOff(sh);
+  sh.innerHTML = html;
+  if (mount) mount(sh);
+  const nb = $('.sheet-body', sh);
   if (nb) nb.scrollTop = top;
+  // A switch that changed slides across instead of jumping: show it the old way for one frame.
+  const moved = $$('.switch input[name]', sh).filter((i) => i.name in was && was[i.name] !== i.checked);
+  if (moved.length) {
+    moved.forEach((i) => { i.checked = !i.checked; });
+    void sh.offsetWidth;
+    moved.forEach((i) => { i.checked = !i.checked; });
+  }
 }
 function closeSheet() { if (!sheet) return; closeSheetNow(); syncHistory(); }
 function closeSheetNow() {
