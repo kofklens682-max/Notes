@@ -1,11 +1,13 @@
 'use strict';
-/* The note editor: rich text (title/heading/body, bold…, lists), checklists, photos and voice
-   typing. The first line of a note is its title. Saves itself as you type. */
+/* The note editor: rich text (title/heading/body, bold…, lists, highlights, quotes, dividers),
+   checklists, photos and voice typing, with its own undo/redo. The first line of a note is its
+   title. Saves itself as you type. */
 
 let ED = null; // { el, ed, id, range, t, dirty, wasFocused }
 
 // ---------- Cleaning & reading note HTML ----------
-const KEEP_TAGS = new Set(['DIV', 'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'H1', 'H2', 'H3', 'UL', 'OL', 'LI', 'IMG']);
+const KEEP_TAGS = new Set(['DIV', 'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'H1', 'H2', 'H3', 'UL', 'OL', 'LI', 'IMG', 'MARK', 'BLOCKQUOTE', 'HR']);
+const HL = ['y', 'g', 'b', 'p']; // highlight colours: yellow, green, blue, pink (class hl-…)
 const DROP_TAGS = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'TEMPLATE', 'SVG', 'MATH', 'NOSCRIPT', 'CANVAS', 'VIDEO', 'AUDIO', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'FORM', 'TITLE', 'HEAD']);
 const parseBody = (html) => new DOMParser().parseFromString(`<!doctype html><body>${html}</body>`, 'text/html').body;
 // Only simple formatting survives: no styles, links, scripts or outside images. Cleans in place.
@@ -22,6 +24,7 @@ function cleanBody(body) {
       if (tag === 'UL' && ch.classList.contains('cl')) keep.push(['class', 'cl']);
       if (tag === 'LI' && ch.classList.contains('done')) keep.push(['class', 'done']);
       if (tag === 'DIV' && ch.classList.contains('ph')) keep.push(['class', 'ph']);
+      if (tag === 'MARK') keep.push(['class', HL.map((c) => 'hl-' + c).find((c) => ch.classList.contains(c)) || 'hl-y']);
       if (tag === 'IMG') {
         const id = ch.getAttribute('data-blob') || '';
         if (!/^[a-z0-9]{4,40}$/i.test(id)) { ch.remove(); continue; }
@@ -48,7 +51,7 @@ const cleanHtml = (html) => cleanBody(parseBody(html || '')).innerHTML;
 function infoOf(body) {
   const blobs = $$('img[data-blob]', body).map((i) => i.getAttribute('data-blob'));
   $$('br', body).forEach((b) => b.replaceWith('\n'));
-  $$('div, p, h1, h2, h3, li', body).forEach((b) => b.append('\n'));
+  $$('div, p, h1, h2, h3, li, blockquote', body).forEach((b) => b.append('\n'));
   const lines = body.textContent.replace(/ /g, ' ').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   return { title: (lines[0] || '').slice(0, 120), preview: lines.slice(1).join(' ').slice(0, 160), text: lines.join('\n'), blobs };
 }
@@ -74,7 +77,7 @@ SCREENS.note = {
   bar: false, plain: true, keep: true,
   render(e) {
     const n = noteOf(e.id);
-    const right = `<button class="ntext done-btn" data-act="ed-done">Done</button>${navBtn('note-menu', 'more', 'More')}`;
+    const right = `<span class="undo-btns">${navBtn('ed-undo', 'undo', 'Undo', 'disabled')}${navBtn('ed-redo', 'redo', 'Redo', 'disabled')}</span><button class="ntext done-btn" data-act="ed-done">Done</button>${navBtn('note-menu', 'more', 'More')}`;
     const body = `<div class="ed-date">${n ? `${n.locked ? glyph('lock', 'inl') : ''}${fullDate(n.edited)}` : ''}</div>
       <div class="ed" contenteditable="true" spellcheck="true" autocapitalize="sentences" role="textbox" aria-multiline="true" aria-label="Note"></div>`;
     const after = `
@@ -86,6 +89,10 @@ SCREENS.note = {
         <div class="fmt-row">
           <div class="fmt-group">${fmtBtn('ed-cmd', 'bold', '<b>B</b>', 'Bold')}${fmtBtn('ed-cmd', 'italic', '<i>I</i>', 'Italic')}${fmtBtn('ed-cmd', 'underline', '<u>U</u>', 'Underline')}${fmtBtn('ed-cmd', 'strikeThrough', '<s>S</s>', 'Strikethrough')}</div>
           <div class="fmt-group">${fmtBtn('ed-list', 'ul', glyph('listBullet'), 'Bulleted list')}${fmtBtn('ed-list', 'ol', glyph('listNum'), 'Numbered list')}${fmtBtn('ed-cmd', 'outdent', glyph('outdent'), 'Outdent')}${fmtBtn('ed-cmd', 'indent', glyph('indent'), 'Indent')}</div>
+        </div>
+        <div class="fmt-row">
+          <div class="fmt-group fmt-hl">${fmtBtn('ed-hl', '', '<i class="hl-none"></i>', 'No highlight')}${HL.map((c) => fmtBtn('ed-hl', c, `<i class="hl-${c}"></i>`, { y: 'Yellow', g: 'Green', b: 'Blue', p: 'Pink' }[c] + ' highlight')).join('')}</div>
+          <div class="fmt-group fmt-blk">${fmtBtn('ed-quote', 'q', glyph('quote'), 'Quote')}${fmtBtn('ed-hr', 'hr', glyph('divider'), 'Divider line')}</div>
         </div>
       </div>
       <div class="ed-bar">
@@ -109,11 +116,11 @@ SCREENS.note = {
 function mountEditor(el, e) {
   const n = noteOf(e.id);
   const ed = $('.ed', el);
-  ED = { el, ed, id: e.id, range: null, t: 0, dirty: false, wasFocused: false };
+  ED = { el, ed, id: e.id, range: null, t: 0, dirty: false, wasFocused: false, hist: [], hi: -1, ht: 0 };
   const me = ED;
   // Keep the keyboard open (and the selection) when tapping the toolbars.
   $$('.ed-bar, .fmt, .voice, .nav', el).forEach((b) => b.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input')) ev.preventDefault(); }));
-  ed.addEventListener('input', () => { queueSave(); });
+  ed.addEventListener('input', () => { queueSave(); histSoon(); });
   ed.addEventListener('focus', () => el.classList.add('editing'));
   ed.addEventListener('blur', () => { el.classList.remove('editing'); saveEditor(); });
   ed.addEventListener('paste', (ev) => {
@@ -121,17 +128,46 @@ function mountEditor(el, e) {
     const text = (ev.clipboardData || window.clipboardData).getData('text/plain');
     document.execCommand('insertText', false, text);
   });
-  ed.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') setTimeout(() => { const li = caretLi(); if (li && !li.textContent.trim()) li.classList.remove('done'); }, 0);
+  ed.addEventListener('beforeinput', (ev) => {
+    // A new line keeps the style you were writing in (Heading, Subheading); after the Title it
+    // becomes a Heading. The phone would otherwise switch back to Body. Change it with Aa.
+    if (ev.inputType === 'insertParagraph') { me.keepTag = caretStyle(); me.atStart = atLineStart(); }
+    // Backspace at the start of a checklist/bullet/number line removes only the circle (or
+    // bullet) and keeps the words. Some keyboards don't let us stop the normal Backspace; then
+    // it's undone right after (see 'input').
+    if (ev.inputType === 'deleteContentBackward') {
+      const li = liAtStart();
+      if (!li) return;
+      if (ev.cancelable) { ev.preventDefault(); histNow(); unlistAtCaret(li); afterCmd(); return; }
+      me.redoUnlist = { html: ed.innerHTML, path: pathOf(li) };
+    }
   });
-  // A new line keeps the style you were writing in (Title, Heading, Subheading) — the phone would
-  // otherwise switch back to Body. Change it with Aa.
-  ed.addEventListener('beforeinput', (ev) => { if (ev.inputType === 'insertParagraph') me.keepTag = caretStyle(); });
   ed.addEventListener('input', (ev) => {
-    if (ev.inputType !== 'insertParagraph' || !me.keepTag) return;
-    const tag = me.keepTag;
-    me.keepTag = null;
-    if (/^h[1-3]$/.test(tag) && caretStyle() !== tag && !caretLi()) { document.execCommand('formatBlock', false, tag); afterCmd(); }
+    if (me.redoUnlist) {
+      const { html, path } = me.redoUnlist;
+      me.redoUnlist = null;
+      ed.innerHTML = html;
+      const li = nodeAt(path);
+      if (li && li.tagName === 'LI') { unlistAtCaret(li); afterCmd(); }
+      return;
+    }
+    if (ev.inputType === 'insertParagraph') {
+      const tag = me.keepTag;
+      me.keepTag = null;
+      const li = caretLi();
+      if (li && !li.textContent.trim()) li.classList.remove('done'); // a new checklist line starts unticked
+      const want = tag === 'h1' ? 'h2' : tag;
+      // Enter at the start of a line only pushes it down: both lines keep their style.
+      if (/^h[1-3]$/.test(want) && caretStyle() !== want && !li && !me.atStart) { document.execCommand('formatBlock', false, want); afterCmd(); }
+      return;
+    }
+    if (ev.inputType === 'insertText' && / $/.test(ev.data || '')) quickList();
+    // An emptied note starts again with a Title.
+    if (!ed.textContent.trim() && !ed.querySelector('img, hr, li, h1')) {
+      ed.innerHTML = '<h1><br></h1>';
+      caretAt(ed.firstChild, 0);
+      styleLabel();
+    }
   });
   ed.addEventListener('pointerdown', (ev) => {
     if (checkboxHit(ev)) { ED.wasFocused = document.activeElement === ed; ev.preventDefault(); }
@@ -143,6 +179,7 @@ function mountEditor(el, e) {
       li.classList.toggle('done');
       buzz();
       queueSave();
+      histNow();
       if (!ED.wasFocused) ed.blur();
       return;
     }
@@ -153,6 +190,7 @@ function mountEditor(el, e) {
     if (ED !== me) return;
     ed.innerHTML = cleanHtml(html) || '<h1><br></h1>';
     prepareEd();
+    histNow();
     if (e.fresh) {
       delete e.fresh;
       ed.focus();
@@ -232,6 +270,7 @@ function restoreSel() {
   const sel = getSelection();
   if (ED.range && ed.contains(ED.range.startContainer)) { sel.removeAllRanges(); sel.addRange(ED.range); }
   else if (!sel.rangeCount || !ed.contains(sel.anchorNode)) caretToEnd(true);
+  histNow();
 }
 function caretToEnd(focus) {
   const ed = ED.ed;
@@ -261,26 +300,279 @@ function checkboxHit(ev) {
   const x = ev.clientX - li.getBoundingClientRect().left;
   return x >= -6 && x < 32 ? li : null;
 }
+// The phone sometimes wraps a new list in an extra line box; unwrap it so each list is a line of its own.
+function liftLists() {
+  const sel = getSelection();
+  const keep = sel.rangeCount ? [sel.anchorNode, sel.anchorOffset, sel.focusNode, sel.focusOffset] : null;
+  let moved = false;
+  for (const d of $$(':scope > div', ED.ed)) {
+    const els = [...d.children].filter((c) => c.tagName !== 'BR');
+    if (els.length !== 1 || !/^(UL|OL)$/.test(els[0].tagName) || d.textContent.trim() !== els[0].textContent.trim()) continue;
+    d.replaceWith(els[0]);
+    moved = true;
+  }
+  if (moved && keep && ED.ed.contains(keep[0])) { try { sel.setBaseAndExtent(...keep); } catch (e) { /* ignore */ } }
+}
 function afterCmd() {
+  liftLists();
   prepareEd();
   queueSave();
+  histNow();
   updateFmt();
   styleLabel();
   const sel = getSelection();
   if (sel.rangeCount && ED.ed.contains(sel.anchorNode)) ED.range = sel.getRangeAt(0).cloneRange();
 }
-// The style of the line the cursor is on: 'h1' Title, 'h2' Heading, 'h3' Subheading, 'div' Body.
+// The style of the line the cursor is on: 'h1' Title, 'h2' Heading, 'h3' Subheading, 'blockquote', 'div' Body.
 function caretStyle() {
   if (!ED) return 'div';
   const sel = getSelection();
   let n = sel.rangeCount ? sel.anchorNode : null;
   while (n && n !== ED.ed) {
-    if (n.nodeType === 1 && /^H[1-3]$/.test(n.tagName)) return n.tagName.toLowerCase();
+    if (n.nodeType === 1 && /^(H[1-3]|BLOCKQUOTE)$/.test(n.tagName)) return n.tagName.toLowerCase();
     n = n.parentNode;
   }
   return 'div';
 }
-const STYLE_NAMES = { h1: 'Title', h2: 'Heading', h3: 'Subheading', div: 'Body' };
+const STYLE_NAMES = { h1: 'Title', h2: 'Heading', h3: 'Subheading', blockquote: 'Quote', div: 'Body' };
+
+// ---------- List lines ----------
+const caretAt = (node, off) => {
+  const r = document.createRange();
+  r.setStart(node, off);
+  r.collapse(true);
+  const sel = getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+  ED.range = r.cloneRange();
+};
+// Is the cursor at the very start of its line (with words after it)?
+function atLineStart() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return false;
+  const b = caretLi() || topBlock(sel.anchorNode);
+  if (!b || !b.textContent.trim()) return false;
+  const r = document.createRange();
+  r.selectNodeContents(b);
+  r.setEnd(sel.anchorNode, sel.anchorOffset);
+  return r.toString() === '';
+}
+// The list line whose very start the cursor is at (for Backspace), or null.
+function liAtStart() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return null;
+  const li = caretLi();
+  if (!li) return null;
+  const r = document.createRange();
+  r.selectNodeContents(li);
+  r.setEnd(sel.anchorNode, sel.anchorOffset);
+  return r.toString() === '' && !r.cloneContents().querySelector('img') ? li : null;
+}
+// Is this list line indented (inside another list)?
+const indented = (li) => !!li.parentElement.parentElement.closest('ul, ol, li');
+// Take one line out of its list — the words stay, the circle/bullet/number goes. The list is
+// split around it. An indented line is first moved all the way left. Returns the new line.
+function unlistLi(li, tag = 'div') {
+  for (let i = 0; i < 4 && indented(li); i++) {
+    caretAt(li, 0);
+    document.execCommand('outdent', false, null);
+    li = caretLi();
+    if (!li) return null;
+  }
+  const list = li.parentElement;
+  const line = document.createElement(tag);
+  while (li.firstChild) line.appendChild(li.firstChild);
+  $$('h1, h2, h3, div, p, blockquote', line).forEach((x) => x.replaceWith(...x.childNodes));
+  if (!line.textContent && !line.querySelector('br')) line.innerHTML = '<br>';
+  const rest = document.createElement(list.tagName);
+  if (list.className) rest.className = list.className;
+  while (li.nextSibling) rest.appendChild(li.nextSibling);
+  li.remove();
+  list.after(line);
+  if (rest.childNodes.length) line.after(rest);
+  if (!list.children.length) list.remove();
+  return line;
+}
+// Backspace at the start of a list line: an indented line moves one step left, otherwise it
+// leaves the list.
+function unlistAtCaret(li) {
+  if (indented(li)) { caretAt(li, 0); document.execCommand('outdent', false, null); return; }
+  const line = unlistLi(li);
+  if (line) caretAt(line, 0);
+}
+// The list lines touched by the selection (not the ones inside another list line).
+function selectedLis() {
+  const sel = getSelection();
+  if (!sel.rangeCount) return [];
+  const r = sel.getRangeAt(0), one = caretLi();
+  if (r.collapsed) return one ? [one] : [];
+  return $$('li', ED.ed).filter((li) => r.intersectsNode(li) && !li.parentElement.closest('li'));
+}
+// Turn the selected list lines into ordinary lines of the given style, keeping the cursor where it was.
+function unlistSelected(tag) {
+  const sel = getSelection(), r = sel.getRangeAt(0);
+  const a = [r.startContainer, r.startOffset], b = [r.endContainer, r.endOffset];
+  selectedLis().forEach((li) => unlistLi(li, tag));
+  try {
+    const nr = document.createRange();
+    nr.setStart(a[0], a[1]);
+    nr.setEnd(b[0], b[1]);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+  } catch (e) { /* the cursor's line moved; leave it */ }
+}
+// Typing "- ", "1. " or "[] " at the start of a line turns it into a list / numbered list / checklist.
+const QUICK_LISTS = { '- ': 'ul', '* ': 'ul', '• ': 'ul', '1. ': 'ol', '[] ': 'cl', '[ ] ': 'cl' };
+function quickList() {
+  const sel = getSelection();
+  if (!sel.rangeCount || caretLi()) return;
+  const block = topBlock(sel.anchorNode);
+  if (!block || !/^(DIV|P)$/.test(block.tagName) || block.classList.contains('ph')) return;
+  const r = document.createRange();
+  r.selectNodeContents(block);
+  r.setEnd(sel.anchorNode, sel.anchorOffset);
+  const kind = QUICK_LISTS[r.toString().replace(/ /g, ' ')];
+  if (!kind) return;
+  r.deleteContents();
+  if (!block.textContent && !block.querySelector('br')) block.innerHTML = '<br>';
+  caretAt(block, 0);
+  document.execCommand(kind === 'ol' ? 'insertOrderedList' : 'insertUnorderedList', false, null);
+  if (kind === 'cl') { const li = caretLi(); if (li) li.parentElement.classList.add('cl'); }
+  afterCmd();
+}
+
+// ---------- Undo / redo ----------
+// Our own history of the note (the phone's undo can't follow the toolbar's changes): one step per
+// pause in typing, and one per button.
+const pathOf = (node) => {
+  const p = [];
+  while (node && node !== ED.ed) {
+    if (!node.parentNode) return null;
+    p.unshift([...node.parentNode.childNodes].indexOf(node));
+    node = node.parentNode;
+  }
+  return node ? p : null;
+};
+const nodeAt = (p) => (p || []).reduce((n, i) => n && n.childNodes[i], ED.ed);
+function histSoon() {
+  if (!ED) return;
+  clearTimeout(ED.ht);
+  ED.ht = setTimeout(histNow, 700);
+}
+function histNow() {
+  if (!ED) return;
+  clearTimeout(ED.ht);
+  const html = ED.ed.innerHTML, top = ED.hist[ED.hi];
+  const sel = getSelection();
+  const where = sel.rangeCount && ED.ed.contains(sel.focusNode) ? { p: pathOf(sel.focusNode), o: sel.focusOffset } : null;
+  if (top && top.html === html) { if (where) top.where = where; return; }
+  ED.hist.length = ED.hi + 1;
+  ED.hist.push({ html, where });
+  if (ED.hist.length > 150) ED.hist.shift();
+  ED.hi = ED.hist.length - 1;
+  undoButtons();
+}
+function histGo(step) {
+  histNow();
+  const i = ED.hi + step, h = ED.hist[i];
+  if (!h) return;
+  ED.hi = i;
+  ED.ed.innerHTML = h.html;
+  prepareEd();
+  const n = h.where && nodeAt(h.where.p);
+  if (n) { try { caretAt(n, Math.min(h.where.o, n.nodeType === 3 ? n.length : n.childNodes.length)); } catch (e) { /* ignore */ } }
+  queueSave();
+  updateFmt();
+  styleLabel();
+  undoButtons();
+}
+function undoButtons() {
+  if (!ED) return;
+  const u = $('[data-act="ed-undo"]', ED.el), r = $('[data-act="ed-redo"]', ED.el);
+  if (u) u.disabled = ED.hi <= 0;
+  if (r) r.disabled = ED.hi >= ED.hist.length - 1;
+}
+ACTIONS['ed-undo'] = () => { if (ED) { restoreSel(); histGo(-1); } };
+ACTIONS['ed-redo'] = () => { if (ED) { restoreSel(); histGo(1); } };
+
+// ---------- Highlights, quotes, divider lines ----------
+// Colour the selected words (cls 'hl-y'…) or clear them (''). With no selection it changes or
+// clears the highlight the cursor is in.
+function highlight(cls) {
+  const sel = getSelection();
+  if (!sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  if (!ED.ed.contains(r.commonAncestorContainer)) return;
+  const markOf = (n) => { const m = (n.nodeType === 3 ? n.parentElement : n).closest('mark'); return m && ED.ed.contains(m) ? m : null; };
+  if (r.collapsed) {
+    const m = markOf(r.startContainer);
+    if (!m) { toast('Select some words first, then pick a colour'); return; }
+    if (cls) m.className = cls;
+    else m.replaceWith(...m.childNodes);
+    return;
+  }
+  let sc = r.startContainer, so = r.startOffset, ec = r.endContainer, eo = r.endOffset;
+  if (ec.nodeType === 3 && eo > 0 && eo < ec.length) ec.splitText(eo);
+  if (sc.nodeType === 3 && so > 0 && so < sc.length) {
+    const tail = sc.splitText(so);
+    if (ec === sc) { ec = tail; eo -= so; }
+    sc = tail;
+    so = 0;
+  }
+  const range = document.createRange();
+  range.setStart(sc, so);
+  range.setEnd(ec, eo);
+  const texts = [];
+  const tw = document.createTreeWalker(ED.ed, NodeFilter.SHOW_TEXT);
+  for (let t = tw.nextNode(); t; t = tw.nextNode()) {
+    if (!t.length || t.parentElement.closest('.ph')) continue;
+    if (t.parentNode === ED.ed || /^(UL|OL)$/.test(t.parentNode.tagName)) continue; // spaces between lines
+    if (range.comparePoint(t, 0) === 0 && range.comparePoint(t, t.length) === 0) texts.push(t);
+  }
+  if (!texts.length) return;
+  const inside = new Set(texts);
+  const wrap = (t, c) => { const m = document.createElement('mark'); m.className = c; t.before(m); m.appendChild(t); };
+  // Old highlights under the selection come off; their parts outside it keep their colour.
+  for (const m of new Set(texts.map(markOf).filter(Boolean))) {
+    const c = m.className, keep = [];
+    const w = document.createTreeWalker(m, NodeFilter.SHOW_TEXT);
+    for (let t = w.nextNode(); t; t = w.nextNode()) if (!inside.has(t) && t.length) keep.push(t);
+    m.replaceWith(...m.childNodes);
+    keep.forEach((t) => wrap(t, c));
+  }
+  if (cls) texts.forEach((t) => wrap(t, cls));
+  $$('mark', ED.ed).forEach((m) => {
+    let nx = m.nextSibling;
+    while (nx && nx.nodeName === 'MARK' && nx.className === m.className) { m.append(...nx.childNodes); nx.remove(); nx = m.nextSibling; }
+  });
+  const last = texts[texts.length - 1], nr = document.createRange();
+  nr.setStart(texts[0], 0);
+  nr.setEnd(last, last.length);
+  sel.removeAllRanges();
+  sel.addRange(nr);
+}
+ACTIONS['ed-hl'] = (el) => {
+  restoreSel();
+  highlight(el.dataset.v ? 'hl-' + el.dataset.v : '');
+  afterCmd();
+};
+ACTIONS['ed-quote'] = () => {
+  restoreSel();
+  if (caretStyle() === 'blockquote') document.execCommand('formatBlock', false, 'div');
+  else if (selectedLis().length) unlistSelected('blockquote');
+  else document.execCommand('formatBlock', false, 'blockquote');
+  afterCmd();
+};
+ACTIONS['ed-hr'] = () => {
+  restoreSel();
+  const li = caretLi(), line = li && unlistLi(li);
+  if (line) caretAt(line, line.childNodes.length);
+  const sel = getSelection();
+  if (sel.rangeCount) ED.range = sel.getRangeAt(0).cloneRange();
+  insertBlock(document.createElement('hr'));
+  caretAt(ED.range.startContainer, ED.range.startOffset);
+  afterCmd();
+};
 // The toolbar's Aa button names the style you're writing in.
 function styleLabel() {
   if (!ED) return;
@@ -301,7 +593,9 @@ ACTIONS['ed-fmt'] = () => {
 };
 ACTIONS['ed-block'] = (el) => {
   restoreSel();
-  document.execCommand('formatBlock', false, el.dataset.v);
+  // On a checklist/list line the style takes the line out of the list.
+  if (selectedLis().length) unlistSelected(el.dataset.v);
+  else document.execCommand('formatBlock', false, el.dataset.v);
   afterCmd();
 };
 ACTIONS['ed-cmd'] = (el) => {
@@ -319,7 +613,7 @@ ACTIONS['ed-list'] = (el) => {
 ACTIONS['ed-check'] = () => {
   restoreSel();
   const li = caretLi(), list = li && li.parentElement;
-  if (list && list.tagName === 'UL' && list.classList.contains('cl')) document.execCommand('insertUnorderedList', false, null);
+  if (list && list.tagName === 'UL' && list.classList.contains('cl')) unlistSelected('div'); // only these lines lose their circles
   else if (list && list.tagName === 'UL') list.classList.add('cl');
   else {
     if (list && list.tagName === 'OL') document.execCommand('insertOrderedList', false, null);
@@ -333,9 +627,13 @@ function updateFmt() {
   if (!ED) return;
   const f = $('.fmt', ED.el);
   if (!f || f.hidden) return;
-  let block = '';
-  try { block = String(document.queryCommandValue('formatBlock') || '').toLowerCase(); } catch (e) { /* ignore */ }
-  $$('[data-act="ed-block"]', f).forEach((b) => b.classList.toggle('on', b.dataset.v === block || (b.dataset.v === 'div' && !/^h[1-3]$/.test(block))));
+  const st = caretStyle();
+  $$('[data-act="ed-block"]', f).forEach((b) => b.classList.toggle('on', b.dataset.v === st));
+  $('[data-act="ed-quote"]', f).classList.toggle('on', st === 'blockquote');
+  const sel = getSelection();
+  const a = sel.rangeCount ? sel.anchorNode : null, m = a && (a.nodeType === 3 ? a.parentElement : a).closest('mark');
+  const hl = m && ED.ed.contains(m) ? m.className.replace('hl-', '') : null;
+  $$('[data-act="ed-hl"]', f).forEach((b) => b.classList.toggle('on', hl !== null && b.dataset.v === hl));
   $$('[data-act="ed-cmd"]', f).forEach((b) => {
     if (b.dataset.v === 'indent' || b.dataset.v === 'outdent') return;
     let on = false;
@@ -442,7 +740,7 @@ async function addPhotos(files) {
 function insertBlock(node) {
   const ed = ED.ed, r = ED.range;
   const block = r && ed.contains(r.startContainer) ? topBlock(r.startContainer) : null;
-  const emptyLine = (b) => b && !b.classList.contains('ph') && !b.textContent.trim() && !b.querySelector('img');
+  const emptyLine = (b) => b && !b.classList.contains('ph') && b.tagName !== 'HR' && !b.textContent.trim() && !b.querySelector('img');
   if (block && emptyLine(block)) block.replaceWith(node);
   else if (block) block.after(node);
   else ed.appendChild(node);
