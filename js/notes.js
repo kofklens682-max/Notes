@@ -114,6 +114,7 @@ SCREENS.folders = {
     });
   },
   mount(el, e) { bindSearch(el, e); bindQuickNote(el, e); fillPhotos(el); watchMoreNotes(el, e); },
+  sig: () => S.notes.map((n) => n.id + n.edited + (n.pinned ? 'p' : '') + n.folder + (n.locked ? 'l' : '') + n.blobs.length).join() + '|' + JSON.stringify(S.folders) + '|' + (S.settings.noteSort || '') + '|' + (S.settings.lastBackup || ''),
   fab: () => ({ g: 'compose', act: 'new-note', label: 'New note' }),
 };
 function bindSearch(el, e) {
@@ -137,10 +138,32 @@ function watchMoreNotes(el, e) {
   el._moreObs = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) moreNotes(el, e); }, { root: scr, rootMargin: '0px 0px 800px 0px' });
   el._moreObs.observe(b);
 }
+// The next cards are added under the ones already there, a few per frame, so scrolling never
+// stops while they appear (the grid is not drawn again).
 function moreNotes(el, e) {
   if (e.q && e.q.trim()) return;
-  e.limit = (e.limit || NOTES_PAGE) + NOTES_PAGE;
-  showResults(el, e);
+  const from = e.limit || NOTES_PAGE;
+  e.limit = from + NOTES_PAGE;
+  const list = sortNotes(notesIn(e.folder)), rest = list.filter((n) => !n.pinned);
+  const pins = list.length - rest.length, grids = $$('.results .ngrid', el), btn = $('.more-notes', el);
+  const grid = grids[grids.length - 1];
+  if (!grid || from <= pins || !btn) { showResults(el, e); return; }
+  if (el._moreObs) el._moreObs.disconnect();
+  const add = rest.slice(from - pins, e.limit - pins);
+  let i = 0;
+  const step = () => {
+    if (!el.isConnected || !grid.isConnected) return;
+    const part = add.slice(i, i + 12);
+    i += part.length;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = part.map((n) => noteCard(n, e.folder === 'all')).join('');
+    fillPhotos(tmp);
+    grid.append(...tmp.children);
+    if (i < add.length) { requestAnimationFrame(step); return; }
+    if (list.length > e.limit) watchMoreNotes(el, e);
+    else btn.remove();
+  };
+  requestAnimationFrame(step);
 }
 ACTIONS['more-notes'] = (b) => { const el = b.closest('.screen'); if (el) moreNotes(el, cur()); };
 ACTIONS['pick-folder'] = (b) => {

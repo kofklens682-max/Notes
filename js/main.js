@@ -40,6 +40,7 @@ function openLink(p) {
   const p = new URLSearchParams(location.search);
   history.replaceState({ n: 0 }, '', location.search ? location.pathname : undefined);
   show();
+  setTimeout(prewarm, 1200);
   document.body.classList.remove('snap');
   document.body.classList.add('ready');
   setTimeout(() => wakeBodies(), 400);

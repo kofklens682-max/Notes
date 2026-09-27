@@ -20,22 +20,30 @@ function scheduleText(h) {
   if (d === '0000011') return 'Weekends';
   return WK3.filter((_, i) => h.days[i]).join(', ');
 }
+// Worked out once per habit until something changes (a year of days is a lot to walk through on
+// every screen). Walks the days with one Date instead of turning text into dates each step.
+const streakMemo = new Map();
 function streaks(h) {
-  const today = todayIso();
-  let cur = 0, d = habitDone(h, today) ? today : isoAdd(today, -1), guard = 0;
-  while (d >= h.start && guard++ < 4000) {
-    if (habitOn(h, d)) { if (habitDone(h, d)) cur++; else break; }
-    d = isoAdd(d, -1);
+  const today = todayIso(), key = S.rev + '|' + today;
+  const hit = streakMemo.get(h.id);
+  if (hit && hit.key === key) return hit.v;
+  const planned = (dt) => !!(h.days && h.days[(dt.getDay() + 6) % 7]);
+  let cur = 0, guard = 0;
+  const dt = parseD(habitDone(h, today) ? today : isoAdd(today, -1));
+  for (let d = iso(dt); d >= h.start && guard++ < 4000; dt.setDate(dt.getDate() - 1), d = iso(dt)) {
+    if (planned(dt)) { if (habitDone(h, d)) cur++; else break; }
   }
   let best = 0, run = 0;
-  d = h.start; guard = 0;
-  while (d <= today && guard++ < 4000) {
-    if (habitOn(h, d)) {
+  guard = 0;
+  const f = parseD(h.start);
+  for (let d = iso(f); d <= today && guard++ < 4000; f.setDate(f.getDate() + 1), d = iso(f)) {
+    if (planned(f)) {
       if (habitDone(h, d)) { run++; best = Math.max(best, run); } else if (d !== today) run = 0;
     }
-    d = isoAdd(d, 1);
   }
-  return { cur, best };
+  const v = { cur, best };
+  streakMemo.set(h.id, { key, v });
+  return v;
 }
 // Share of scheduled days done in the last `n` days (today counts only once it's done).
 function rate(h, n = 30) {

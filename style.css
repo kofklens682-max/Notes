@@ -18,8 +18,8 @@
   --text-2: rgba(60, 60, 67, .62);
   --text-3: rgba(60, 60, 67, .3);
   --sep: rgba(60, 60, 67, .22);
-  --bar: rgba(249, 249, 250, .86);
-  --menu: rgba(250, 250, 250, .94);
+  --bar: rgb(249, 249, 250); /* solid bars: a live blur behind them made scrolling stutter on phones */
+  --menu: rgb(250, 250, 250);
   --overlay: rgba(0, 0, 0, .3);
   --red: #FF3B30;
   --orange: #FF9500;
@@ -48,8 +48,8 @@
     --text-2: rgba(235, 235, 245, .6);
     --text-3: rgba(235, 235, 245, .3);
     --sep: rgba(84, 84, 88, .65);
-    --bar: rgba(22, 22, 24, .84);
-    --menu: rgba(40, 40, 42, .94);
+    --bar: rgb(22, 22, 24);
+    --menu: rgb(40, 40, 42);
     --overlay: rgba(0, 0, 0, .55);
     --red: #FF453A;
     --orange: #FF9F0A;
@@ -74,8 +74,8 @@
   --text-2: rgba(235, 235, 245, .6);
   --text-3: rgba(235, 235, 245, .3);
   --sep: rgba(84, 84, 88, .65);
-  --bar: rgba(22, 22, 24, .84);
-  --menu: rgba(40, 40, 42, .94);
+  --bar: rgb(22, 22, 24);
+  --menu: rgb(40, 40, 42);
   --overlay: rgba(0, 0, 0, .55);
   --red: #FF453A;
   --orange: #FF9F0A;
@@ -119,14 +119,16 @@ h1, h2, h3, p { margin: 0; }
 .screen { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
 .screen[data-s="note"] { background: var(--paper); }
 .screen:not(.cur) { pointer-events: none; }
+/* a screen kept for later (see show() in core.js): laid out and ready, but not drawn */
+.screen.held { visibility: hidden; contain: strict; }
 .nav {
   position: absolute; z-index: 5; top: 0; left: 0; right: 0;
   height: calc(env(safe-area-inset-top) + 52px); padding: env(safe-area-inset-top) 6px 0;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   transition: background .2s, box-shadow .2s;
 }
-.screen.scrolled .nav { background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 .5px 0 var(--sep); }
-.screen[data-s="note"].scrolled .nav { background: color-mix(in srgb, var(--paper) 88%, transparent); }
+.screen.scrolled .nav { background: var(--bar); box-shadow: 0 .5px 0 var(--sep); }
+.screen[data-s="note"].scrolled .nav { background: var(--paper); }
 .nav-l, .nav-r { display: flex; align-items: center; min-width: 0; }
 .nav-r { justify-content: flex-end; gap: 2px; }
 .nav-t { font-size: 17px; font-weight: 600; opacity: 0; transition: opacity .2s; max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
@@ -169,6 +171,9 @@ h1, h2, h3, p { margin: 0; }
 @keyframes pop-out { to { transform: translateX(100%); } }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
+/* a row that was just added fades in where it belongs (see animateChange in core.js) */
+.appear { animation: appear .4s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes appear { from { opacity: 0; transform: translateY(-8px) scale(.97); } }
 
 /* ---------- Lists & cards ---------- */
 .card { background: var(--card); border-radius: 12px; overflow: hidden; --inset: 16px; }
@@ -323,7 +328,7 @@ h1, h2, h3, p { margin: 0; }
   position: absolute; z-index: 6; left: 0; right: 0; bottom: 0;
   display: flex; justify-content: space-around; align-items: center;
   height: calc(50px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
-  background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  background: var(--bar);
   box-shadow: 0 -.5px 0 var(--sep);
 }
 .ed-bar button { width: 48px; height: 44px; display: grid; place-items: center; color: var(--tint); border-radius: 10px; }
@@ -793,7 +798,7 @@ h1, h2, h3, p { margin: 0; }
 .tabbar.hide, body.kb .tabbar { transform: translate(-50%, 150%); opacity: 0; pointer-events: none; }
 .tabs {
   position: relative; flex: 1; height: 60px; display: flex; padding: 5px; border-radius: 30px;
-  background: var(--bar); -webkit-backdrop-filter: saturate(180%) blur(22px); backdrop-filter: saturate(180%) blur(22px);
+  background: var(--bar);
   box-shadow: 0 10px 30px rgba(0, 0, 0, .14), 0 1px 3px rgba(0, 0, 0, .06), inset 0 0 0 .5px var(--sep);
 }
 .tab-ind {
@@ -829,7 +834,6 @@ h1, h2, h3, p { margin: 0; }
 .menu-wrap { position: fixed; inset: 0; z-index: 70; }
 .menu {
   position: absolute; min-width: 240px; max-width: calc(100% - 16px); background: var(--menu);
-  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
   border-radius: 14px; overflow: hidden; box-shadow: 0 12px 44px rgba(0, 0, 0, .2), 0 0 0 .5px var(--sep);
   transform: scale(.5); opacity: 0; transition: transform .28s cubic-bezier(.3, 1.25, .5, 1), opacity .16s;
 }

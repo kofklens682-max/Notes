@@ -242,6 +242,10 @@ function paint(el, e) {
   }
   if (sc.mount && !el._broken) { try { sc.mount(el, e); } catch (err) { console.error(err); } }
   el._broken = false;
+  el._rev = S.rev; // what the screen was drawn from (see show: kept screens)
+  el._sig = sc.sig ? sc.sig(e) : null;
+  el._day = todayIso();
+  el._t = Date.now();
 }
 function navState(el) {
   const scr = el._scr, y = scr ? scr.scrollTop : 0;
@@ -251,29 +255,131 @@ function navState(el) {
   if (el.classList.contains('titled') !== titled) el.classList.toggle('titled', titled);
 }
 window.addEventListener('resize', () => { const el = curEl(); if (el) { el._th = null; navState(el); } });
+// Screens you can come back to (the one under the top screen, the other tab's screen) stay built
+// but hidden, instead of being thrown away and drawn again: going back or switching tabs shows them
+// at once. If anything changed meanwhile, the screen is redrawn quietly after it has slid in.
+const kept = new WeakMap(); // stack entry → its screen element
+const KEEP_FRESH_MS = 60000; // screens with times on them are redrawn when older than this
+const inStacks = (e) => Object.values(UI.stacks).some((st) => st.includes(e));
+const keepable = (e) => !!SCREENS[e.s] && !SCREENS[e.s].keep; // not the note editor
+const ANIMS = ['push-in', 'push-out', 'pop-in', 'pop-out', 'tabr-in', 'tabr-out', 'tabl-in', 'tabl-out', 'fade-in', 'fade-out'];
+function holdScreen(el) {
+  el.classList.remove('cur', ...ANIMS);
+  el.classList.add('held');
+  el.setAttribute('aria-hidden', 'true');
+  el.inert = true;
+}
+// A screen with sig() (what it shows, in short) is out of date only when that changes — ticking a
+// reminder doesn't make the Notes screen draw itself again.
+function isStale(el) {
+  const sc = SCREENS[el.dataset.s];
+  if (el._day !== todayIso()) return true;
+  if (sc && sc.sig) return el._sig !== sc.sig(el._e) || Date.now() - el._t > 10 * KEEP_FRESH_MS;
+  return el._rev !== S.rev || Date.now() - el._t > KEEP_FRESH_MS;
+}
 function show(dir) {
   const stage = $('#stage');
   const old = curEl();
   const e = cur();
-  const el = document.createElement('section');
-  el.className = 'screen cur';
-  el.dataset.s = e.s;
-  stage.appendChild(el); // on the page first, so the screen can focus a field when it mounts
-  paint(el, e);
-  const scr = $('.scroll', el);
-  if (scr && e.y) scr.scrollTop = e.y;
+  let el = kept.get(e), stale = false;
+  if (el && el.isConnected && el !== old) {
+    el.classList.remove('held', ...ANIMS);
+    el.removeAttribute('aria-hidden');
+    el.inert = false;
+    el.classList.add('cur');
+    stale = isStale(el);
+  } else {
+    el = document.createElement('section');
+    el.className = 'screen cur';
+    el.dataset.s = e.s;
+    stage.appendChild(el); // on the page first, so the screen can focus a field when it mounts
+    paint(el, e);
+    const scr = $('.scroll', el);
+    if (scr && e.y) scr.scrollTop = e.y;
+  }
+  el._e = e;
+  if (keepable(e)) kept.set(e, el);
   navState(el);
+  const anim = !!(old && dir && !reduceMotion());
   if (old) {
     old.classList.remove('cur');
     old.setAttribute('aria-hidden', 'true');
     old.inert = true;
-    if (dir && !reduceMotion()) {
+    // Still somewhere in a stack (we went deeper, or to the other tab)? Keep it for later.
+    const later = () => { if (old._e && keepable(old._e) && inStacks(old._e) && old !== curEl()) holdScreen(old); else if (old !== curEl()) old.remove(); };
+    if (anim) {
       el.classList.add(dir + '-in');
       old.classList.add(dir + '-out');
-      setTimeout(() => { old.remove(); el.classList.remove(dir + '-in'); }, 380);
-    } else old.remove();
+      setTimeout(() => { later(); el.classList.remove(dir + '-in'); }, 380);
+    } else later();
   }
   chrome();
+  if (stale) setTimeout(() => { if (curEl() === el && cur() === e) repaint(el, e); }, anim ? 400 : 0);
+}
+// Draw a screen again where it is, keeping its scroll position.
+function repaint(el, e) {
+  animateChange(el, () => {
+    const scr = $('.scroll', el), y = scr ? scr.scrollTop : 0;
+    paint(el, e);
+    const s2 = $('.scroll', el);
+    if (s2) s2.scrollTop = y;
+  });
+  navState(el);
+  chrome();
+}
+// Run `change` (which redraws part of the page) so that nothing jumps: every row still there
+// slides from where it was to where it is now, and a newly added row (up to a few) fades in.
+// Only rows on the screen are measured.
+const ROW_BOX = '.sw, .ncard, .row, [data-gid]';
+function animateChange(root, change) {
+  if (!root || reduceMotion()) { change(); return; }
+  const vh = window.innerHeight, before = new Map();
+  const keyOf = (n) => n.dataset.id || n.dataset.gid;
+  for (const n of root.querySelectorAll('[data-id], [data-gid]')) {
+    const k = keyOf(n);
+    if (before.has(k)) continue;
+    const r = (n.closest(ROW_BOX) || n).getBoundingClientRect();
+    if (r.height && r.bottom > -80 && r.top < vh + 80) before.set(k, r);
+  }
+  change();
+  if (!before.size) return;
+  const seen = new Set(), done = new Set(), fresh = [];
+  for (const n of root.querySelectorAll('[data-id], [data-gid]')) {
+    const k = keyOf(n), box = n.closest(ROW_BOX) || n;
+    if (seen.has(k) || done.has(box)) continue;
+    seen.add(k);
+    done.add(box);
+    const r0 = before.get(k);
+    if (!r0) { fresh.push(box); continue; }
+    if (done.size > 80) continue;
+    const r = box.getBoundingClientRect(), dx = r0.left - r.left, dy = r0.top - r.top;
+    if ((Math.abs(dx) < 1 && Math.abs(dy) < 1) || Math.abs(dy) > vh) continue;
+    box.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 340, easing: 'cubic-bezier(.2, .9, .3, 1)' });
+  }
+  if (fresh.length <= 4) fresh.forEach((b) => { const r = b.getBoundingClientRect(); if (r.bottom > 0 && r.top < vh) b.classList.add('appear'); });
+}
+// Build the other tab's screen in a quiet moment after start, so the first switch is instant too.
+function prewarm() {
+  const idle = window.requestIdleCallback || ((f) => setTimeout(f, 300));
+  idle(() => {
+    Object.keys(UI.stacks).forEach((t) => {
+      if (t === UI.tab || sheet) return;
+      const st = UI.stacks[t], e = st[st.length - 1];
+      if (!keepable(e) || (kept.get(e) && kept.get(e).isConnected)) return;
+      const el = document.createElement('section');
+      el.className = 'screen held';
+      el.dataset.s = e.s;
+      el.inert = true;
+      el.setAttribute('aria-hidden', 'true');
+      $('#stage').appendChild(el);
+      const was = UI.tab;
+      UI.tab = t; // screens draw for their own tab
+      try { paint(el, e); } finally { UI.tab = was; }
+      void el.offsetHeight; // lay it out now, while nothing else is happening
+      el._e = e;
+      kept.set(e, el);
+    });
+  }, { timeout: 2500 });
 }
 // Repaint the current screen in place (keeps its scroll position).
 function render() {
@@ -281,12 +387,7 @@ function render() {
   if (!el) { show(); return; }
   const e = cur(), sc = SCREENS[e.s];
   if (sc.keep) { if (sc.refresh) sc.refresh(el, e); chrome(); return; }
-  const scr = $('.scroll', el), y = scr ? scr.scrollTop : 0;
-  paint(el, e);
-  const s2 = $('.scroll', el);
-  if (s2) s2.scrollTop = y;
-  navState(el);
-  chrome();
+  repaint(el, e);
 }
 function rememberScroll() {
   const el = curEl(), scr = el && $('.scroll', el);
@@ -309,6 +410,9 @@ function pop(n = 1) {
     if (i === 0 && sc.hide) sc.hide(e, curEl());
     st.pop();
     if (sc.leave) sc.leave(e);
+    const k = kept.get(e); // a screen in between that was kept hidden goes away now
+    if (i > 0 && k && k !== curEl()) k.remove();
+    kept.delete(e);
   }
   show('pop');
   syncHistory();
