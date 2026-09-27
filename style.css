@@ -925,8 +925,8 @@ h1, h2, h3, p { margin: 0; }
 .dr-mid button:disabled { opacity: .3; }
 .dr-mid .gl { width: 24px; height: 24px; }
 .dr-stage { flex: 1; min-height: 0; display: grid; place-items: center; }
-.dr-paper { position: relative; background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 8px 30px rgba(0, 0, 0, .08); overflow: hidden; }
-.dr-paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dr-paper { position: relative; background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 8px 30px rgba(0, 0, 0, .08); }
+.dr-paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 16px; } /* (the paper itself doesn't clip: a picked-up picture's × and corner stay visible at the edge) */
 .dr-live { touch-action: none; cursor: crosshair; }
 .dr-wrap.magic .dr-live { cursor: pointer; }
 .dr-float { position: absolute; inset: 0; pointer-events: none; }
@@ -958,3 +958,11 @@ h1, h2, h3, p { margin: 0; }
 }
 .dr-glow.out { opacity: 0; }
 @keyframes dr-shine { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+
+/* a picked-up picture or answer: drag it, pull the corner to resize, × removes it */
+.dr-sel { position: absolute; pointer-events: auto; touch-action: none; cursor: move; border: 2px dashed var(--tint); border-radius: 14px; background: color-mix(in srgb, var(--tint) 6%, transparent); animation: fade-in .18s ease both; transition: box-shadow .15s; }
+.dr-sel.moving { box-shadow: 0 10px 28px rgba(0, 0, 0, .16); }
+.dr-sel-x { position: absolute; top: -15px; right: -15px; width: 30px; height: 30px; border-radius: 50%; background: var(--elev); color: var(--text); display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.dr-sel-x .gl { width: 16px; height: 16px; stroke-width: 2.6; }
+.dr-sel-r { position: absolute; right: -11px; bottom: -11px; width: 22px; height: 22px; border-radius: 50%; background: var(--tint); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); cursor: nwse-resize; }
+.dr-sel-r::before { content: ""; position: absolute; inset: -12px; }

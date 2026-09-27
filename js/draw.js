@@ -126,86 +126,7 @@ function perfectShape(p) {
   return null;
 }
 
-// ---------- Maths ----------
-// A small, safe calculator (no eval): + − × ÷ ^ √ ( ) %, sqrt abs sin cos tan (degrees) log ln, π.
-// With "=" and x in it (2x + 3 = 7), it finds x (straight-line equations).
-function mathTokens(src) {
-  let s = String(src).toLowerCase()
-    .replace(/[×·∙⋅]/g, '*').replace(/[÷:]/g, '/').replace(/[−–—]/g, '-').replace(/,/g, '.')
-    .replace(/²/g, '^2').replace(/³/g, '^3').replace(/π/g, 'pi').replace(/√/g, 'sqrt').replace(/\s+/g, '');
-  const out = [];
-  let i = 0;
-  while (i < s.length) {
-    const c = s[i];
-    const num = s.slice(i).match(/^\d+(\.\d+)?|^\.\d+/);
-    if (num) { out.push({ n: parseFloat(num[0]) }); i += num[0].length; continue; }
-    const word = s.slice(i).match(/^(sqrt|abs|sin|cos|tan|log|ln|pi|x)/);
-    if (word) { out.push({ w: word[0] }); i += word[0].length; continue; }
-    if ('+-*/^()%='.includes(c)) { out.push({ o: c }); i++; continue; }
-    throw new Error('unknown ' + c);
-  }
-  // Implicit ×: 2(…), 2x, 2√, )(, x(, 3π …
-  const res = [];
-  for (const t of out) {
-    const p = res[res.length - 1];
-    const endsValue = p && (p.n !== undefined || (p.w && ['pi', 'x'].includes(p.w)) || p.o === ')' || p.o === '%');
-    const startsValue = t.n !== undefined || t.w || t.o === '(';
-    if (endsValue && startsValue) res.push({ o: '*' });
-    res.push(t);
-  }
-  return res;
-}
-function mathParse(tokens, xv) {
-  let i = 0;
-  const peek = () => tokens[i], take = () => tokens[i++];
-  const isO = (t, o) => t && t.o === o;
-  const deg = (v) => (v * Math.PI) / 180;
-  function primary() {
-    const t = take();
-    if (!t) throw new Error('end');
-    if (t.n !== undefined) return t.n;
-    if (t.w === 'pi') return Math.PI;
-    if (t.w === 'x') { if (xv === undefined) throw new Error('x'); return xv; }
-    if (t.w) {
-      const f = { sqrt: Math.sqrt, abs: Math.abs, sin: (v) => Math.sin(deg(v)), cos: (v) => Math.cos(deg(v)), tan: (v) => Math.tan(deg(v)), log: Math.log10, ln: Math.log }[t.w];
-      if (isO(peek(), '(')) { take(); const v = expr(); if (!isO(take(), ')')) throw new Error(')'); return f(v); }
-      return f(power()); // √16, √2x …
-    }
-    if (t.o === '(') { const v = expr(); if (!isO(take(), ')')) throw new Error(')'); return v; }
-    throw new Error('unexpected');
-  }
-  function postfix() { let v = primary(); while (isO(peek(), '%')) { take(); v /= 100; } return v; }
-  function power() { const b = postfix(); if (isO(peek(), '^')) { take(); return b ** unary(); } return b; }
-  function unary() { if (isO(peek(), '-')) { take(); return -unary(); } if (isO(peek(), '+')) { take(); return unary(); } return power(); }
-  function term() { let v = unary(); for (;;) { if (isO(peek(), '*')) { take(); v *= unary(); } else if (isO(peek(), '/')) { take(); v /= unary(); } else return v; } }
-  function expr() { let v = term(); for (;;) { if (isO(peek(), '+')) { take(); v += term(); } else if (isO(peek(), '-')) { take(); v -= term(); } else return v; } }
-  const v = expr();
-  if (i !== tokens.length) throw new Error('left over');
-  return v;
-}
-function niceNumber(v) {
-  if (!Number.isFinite(v)) return null;
-  if (Math.abs(v) < 1e-12) return '0';
-  const r = Math.round(v);
-  if (Math.abs(v - r) < 1e-9 && Math.abs(r) < 1e15) return String(r);
-  return String(parseFloat(v.toPrecision(8)));
-}
-// "sqrt(16)" → "4"; "2x+3=7" → "x = 2"; null when it can't be worked out.
-function solveMath(src) {
-  try {
-    const toks = mathTokens(src);
-    const eq = toks.findIndex((t) => t.o === '=');
-    if (eq < 0) return niceNumber(mathParse(toks));
-    const L = toks.slice(0, eq), R = toks.slice(eq + 1);
-    if (!R.length) return niceNumber(mathParse(L));
-    const f = (x) => mathParse(L, x) - mathParse(R, x);
-    const f0 = f(0), f1 = f(1), f2 = f(2);
-    const slope = f1 - f0;
-    if (!Number.isFinite(slope) || Math.abs(slope) < 1e-12 || Math.abs((f2 - f1) - slope) > 1e-9 * Math.max(1, Math.abs(slope))) return null;
-    const x = -f0 / slope;
-    return Math.abs(f(x)) < 1e-9 * Math.max(1, Math.abs(f0)) ? `x = ${niceNumber(x)}` : null;
-  } catch (e) { return null; }
-}
+// (Maths: see mathsolve.js — solveMath())
 
 // ---------- The AI helper ----------
 async function aiCall(path, body, ms) {
@@ -274,7 +195,8 @@ function paintItem(ctx, it, alpha = 1) {
     ctx.fillStyle = it.c || ANSWER_C;
     ctx.font = `600 ${Math.round(it.size)}px ${HAND_FONT}`;
     ctx.textBaseline = 'middle';
-    ctx.fillText(it.s, it.x, it.y + it.h / 2);
+    const lines = String(it.s).split('\n'), lh = it.lh || it.h / lines.length;
+    lines.forEach((l, k) => ctx.fillText(l, it.x, it.y + lh * (k + 0.5)));
   }
   ctx.restore();
 }
@@ -329,7 +251,7 @@ function openDrawing(data, onDone) {
       <button class="dr-t strong" data-dr="done">Done</button>
     </header>
     <div class="dr-stage"><div class="dr-paper"><canvas class="dr-base"></canvas><canvas class="dr-live"></canvas><div class="dr-float"></div></div></div>
-    <div class="dr-hint">Hold still at the end of a shape to make it perfect · write a sum and “=” for the answer · ✨ makes a drawing neat</div>
+    <div class="dr-hint">Hold still at the end of a shape to make it perfect · write a sum or an equation with “=” for the answer · ✨ makes a drawing neat · tap a picture to move it</div>
     <footer class="dr-tools">
       <div class="dr-inks">${INKS.map(([c, n], i) => `<button class="ink${i ? '' : ' on'}" data-dr="ink" data-v="${c}" style="--c:${c}" aria-label="${n}"></button>`).join('')}</div>
       <button class="dr-tool" data-dr="size" aria-label="Pen size"><i class="dot" style="--s:8px"></i></button>
@@ -409,11 +331,12 @@ function bindDrawing() {
     e.preventDefault();
     cv.setPointerCapture(e.pointerId);
     hideChip();
+    deselect();
     const q = toPaper(e);
     if (d.magic) { d.magic = false; magicMode(false); magicAt(q); return; }
     if (d.tool === 'eraser') { d.stroke = { id: e.pointerId, erase: true }; eraseAt(q); return; }
     Object.values(d.timers).forEach((t) => clearTimeout(t));
-    d.stroke = { id: e.pointerId, p: [q[0], q[1]], c: d.ink, w: SIZES[d.size], still: q, snapped: null };
+    d.stroke = { id: e.pointerId, p: [q[0], q[1]], c: d.ink, w: SIZES[d.size], still: q, snapped: null, t0: performance.now() };
     holdTimer();
     drawLive();
   });
@@ -439,6 +362,10 @@ function bindDrawing() {
     clearTimeout(d.timers.hold);
     if (s.erase) { drHist(); return; }
     liveClear();
+    if (!s.snapped && performance.now() - s.t0 < 350 && pathLen(pairs(s.p)) < 12) {
+      const hit = itemAt([s.p[0], s.p[1]]);
+      if (hit) { selectItem(hit.id); buzz(6); hint('Drag it anywhere · pull the round corner to resize · × removes it'); return; }
+    }
     const it = { t: 's', id: nid(), c: s.c, w: s.w, p: s.snapped ? s.snapped.p : s.p };
     if (s.snapped) it.shape = s.snapped.kind;
     d.items = d.items.concat([it]);
@@ -463,15 +390,16 @@ function bindDrawing() {
       DR.hi = i;
       DR.items = DR.hist[i].slice();
       hideChip();
+      deselect();
       redraw();
       drButtons();
     }
     if (a === 'ink') { DR.ink = b.dataset.v; DR.tool = 'pen'; toolUi(); }
     if (a === 'size') { DR.size = (DR.size + 1) % SIZES.length; DR.tool = 'pen'; toolUi(); }
-    if (a === 'eraser') { DR.tool = DR.tool === 'eraser' ? 'pen' : 'eraser'; toolUi(); }
+    if (a === 'eraser') { DR.tool = DR.tool === 'eraser' ? 'pen' : 'eraser'; deselect(); toolUi(); }
     if (a === 'magic') { DR.magic = !DR.magic; magicMode(DR.magic); }
     if (a === 'clear' && DR.items.length) {
-      ask({ title: 'Clear the whole drawing?', ok: 'Clear', destructive: true }).then((ok) => { if (ok && DR) { DR.items = []; hideChip(); redraw(); drHist(); } });
+      ask({ title: 'Clear the whole drawing?', ok: 'Clear', destructive: true }).then((ok) => { if (ok && DR) { DR.items = []; hideChip(); deselect(); redraw(); drHist(); } });
     }
     if (a === 'chip') { hideChip(); makeNeat(DR.items.filter((it) => (b._ids || []).includes(it.id))); }
   });
@@ -551,21 +479,62 @@ function groupOf(it, pool = DR.items) {
   return group;
 }
 const isFlat = (it) => { if (it.t !== 's') return false; const b = bboxOf([{ ...it, w: 0 }]); return b.w > 18 && b.w < 420 && b.h < b.w * 0.45; };
-// The last two strokes look like "=": two short level lines, one above the other.
-function equalsSign() {
-  const S2 = DR.items.filter((x) => x.t === 's').slice(-2);
-  if (S2.length < 2 || !S2.every(isFlat)) return null;
-  const [a, b] = S2.map((s) => bboxOf([{ ...s, w: 0 }]));
+// Two flat strokes one above the other make "=".
+function eqPair(s1, s2) {
+  if (!isFlat(s1) || !isFlat(s2)) return null;
+  const [a, b] = [s1, s2].map((s) => bboxOf([{ ...s, w: 0 }]));
   const ov = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), len = Math.max(a.w, b.w);
   const gap = Math.abs((a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2);
   if (ov < 0.3 * Math.min(a.w, b.w) || Math.min(a.w, b.w) < 0.35 * len || gap < 5 || gap > 1.3 * len) return null;
-  return { ids: S2.map((s) => s.id), box: { x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) }, len };
+  return { ids: [s1.id, s2.id], box: { x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) }, len };
+}
+// The last two strokes are "=" (a sum waiting for its answer).
+function equalsSign() {
+  const S2 = DR.items.filter((x) => x.t === 's').slice(-2);
+  return S2.length < 2 ? null : eqPair(S2[0], S2[1]);
+}
+// Everything written on the same line as this stroke (close together, left to right).
+function lineOf(it) {
+  const strokes = DR.items.filter((x) => x.t === 's');
+  const line = [it];
+  let box = bboxOf([it]), changed = true;
+  while (changed) {
+    changed = false;
+    const lh = Math.max(50, box.h);
+    for (const s of strokes) {
+      if (line.includes(s)) continue;
+      const b = bboxOf([s]), cy = (b.y0 + b.y1) / 2;
+      if (cy > box.y0 - 0.35 * lh && cy < box.y1 + 0.35 * lh && b.x0 < box.x1 + 1.6 * lh && b.x1 > box.x0 - 1.6 * lh) {
+        line.push(s);
+        box = bboxOf(line);
+        changed = true;
+      }
+    }
+  }
+  return line.sort((a, b) => bboxOf([a]).x0 - bboxOf([b]).x0);
+}
+// An "=" with writing on both sides of it (an equation like x + 2 = 15).
+function innerEquals(line) {
+  const flats = line.filter(isFlat);
+  for (let i = 0; i < flats.length; i++) {
+    for (let j = i + 1; j < flats.length; j++) {
+      const e = eqPair(flats[i], flats[j]);
+      if (!e) continue;
+      const left = line.some((s) => !e.ids.includes(s.id) && bboxOf([s]).x1 < e.box.x0 + 12);
+      const right = line.some((s) => !e.ids.includes(s.id) && bboxOf([s]).x0 > e.box.x1 - 12);
+      if (left && right) return e;
+    }
+  }
+  return null;
 }
 function afterStroke(it) {
   clearTimeout(DR.timers.math);
   clearTimeout(DR.timers.chip);
   const eq = equalsSign();
   if (eq) { DR.timers.math = setTimeout(() => answerFor(eq), 700); return; }
+  // A line with "=" inside it is an equation: solved when you stop writing for a moment.
+  const line = lineOf(it);
+  if (line.length >= 3 && innerEquals(line)) { DR.timers.math = setTimeout(() => solveLine(line.map((x) => x.id)), 1300); return; }
   // Changing a sum that already has an answer: work it out again.
   const ans = DR.items.filter((x) => x.t === 'a' && x.eq);
   const b = bboxOf([it]);
@@ -573,6 +542,40 @@ function afterStroke(it) {
   if (redo) { DR.timers.math = setTimeout(() => answerFor(redo.eq, redo), 900); return; }
   if (!it.shape) DR.timers.chip = setTimeout(() => showChip(it), 1300);
 }
+// How wide a line of handwriting is.
+const measureCtx = document.createElement('canvas').getContext('2d');
+function handWidth(s, size) { measureCtx.font = `600 ${Math.round(size)}px ${HAND_FONT}`; return measureCtx.measureText(s).width; }
+// An answer as handwriting: after the sum ('after') or under the line ('below'), kept on the paper.
+function answerItem(res, box, where, extra = {}) {
+  const lines = res.lines, c = res.kind === 'check' ? (res.ok ? '#34C759' : '#FF3B30') : ANSWER_C;
+  const size = where === 'after' ? Math.max(40, Math.min(220, box.h * 0.95)) : Math.max(38, Math.min(150, box.h * 0.75));
+  const lh = size * 1.1, w = Math.max(...lines.map((l) => handWidth(l, size))), h = lh * lines.length;
+  let x = where === 'after' ? box.x1 + size * 0.3 : box.x0, y = where === 'after' ? (box.y0 + box.y1) / 2 - h / 2 : box.y1 + size * 0.2;
+  if (where === 'after' && x + w > DR.w - 10) { x = box.x0; y = box.y1 + size * 0.2; }
+  x = Math.max(10, Math.min(x, DR.w - 10 - w));
+  if (y + h > DR.h - 10) y = Math.max(10, box.y0 - h - size * 0.2);
+  return { t: 'a', id: nid(), s: lines.join('\n'), x, y, w, h, size, lh, c, ...extra };
+}
+// Read a picture of maths (a second reader tries when the first can't be worked out).
+async function readMath(items) {
+  const img = cropPng(items);
+  let r = await aiCall('/read', { img, hint: 'math' }, 15000);
+  let res = r.kind === 'math' ? solveMath(r.expression) : null;
+  if (!res && DR) {
+    const r2 = await aiCall('/read', { img, hint: 'math', alt: true }, 15000);
+    const res2 = r2.kind === 'math' ? solveMath(r2.expression) : null;
+    if (res2 || r.kind !== 'math') { r = r2; res = res2; }
+  }
+  return { r, res };
+}
+const hasLetters = (s) => /[a-z]/i.test(String(s || '').replace(/sqrt|cbrt|abs|sin|cos|tan|log|ln|exp|pi/gi, ''));
+function putAnswer(a, isSame) {
+  DR.items = DR.items.filter((x) => !(x.t === 'a' && isSame(x))).concat([a]);
+  fadeIn(a);
+  drHist();
+  buzz(10);
+}
+// A sum ending in "=": its value, written after the "=".
 async function answerFor(eq, old) {
   if (!DR) return;
   const eqItems = DR.items.filter((x) => eq.ids.includes(x.id));
@@ -587,24 +590,42 @@ async function answerFor(eq, old) {
   const d = DR;
   const work = sparkle(bboxOf(sum.concat(eqItems)));
   try {
-    const img = cropPng(sum.concat(eqItems));
-    let r = await aiCall('/read', { img, hint: 'math' }, 15000);
-    let res = r.kind === 'math' ? solveMath(r.expression) : null;
-    if (!res && DR === d) {
-      r = await aiCall('/read', { img, hint: 'math', alt: true }, 15000);
-      res = r.kind === 'math' ? solveMath(r.expression) : null;
-    }
+    const { r, res } = await readMath(sum.concat(eqItems));
     if (DR !== d) return;
-    if (!res) { if (!old) toast("Couldn't read that sum — try writing it a little bigger"); return; }
-    const sb = bboxOf(sum), size = Math.max(40, Math.min(220, sb.h * 0.95));
-    const a = { t: 'a', id: nid(), s: res, x: eq.box.x1 + L * 0.35, y: cy - size / 2, w: size * 0.5 * res.length, h: size, size, c: ANSWER_C, eq, eqx: eq.box.x0, band, read: r.expression };
-    if (a.x + a.w > DR.w - 10) { a.x = Math.max(10, Math.min(eq.box.x0, DR.w - 10 - a.w)); a.y = eq.box.y1 + size * 0.15; }
-    DR.items = DR.items.filter((x) => x !== old && !(x.t === 'a' && x.eq && x.eq.ids.join() === key)).concat([a]);
-    fadeIn(a);
-    drHist();
-    buzz(10);
+    if (!res) {
+      // (Letters before the "=" mean an equation is being written — it's solved when it's finished.)
+      if (!old && !hasLetters(r.expression)) toast("Couldn't read that sum — try writing it a little bigger");
+      return;
+    }
+    const sb = bboxOf(sum), box = { x0: eq.box.x0, x1: eq.box.x1, y0: Math.min(sb.y0, eq.box.y0), y1: Math.max(sb.y1, eq.box.y1), h: sb.h };
+    const a = answerItem(res, res.kind === 'value' ? { ...box, y0: cy - sb.h / 2, y1: cy + sb.h / 2 } : { ...bboxOf(sum.concat(eqItems)), h: sb.h },
+      res.kind === 'value' ? 'after' : 'below', { eq, eqx: eq.box.x0, band, read: r.expression });
+    putAnswer(a, (x) => x === old || (x.eq && x.eq.ids.join() === key));
   } catch (e) {
     if (DR === d && !old) toast(navigator.onLine ? "Couldn't work it out just now — try again" : 'Answers to sums need the internet');
+  } finally {
+    d.busy.delete(key);
+    work();
+  }
+}
+// A whole line with "=" inside (x + 2 = 15, x² − 5x + 6 = 0 …): the answer goes under it.
+async function solveLine(ids) {
+  if (!DR) return;
+  const line = DR.items.filter((x) => ids.includes(x.id));
+  if (line.length < 3 || !innerEquals(line)) return;
+  const key = 'L' + ids.slice().sort().join();
+  if (DR.busy.has(key)) return;
+  DR.busy.add(key);
+  const d = DR, lb = bboxOf(line);
+  const work = sparkle(lb);
+  try {
+    const { r, res } = await readMath(line);
+    if (DR !== d) return;
+    if (!res) { if (r.kind === 'math') toast("Couldn't solve that one — check it's written clearly"); return; }
+    const a = answerItem(res, lb, res.kind === 'check' ? 'after' : 'below', { line: ids, read: r.expression });
+    putAnswer(a, (x) => x.line && x.line.some((id) => ids.includes(id)));
+  } catch (e) {
+    if (DR === d) toast(navigator.onLine ? "Couldn't solve it just now — try again" : 'Solving needs the internet');
   } finally {
     d.busy.delete(key);
     work();
@@ -677,13 +698,10 @@ async function makeNeat(group) {
     d.busy.delete(key);
     const res = solveMath(read.expression);
     if (!res) { toast("Couldn't work that out — try writing it a little bigger"); return; }
-    const size = Math.max(40, Math.min(220, b.h * 0.9)), text = /^x =/.test(res) ? res : `= ${res}`;
-    const a = { t: 'a', id: nid(), s: text, x: b.x1 + 24, y: (b.y0 + b.y1) / 2 - size / 2, w: size * 0.5 * text.length, h: size, size, c: ANSWER_C, read: read.expression };
-    if (a.x + a.w > DR.w - 10) { a.x = Math.max(10, b.x0); a.y = b.y1 + size * 0.15; }
-    DR.items = DR.items.concat([a]);
-    fadeIn(a);
-    drHist();
-    buzz(10);
+    const ids = group.map((x) => x.id);
+    const shown = res.kind === 'value' ? { ...res, lines: [`= ${res.lines[0]}`] } : res;
+    const a = answerItem(shown, b, res.kind === 'value' || res.kind === 'check' ? 'after' : 'below', { line: ids, read: read.expression });
+    putAnswer(a, (x) => x.line && x.line.some((id) => ids.includes(id)));
     return;
   }
   if (read.kind !== 'object' || !read.name) {
@@ -698,13 +716,14 @@ async function makeNeat(group) {
   if (read.emoji) {
     placed = { t: 'e', id: nid(), ch: read.emoji, name: read.name, ...box };
     swapIn(group, placed);
+    selectItem(placed.id);
     buzz(10);
   }
   hint(`${read.name[0].toUpperCase()}${read.name.slice(1)} — drawing it neatly…`);
   try {
     const r = await aiCall('/redraw', { img, name: read.name }, 70000); // (the drawing model is sometimes busy)
     if (DR !== d) return;
-    const still = placed ? DR.items.includes(placed) : group.every((g) => DR.items.includes(g));
+    const still = placed ? DR.items.some((x) => x.id === placed.id) : group.every((g) => DR.items.includes(g));
     if (!still) return;
     const it = { t: 'i', id: nid(), src: r.img, name: read.name, x: b.x0 - 24, y: b.y0 - 24, w: b.w + 48, h: b.h + 48 };
     // The AI picture is square around the sketch (with the same margin as the crop).
@@ -712,7 +731,11 @@ async function makeNeat(group) {
     Object.assign(it, { x: (b.x0 + b.x1) / 2 - s2 / 2, y: (b.y0 + b.y1) / 2 - s2 / 2, w: s2, h: s2 });
     await new Promise((ok) => { const im = new Image(); im.onload = im.onerror = ok; im.src = it.src; imgCache.set(it.id, im); });
     if (DR !== d) return;
-    swapIn(placed ? [placed] : group, it);
+    const was = placed && DR.items.find((x) => x.id === placed.id); // it may have been moved or resized meanwhile
+    if (was) Object.assign(it, { x: was.x + (was.w - was.w * (it.w / placed.w)) / 2, y: was.y + (was.h - was.h * (it.h / placed.h)) / 2, w: was.w * (it.w / placed.w), h: was.h * (it.h / placed.h) });
+    const picked = placed && DR.sel === placed.id;
+    swapIn(was ? [was] : group, it);
+    if (picked) selectItem(it.id);
   } catch (e) {
     if (DR === d && !placed) toast("Couldn't draw it just now — try again");
   } finally {
@@ -733,9 +756,87 @@ function swapIn(old, it) {
     it.fade = t;
     redraw();
     ghosts.forEach((g) => paintItem(DR.bx, g, 1 - t));
-    if (t < 1) requestAnimationFrame(step); else { delete it.fade; redraw(); drHist(); }
+    if (t < 1) requestAnimationFrame(step); else { delete it.fade; redraw(); drHist(); if (DR.sel) selFrame(); }
   };
   requestAnimationFrame(step);
+}
+
+// ---------- Moving pictures and answers ----------
+// Tap a clean picture or an answer to pick it up: drag it anywhere, pull the round corner to make
+// it bigger or smaller, or tap × to remove it. A picture that has just been made neat is picked up
+// by itself.
+const movable = (it) => it && (it.t === 'e' || it.t === 'i' || it.t === 'a');
+function itemAt(q) {
+  for (let k = DR.items.length - 1; k >= 0; k--) {
+    const it = DR.items[k];
+    if (movable(it) && q[0] >= it.x - 14 && q[0] <= it.x + it.w + 14 && q[1] >= it.y - 14 && q[1] <= it.y + it.h + 14) return it;
+  }
+  return null;
+}
+function selectItem(id) { if (!DR) return; DR.sel = id; selFrame(); }
+function deselect() { if (DR && DR.sel) { DR.sel = null; selFrame(); } }
+function selFrame() {
+  let f = $('.dr-sel', DR.wrap);
+  const it = DR.items.find((x) => x.id === DR.sel);
+  if (!it) { if (f) f.remove(); DR.sel = null; return; }
+  if (!f) {
+    f = document.createElement('div');
+    f.className = 'dr-sel';
+    f.innerHTML = `<button class="dr-sel-x" aria-label="Remove">${glyph('x')}</button><i class="dr-sel-r" aria-hidden="true"></i>`;
+    $('.dr-float', DR.wrap).appendChild(f);
+    bindSel(f);
+  }
+  const s = DR.scale, pad = 8;
+  Object.assign(f.style, { left: `${it.x * s - pad}px`, top: `${it.y * s - pad}px`, width: `${it.w * s + pad * 2}px`, height: `${it.h * s + pad * 2}px` });
+}
+function bindSel(f) {
+  let st = null;
+  f.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.dr-sel-x')) return;
+    const it = DR && DR.items.find((x) => x.id === DR.sel);
+    if (!it) return;
+    e.preventDefault();
+    e.stopPropagation();
+    f.setPointerCapture(e.pointerId);
+    st = { id: e.pointerId, q0: toPaper(e), it, resize: !!e.target.closest('.dr-sel-r'), moved: false };
+    f.classList.add('moving');
+    hideChip();
+  });
+  f.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id || !DR) return;
+    const q = toPaper(e), dx = q[0] - st.q0[0], dy = q[1] - st.q0[1], o = st.it;
+    if (!st.moved && Math.hypot(dx, dy) < 3) return;
+    st.moved = true;
+    let n;
+    if (st.resize) {
+      const k = Math.max(50 / Math.min(o.w, o.h), Math.min(DR.w / o.w, (o.w + Math.max(dx, (dy * o.w) / o.h)) / o.w));
+      n = { ...o, w: o.w * k, h: o.h * k };
+      if (o.t === 'a') Object.assign(n, { size: o.size * k, lh: (o.lh || o.size * 1.1) * k });
+    } else {
+      n = { ...o, x: Math.max(-o.w / 2, Math.min(DR.w - o.w / 2, o.x + dx)), y: Math.max(-o.h / 2, Math.min(DR.h - o.h / 2, o.y + dy)) };
+    }
+    DR.items = DR.items.map((x) => (x.id === o.id ? n : x));
+    redraw();
+    selFrame();
+  });
+  const end = (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const moved = st.moved;
+    st = null;
+    f.classList.remove('moving');
+    if (moved) { drHist(); buzz(6); }
+  };
+  f.addEventListener('pointerup', end);
+  f.addEventListener('pointercancel', end);
+  $('.dr-sel-x', f).addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!DR) return;
+    DR.items = DR.items.filter((x) => x.id !== DR.sel);
+    deselect();
+    redraw();
+    drHist();
+    buzz(8);
+  });
 }
 
 // ---------- In the note ----------
