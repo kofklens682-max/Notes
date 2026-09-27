@@ -28,7 +28,9 @@
   --green: #34C759;
   --blue: #007AFF;
   --purple: #AF52DE;
-  --hl-y: rgba(255, 204, 0, .42); --hl-g: rgba(52, 199, 89, .32); --hl-b: rgba(0, 122, 255, .24); --hl-p: rgba(255, 45, 85, .24);
+  --hl-a: .2; --mk-a: .45;
+  --c-y: 255 204 0; --c-g: 52 199 89; --c-b: 0 122 255; --c-p: 255 45 85; --c-v: 175 82 222;
+  --t-y: #7A5900; --t-g: #17752F; --t-b: #0056C7; --t-p: #C0183F; --t-v: #7B2FB0;
   --gray: #8E8E93;
   --tint: var(--blue);
   --font: "Inter", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
@@ -57,7 +59,9 @@
     --green: #30D158;
     --blue: #0A84FF;
     --purple: #BF5AF2;
-    --hl-y: rgba(255, 214, 10, .5); --hl-g: rgba(48, 209, 88, .45); --hl-b: rgba(10, 132, 255, .5); --hl-p: rgba(255, 55, 95, .45);
+    --hl-a: .26; --mk-a: .5;
+    --c-y: 255 214 10; --c-g: 48 209 88; --c-b: 10 132 255; --c-p: 255 55 95; --c-v: 191 90 242;
+    --t-y: #FFD60A; --t-g: #4ADE78; --t-b: #70B4FF; --t-p: #FF7797; --t-v: #D597F7;
   }
 }
 :root[data-theme="dark"] {
@@ -83,7 +87,9 @@
   --green: #30D158;
   --blue: #0A84FF;
   --purple: #BF5AF2;
-  --hl-y: rgba(255, 214, 10, .5); --hl-g: rgba(48, 209, 88, .45); --hl-b: rgba(10, 132, 255, .5); --hl-p: rgba(255, 55, 95, .45);
+  --hl-a: .26; --mk-a: .5;
+  --c-y: 255 214 10; --c-g: 48 209 88; --c-b: 10 132 255; --c-p: 255 55 95; --c-v: 191 90 242;
+  --t-y: #FFD60A; --t-g: #4ADE78; --t-b: #70B4FF; --t-p: #FF7797; --t-v: #D597F7;
 }
 body[data-tab="notes"] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: #2B2100; }
 body[data-tab="planner"] { --tint: var(--blue); }
@@ -300,13 +306,28 @@ h1, h2, h3, p { margin: 0; }
 .ed ul.cl li.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
 .ed ul.cl li.done { color: var(--text-2); }
 .ed ul.cl ul.cl { padding-left: 0; }
-/* Highlights (see-through, so they work in light and dark), quotes and divider lines */
-.ed mark, .fmt-hl i { color: inherit; border-radius: 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.ed mark { padding: 0 2px; margin: 0 -2px; }
-.hl-y { background: var(--hl-y); }
-.hl-g { background: var(--hl-g); }
-.hl-b { background: var(--hl-b); }
-.hl-p { background: var(--hl-p); }
+/* Highlights: a soft wash of colour with the words in a deeper shade of the same colour, readable
+   in light and dark. The colour swatches (.hlsw) are drawn exactly like the highlight they make. */
+.hl-y { --c: var(--c-y); --t: var(--t-y); }
+.hl-g { --c: var(--c-g); --t: var(--t-g); }
+.hl-b { --c: var(--c-b); --t: var(--t-b); }
+.hl-p { --c: var(--c-p); --t: var(--t-p); }
+.hl-v { --c: var(--c-v); --t: var(--t-v); }
+.ed mark, .hlsw i:not(.hl-none) {
+  color: var(--t); background: rgb(var(--c) / var(--hl-a)); border-radius: 6px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.ed mark { padding: 1px 3px; margin: 0 -1px; }
+/* (mockup only) two other looks to choose from */
+:root[data-hls="marker"] .ed mark, :root[data-hls="marker"] .hlsw i:not(.hl-none) {
+  color: inherit; border-radius: 3px 9px 4px 10px / 9px 3px 10px 4px;
+  background: linear-gradient(100deg, rgb(var(--c) / 0) 0, rgb(var(--c) / var(--mk-a)) 4%, rgb(var(--c) / calc(var(--mk-a) * .78)) 50%, rgb(var(--c) / var(--mk-a)) 96%, rgb(var(--c) / 0) 100%) 0 78% / 100% 66% no-repeat;
+}
+:root[data-hls="marker"] .ed mark { padding: 0 4px; margin: 0 -2px; }
+:root[data-hls="under"] .ed mark, :root[data-hls="under"] .hlsw i:not(.hl-none) {
+  color: inherit; border-radius: 0; background: linear-gradient(rgb(var(--c) / .62), rgb(var(--c) / .62)) 0 96% / 100% .34em no-repeat;
+}
+:root[data-hls="under"] .ed mark { padding: 0 1px; margin: 0; }
 .ed blockquote { margin: 6px 0; padding: 2px 0 2px 14px; border-left: 3px solid var(--yellow); color: var(--text-2); min-height: 1.5em; }
 .ed blockquote + blockquote { margin-top: -6px; padding-top: 0; }
 .ed hr { border: 0; height: 1.5px; background: var(--text-3); margin: 16px 0; }
@@ -345,16 +366,48 @@ h1, h2, h3, p { margin: 0; }
 .fmt-group button + button { box-shadow: inset .5px 0 0 var(--sep); }
 .fmt-group .gl { width: 22px; height: 22px; }
 .fmt button.on { background: var(--yellow); color: #231A00; }
-/* Highlight colours: round swatches; the chosen one gets a ring */
-.fmt-hl { flex: 1.6; }
-.fmt-hl i { display: block; width: 24px; height: 24px; border-radius: 50%; }
-.fmt-hl .hl-y { background: rgba(255, 204, 0, .75); }
-.fmt-hl .hl-g { background: rgba(52, 199, 89, .6); }
-.fmt-hl .hl-b { background: rgba(0, 122, 255, .5); }
-.fmt-hl .hl-p { background: rgba(255, 45, 85, .5); }
-.fmt-hl .hl-none { box-shadow: inset 0 0 0 1.6px var(--text-3); background: linear-gradient(135deg, transparent 46%, var(--text-3) 46%, var(--text-3) 54%, transparent 54%); }
-.fmt .fmt-hl button.on { background: none; }
-.fmt .fmt-hl button.on i { box-shadow: 0 0 0 2px var(--elev), 0 0 0 4px var(--tint); }
+/* Highlight swatches: "Aa" in each colour; the one in use gets a ring */
+.fmt-hl { flex: 3; }
+.fmt .fmt-hl button + button { box-shadow: none; }
+.hlsw i { display: grid; place-items: center; min-width: 32px; height: 28px; padding: 0 4px; font-style: normal; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.hlsw i.hl-none { min-width: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; box-shadow: inset 0 0 0 1.6px var(--text-3); background: linear-gradient(135deg, transparent 45%, var(--text-3) 45%, var(--text-3) 55%, transparent 55%); }
+.hlsw button.on, .fmt .hlsw button.on { background: none; }
+.hlsw button.on i { box-shadow: 0 0 0 2px var(--elev), 0 0 0 3.5px var(--tint); }
+.hlsw button:active i { transform: scale(.9); }
+/* The quick colour bar that appears when words are selected */
+.hlq {
+  position: absolute; z-index: 7; left: 50%; transform: translateX(-50%); bottom: calc(60px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 2px; padding: 5px 6px; border-radius: 22px; background: var(--elev);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .18), 0 0 0 .5px var(--sep); animation: rise .2s cubic-bezier(.2, .9, .3, 1);
+}
+.hlq button { width: 46px; height: 38px; display: grid; place-items: center; border-radius: 12px; }
+/* Tables: a real grid. Wide tables scroll sideways inside their own frame, not the page. */
+.ed table {
+  display: block; overflow-x: auto; margin: 12px 0; border: 1px solid var(--sep); border-radius: 12px;
+  border-spacing: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+}
+.ed table::-webkit-scrollbar { display: none; }
+.ed tbody { display: table; width: 100%; border-collapse: separate; border-spacing: 0; }
+.ed td, .ed th {
+  min-width: 92px; padding: 8px 10px; vertical-align: top; text-align: left; font-size: 16px; line-height: 1.4;
+  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: anywhere; transition: background-color .15s;
+}
+.ed tr > :last-child { border-right: 0; }
+.ed tr:last-child > * { border-bottom: 0; }
+.ed th { font-weight: 700; background: color-mix(in srgb, var(--yellow) 15%, var(--paper)); }
+/* The table panel */
+.tbp {
+  position: absolute; z-index: 7; left: 8px; right: 8px; bottom: calc(56px + env(safe-area-inset-bottom));
+  max-width: 520px; margin: 0 auto; background: var(--elev); border-radius: 16px; padding: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .18), 0 0 0 .5px var(--sep); animation: rise .22s cubic-bezier(.2, .9, .3, 1);
+}
+.tbp-row { display: flex; align-items: center; gap: 8px; }
+.tbp-row + .tbp-row { margin-top: 8px; }
+.tbp-l { width: 58px; flex: none; font-size: 13px; font-weight: 600; color: var(--text-2); padding-left: 4px; }
+.tbp .fmt-group button { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 14px; font-weight: 600; }
+.tbp .fmt-group .gl { width: 15px; height: 15px; stroke-width: 2.4; }
+.tbp button.on { background: var(--yellow); color: #231A00; }
+.tbp [data-act="tb-del"], .tbp [data-v="del"] { color: var(--red); }
 /* Undo / redo in the top bar while typing */
 .undo-btns { display: none; }
 .screen.editing .undo-btns { display: inline-flex; }

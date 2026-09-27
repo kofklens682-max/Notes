@@ -45,6 +45,7 @@ window.GLYPHS = {
   outdent: '<path d="M11 6.5h9M11 12h9M11 17.5h9"/><path d="M7 9l-3 3 3 3"/>',
   undo: '<path d="M8.5 13.5 4 9l4.5-4.5"/><path d="M4 9h10a5.5 5.5 0 0 1 0 11h-3"/>',
   redo: '<path d="M15.5 13.5 20 9l-4.5-4.5"/><path d="M20 9H10a5.5 5.5 0 0 0 0 11h3"/>',
+  table: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M10 9.5v10"/>',
   quote: '<path d="M5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
   divider: '<path d="M3.5 12h17"/><path d="M8 6.5h8M8 17.5h8" opacity=".35"/>',
   share: '<path d="M12 3.5v11.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',

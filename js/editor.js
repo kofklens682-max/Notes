@@ -6,8 +6,11 @@
 let ED = null; // { el, ed, id, range, t, dirty, wasFocused }
 
 // ---------- Cleaning & reading note HTML ----------
-const KEEP_TAGS = new Set(['DIV', 'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'H1', 'H2', 'H3', 'UL', 'OL', 'LI', 'IMG', 'MARK', 'BLOCKQUOTE', 'HR']);
-const HL = ['y', 'g', 'b', 'p']; // highlight colours: yellow, green, blue, pink (class hl-…)
+const KEEP_TAGS = new Set(['DIV', 'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'H1', 'H2', 'H3', 'UL', 'OL', 'LI', 'IMG', 'MARK', 'BLOCKQUOTE', 'HR', 'TABLE', 'TBODY', 'TR', 'TH', 'TD']);
+// Highlight colours (class hl-…): yellow, green, blue, pink, purple.
+const HL = ['y', 'g', 'b', 'p', 'v'];
+const HL_NAMES = { y: 'Yellow', g: 'Green', b: 'Blue', p: 'Pink', v: 'Purple' };
+const hlSwatches = () => fmtBtn('ed-hl', '', '<i class="hl-none"></i>', 'No highlight') + HL.map((c) => fmtBtn('ed-hl', c, `<i class="hl-${c}">Aa</i>`, HL_NAMES[c] + ' highlight')).join('');
 const DROP_TAGS = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'TEMPLATE', 'SVG', 'MATH', 'NOSCRIPT', 'CANVAS', 'VIDEO', 'AUDIO', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'FORM', 'TITLE', 'HEAD']);
 const parseBody = (html) => new DOMParser().parseFromString(`<!doctype html><body>${html}</body>`, 'text/html').body;
 // Only simple formatting survives: no styles, links, scripts or outside images. Cleans in place.
@@ -51,7 +54,7 @@ const cleanHtml = (html) => cleanBody(parseBody(html || '')).innerHTML;
 function infoOf(body) {
   const blobs = $$('img[data-blob]', body).map((i) => i.getAttribute('data-blob'));
   $$('br', body).forEach((b) => b.replaceWith('\n'));
-  $$('div, p, h1, h2, h3, li, blockquote', body).forEach((b) => b.append('\n'));
+  $$('div, p, h1, h2, h3, li, blockquote, td, th', body).forEach((b) => b.append('\n'));
   const lines = body.textContent.replace(/ /g, ' ').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
   return { title: (lines[0] || '').slice(0, 120), preview: lines.slice(1).join(' ').slice(0, 160), text: lines.join('\n'), blobs };
 }
@@ -91,13 +94,20 @@ SCREENS.note = {
           <div class="fmt-group">${fmtBtn('ed-list', 'ul', glyph('listBullet'), 'Bulleted list')}${fmtBtn('ed-list', 'ol', glyph('listNum'), 'Numbered list')}${fmtBtn('ed-cmd', 'outdent', glyph('outdent'), 'Outdent')}${fmtBtn('ed-cmd', 'indent', glyph('indent'), 'Indent')}</div>
         </div>
         <div class="fmt-row">
-          <div class="fmt-group fmt-hl">${fmtBtn('ed-hl', '', '<i class="hl-none"></i>', 'No highlight')}${HL.map((c) => fmtBtn('ed-hl', c, `<i class="hl-${c}"></i>`, { y: 'Yellow', g: 'Green', b: 'Blue', p: 'Pink' }[c] + ' highlight')).join('')}</div>
+          <div class="fmt-group fmt-hl hlsw">${hlSwatches()}</div>
           <div class="fmt-group fmt-blk">${fmtBtn('ed-quote', 'q', glyph('quote'), 'Quote')}${fmtBtn('ed-hr', 'hr', glyph('divider'), 'Divider line')}</div>
         </div>
+      </div>
+      <div class="hlq hlsw" hidden>${hlSwatches()}</div>
+      <div class="tbp" hidden>
+        <div class="tbp-row"><span class="tbp-l">Row</span><div class="fmt-group">${fmtBtn('tb-row', 'above', `${glyph('plus')}Above`, 'Add a row above')}${fmtBtn('tb-row', 'below', `${glyph('plus')}Below`, 'Add a row below')}${fmtBtn('tb-row', 'del', `${glyph('minus')}Delete`, 'Delete this row')}</div></div>
+        <div class="tbp-row"><span class="tbp-l">Column</span><div class="fmt-group">${fmtBtn('tb-col', 'left', `${glyph('plus')}Left`, 'Add a column on the left')}${fmtBtn('tb-col', 'right', `${glyph('plus')}Right`, 'Add a column on the right')}${fmtBtn('tb-col', 'del', `${glyph('minus')}Delete`, 'Delete this column')}</div></div>
+        <div class="tbp-row"><div class="fmt-group">${fmtBtn('tb-head', 'h', 'Header row', 'Header row on or off')}${fmtBtn('tb-sort', 's', 'Sort A–Z', 'Sort the rows by this column')}${fmtBtn('tb-del', 'x', 'Delete table', 'Delete the table')}</div></div>
       </div>
       <div class="ed-bar">
         <button data-act="ed-fmt" class="ed-style" aria-label="Text style"><span class="aa">Aa</span><span class="st-name">Body</span></button>
         <button data-act="ed-check" aria-label="Checklist">${glyph('checklist')}</button>
+        <button data-act="ed-table" aria-label="Table">${glyph('table')}</button>
         <button data-act="ed-photo" aria-label="Add photo">${glyph('camera')}</button>
         <button data-act="ed-mic" aria-label="Voice typing">${glyph('mic')}</button>
         <button data-act="ed-new" aria-label="New note">${glyph('compose')}</button>
@@ -119,7 +129,7 @@ function mountEditor(el, e) {
   ED = { el, ed, id: e.id, range: null, t: 0, dirty: false, wasFocused: false, hist: [], hi: -1, ht: 0 };
   const me = ED;
   // Keep the keyboard open (and the selection) when tapping the toolbars.
-  $$('.ed-bar, .fmt, .voice, .nav', el).forEach((b) => b.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input')) ev.preventDefault(); }));
+  $$('.ed-bar, .fmt, .hlq, .tbp, .voice, .nav', el).forEach((b) => b.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input')) ev.preventDefault(); }));
   ed.addEventListener('input', () => { queueSave(); histSoon(); });
   ed.addEventListener('focus', () => el.classList.add('editing'));
   ed.addEventListener('blur', () => { el.classList.remove('editing'); saveEditor(); });
@@ -129,6 +139,7 @@ function mountEditor(el, e) {
     document.execCommand('insertText', false, text);
   });
   ed.addEventListener('beforeinput', (ev) => {
+    if (tableBeforeInput(ev, me)) return;
     // A new line keeps the style you were writing in (Heading, Subheading); after the Title it
     // becomes a Heading. The phone would otherwise switch back to Body. Change it with Aa.
     if (ev.inputType === 'insertParagraph') { me.keepTag = caretStyle(); me.atStart = atLineStart(); }
@@ -143,6 +154,7 @@ function mountEditor(el, e) {
     }
   });
   ed.addEventListener('input', (ev) => {
+    if (tableInput(me)) return;
     if (me.redoUnlist) {
       const { html, path } = me.redoUnlist;
       me.redoUnlist = null;
@@ -163,7 +175,7 @@ function mountEditor(el, e) {
     }
     if (ev.inputType === 'insertText' && / $/.test(ev.data || '')) quickList();
     // An emptied note starts again with a Title.
-    if (!ed.textContent.trim() && !ed.querySelector('img, hr, li, h1')) {
+    if (!ed.textContent.trim() && !ed.querySelector('img, hr, li, h1, table')) {
       ed.innerHTML = '<h1><br></h1>';
       caretAt(ed.firstChild, 0);
       styleLabel();
@@ -558,6 +570,7 @@ ACTIONS['ed-hl'] = (el) => {
 };
 ACTIONS['ed-quote'] = () => {
   restoreSel();
+  if (!notInTable()) return;
   if (caretStyle() === 'blockquote') document.execCommand('formatBlock', false, 'div');
   else if (selectedLis().length) unlistSelected('blockquote');
   else document.execCommand('formatBlock', false, 'blockquote');
@@ -565,6 +578,7 @@ ACTIONS['ed-quote'] = () => {
 };
 ACTIONS['ed-hr'] = () => {
   restoreSel();
+  if (!notInTable()) return;
   const li = caretLi(), line = li && unlistLi(li);
   if (line) caretAt(line, line.childNodes.length);
   const sel = getSelection();
@@ -581,18 +595,42 @@ function styleLabel() {
   const t = $('.ed-style .st-name', ED.el), name = STYLE_NAMES[caretStyle()];
   if (t && t.textContent !== name) t.textContent = name;
 }
-document.addEventListener('selectionchange', () => { if (ED) styleLabel(); });
+document.addEventListener('selectionchange', () => { if (ED) { styleLabel(); quickHl(); } });
+// The colour the cursor/selection is in gets a ring (in the Aa panel and the quick bar).
+function hlState() {
+  const sel = getSelection();
+  const a = sel.rangeCount ? sel.anchorNode : null, m = a && (a.nodeType === 3 ? a.parentElement : a).closest('mark');
+  const hl = m && ED.ed.contains(m) ? m.className.replace('hl-', '') : null;
+  $$('[data-act="ed-hl"]', ED.el).forEach((b) => b.classList.toggle('on', hl !== null && b.dataset.v === hl));
+}
+// Select some words and the highlight colours appear above the toolbar — one tap colours them.
+function quickHl() {
+  const q = ED && $('.hlq', ED.el);
+  if (!q) return;
+  const sel = getSelection();
+  const show = !!sel.rangeCount && !sel.isCollapsed && ED.ed.contains(sel.anchorNode) && $('.fmt', ED.el).hidden && $('.tbp', ED.el).hidden;
+  if (q.hidden === show) q.hidden = !show;
+  if (show) hlState();
+}
 
 // ---------- Toolbar ----------
+// Styles, lists, quotes and dividers stay outside tables; in a cell B, I, U, S and highlights work.
+function notInTable() {
+  if (!caretCell()) return true;
+  toast('In a table cell you can use B, I, U, S and highlights');
+  return false;
+}
 ACTIONS['ed-done'] = () => { if (ED) { ED.ed.blur(); saveEditor(); } };
 ACTIONS['ed-fmt'] = () => {
   const f = $('.fmt', ED.el);
   f.hidden = !f.hidden;
   $('[data-act="ed-fmt"]', ED.el).classList.toggle('on', !f.hidden);
-  if (!f.hidden) updateFmt();
+  if (!f.hidden) { $('.tbp', ED.el).hidden = true; tableMarks(); updateFmt(); }
+  quickHl();
 };
 ACTIONS['ed-block'] = (el) => {
   restoreSel();
+  if (!notInTable()) return;
   // On a checklist/list line the style takes the line out of the list.
   if (selectedLis().length) unlistSelected(el.dataset.v);
   else document.execCommand('formatBlock', false, el.dataset.v);
@@ -600,11 +638,13 @@ ACTIONS['ed-block'] = (el) => {
 };
 ACTIONS['ed-cmd'] = (el) => {
   restoreSel();
+  if (/dent$/.test(el.dataset.v) && !notInTable()) return;
   document.execCommand(el.dataset.v, false, null);
   afterCmd();
 };
 ACTIONS['ed-list'] = (el) => {
   restoreSel();
+  if (!notInTable()) return;
   const li = caretLi(), list = li && li.parentElement;
   if (el.dataset.v === 'ul' && list && list.tagName === 'UL' && list.classList.contains('cl')) list.classList.remove('cl');
   else document.execCommand(el.dataset.v === 'ul' ? 'insertUnorderedList' : 'insertOrderedList', false, null);
@@ -612,6 +652,7 @@ ACTIONS['ed-list'] = (el) => {
 };
 ACTIONS['ed-check'] = () => {
   restoreSel();
+  if (!notInTable()) return;
   const li = caretLi(), list = li && li.parentElement;
   if (list && list.tagName === 'UL' && list.classList.contains('cl')) unlistSelected('div'); // only these lines lose their circles
   else if (list && list.tagName === 'UL') list.classList.add('cl');
@@ -630,10 +671,7 @@ function updateFmt() {
   const st = caretStyle();
   $$('[data-act="ed-block"]', f).forEach((b) => b.classList.toggle('on', b.dataset.v === st));
   $('[data-act="ed-quote"]', f).classList.toggle('on', st === 'blockquote');
-  const sel = getSelection();
-  const a = sel.rangeCount ? sel.anchorNode : null, m = a && (a.nodeType === 3 ? a.parentElement : a).closest('mark');
-  const hl = m && ED.ed.contains(m) ? m.className.replace('hl-', '') : null;
-  $$('[data-act="ed-hl"]', f).forEach((b) => b.classList.toggle('on', hl !== null && b.dataset.v === hl));
+  hlState();
   $$('[data-act="ed-cmd"]', f).forEach((b) => {
     if (b.dataset.v === 'indent' || b.dataset.v === 'outdent') return;
     let on = false;
@@ -740,7 +778,7 @@ async function addPhotos(files) {
 function insertBlock(node) {
   const ed = ED.ed, r = ED.range;
   const block = r && ed.contains(r.startContainer) ? topBlock(r.startContainer) : null;
-  const emptyLine = (b) => b && !b.classList.contains('ph') && b.tagName !== 'HR' && !b.textContent.trim() && !b.querySelector('img');
+  const emptyLine = (b) => b && !b.classList.contains('ph') && !/^(HR|TABLE)$/.test(b.tagName) &&!b.textContent.trim() && !b.querySelector('img');
   if (block && emptyLine(block)) block.replaceWith(node);
   else if (block) block.after(node);
   else ed.appendChild(node);
