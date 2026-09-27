@@ -26,7 +26,7 @@ function cleanBody(body) {
       const keep = [];
       if (tag === 'UL' && ch.classList.contains('cl')) keep.push(['class', 'cl']);
       if (tag === 'LI' && ch.classList.contains('done')) keep.push(['class', 'done']);
-      if (tag === 'DIV' && ch.classList.contains('ph')) keep.push(['class', 'ph']);
+      if (tag === 'DIV' && ch.classList.contains('ph')) keep.push(['class', ch.classList.contains('dr') ? 'ph dr' : 'ph']);
       if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
       if (tag === 'TD' && ch.classList.contains('tk')) keep.push(['class', ch.classList.contains('done') ? 'tk done' : 'tk']);
       if (tag === 'MARK') keep.push(['class', HL.map((c) => 'hl-' + c).find((c) => ch.classList.contains(c)) || 'hl-y']);
@@ -34,6 +34,8 @@ function cleanBody(body) {
         const id = ch.getAttribute('data-blob') || '';
         if (!/^[a-z0-9]{4,40}$/i.test(id)) { ch.remove(); continue; }
         keep.push(['data-blob', id]);
+        const vec = ch.getAttribute('data-vec') || ''; // a drawing's parts (see draw.js)
+        if (/^[a-z0-9]{4,40}$/i.test(vec)) keep.push(['data-vec', vec]);
       }
       for (const a of [...ch.attributes]) ch.removeAttribute(a.name);
       for (const [k, v] of keep) ch.setAttribute(k, v);
@@ -54,7 +56,8 @@ const cleanHtml = (html) => cleanBody(parseBody(html || '')).innerHTML;
 // Title (first line), preview (the rest), plain text for search, and the photos used.
 // Changes the body it's given.
 function infoOf(body) {
-  const blobs = $$('img[data-blob]', body).map((i) => i.getAttribute('data-blob'));
+  // Pictures first (a card shows the first one), then drawings' parts — all kept and locked with the note.
+  const blobs = $$('img[data-blob]', body).map((i) => i.getAttribute('data-blob')).concat($$('img[data-vec]', body).map((i) => i.getAttribute('data-vec')));
   $$('br', body).forEach((b) => b.replaceWith('\n'));
   $$('div, p, h1, h2, h3, li, blockquote, td, th', body).forEach((b) => b.append('\n'));
   const lines = body.textContent.replace(/ /g, ' ').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -112,6 +115,7 @@ SCREENS.note = {
         <button data-act="ed-check" aria-label="Checklist">${glyph('checklist')}</button>
         <button data-act="ed-table" aria-label="Table">${glyph('table')}</button>
         <button data-act="ed-photo" aria-label="Add photo">${glyph('camera')}</button>
+        <button data-act="ed-draw" aria-label="Draw">${glyph('draw')}</button>
         <button data-act="ed-mic" aria-label="Voice typing">${glyph('mic')}</button>
         <button data-act="ed-new" aria-label="New note">${glyph('compose')}</button>
       </div>`;
@@ -199,7 +203,8 @@ function mountEditor(el, e) {
       return;
     }
     const img = ev.target.closest('.ph img');
-    if (img) openViewer(img);
+    if (img && img.closest('.dr') && img.dataset.vec) editDrawing(img);
+    else if (img) openViewer(img);
   });
   const load = (html) => {
     if (ED !== me) return;
@@ -231,6 +236,7 @@ function openBody(n, load) {
 function prepareEd() {
   $$('.ph, td.tk', ED.ed).forEach((p) => { p.contentEditable = 'false'; });
   $$('.ph img', ED.ed).forEach(async (img) => {
+    if (img.dataset.vec) sizeDrawing(img);
     if (img.src) return;
     const url = await photoUrl(img.dataset.blob);
     if (url) img.src = url;

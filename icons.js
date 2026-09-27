@@ -48,6 +48,8 @@ window.GLYPHS = {
   table: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M10 9.5v10"/>',
   thead: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path class="f" d="M6 4.5h12A2.5 2.5 0 0 1 20.5 7v3h-17V7A2.5 2.5 0 0 1 6 4.5z"/><path d="M12 10v9.5"/>',
   sort: '<path d="M7 4.5v15M3.5 16 7 19.5 10.5 16"/><path d="M13.5 7h7M13.5 12h5M13.5 17h3"/>',
+  draw: '<path d="M15.5 4.5 19.5 8.5 9 19H5v-4z"/><path d="m13.5 6.5 4 4"/><path d="M3.5 21.5c2.5-1.2 4.2-.8 5.6.2 1.5 1 3.3 1.2 5.4-.2" opacity=".55"/>',
+  eraser: '<path d="M8.5 20h11"/><path d="M4.6 14.6 13.7 5.5a2 2 0 0 1 2.8 0l3 3a2 2 0 0 1 0 2.8L11.3 19.5a1.8 1.8 0 0 1-1.3.5H8a1.8 1.8 0 0 1-1.3-.5l-2.1-2.1a2 2 0 0 1 0-2.8z"/><path d="m9 10.3 5.7 5.7"/>',
   quote: '<path d="M5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
   divider: '<path d="M3.5 12h17"/><path d="M8 6.5h8M8 17.5h8" opacity=".35"/>',
   share: '<path d="M12 3.5v11.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
