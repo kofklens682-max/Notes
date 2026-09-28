@@ -1142,7 +1142,7 @@ function themeColor() {
   const e = cur();
   const plain = e && SCREENS[e.s] && SCREENS[e.s].plain;
   const m = $('meta[name=theme-color]');
-  if (m) m.content = isDark() ? (plain ? '#000000' : '#000000') : plain ? '#FFFFFF' : '#F2F2F7';
+  if (m) m.content = isDark() ? '#13120F' : plain ? '#FFFDF9' : '#F5F1E6'; // (the bar above the app matches the page)
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeColor);
 

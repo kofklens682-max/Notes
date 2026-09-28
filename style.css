@@ -9,24 +9,25 @@
 /* ---------- Tokens ---------- */
 :root {
   color-scheme: light;
-  --bg: #F2F2F7;
+  --on-accent: #FFFFFF;
+  --bg: #F5F1E6;
   --card: #FFFFFF;
-  --paper: #FFFFFF;
+  --paper: #FFFDF9;
   --elev: #FFFFFF;
   --seg-on: #FFFFFF;
-  --fill: rgba(118, 118, 128, .12);
-  --fill-2: rgba(118, 118, 128, .07);
-  --text: #000000;
-  --text-2: rgba(60, 60, 67, .62);
-  --text-3: rgba(60, 60, 67, .3);
-  --sep: rgba(60, 60, 67, .22);
-  --bar: rgb(249, 249, 250); /* solid bars: a live blur behind them made scrolling stutter on phones */
-  --menu: rgb(250, 250, 250);
+  --fill: rgba(90, 70, 30, .08);
+  --fill-2: rgba(90, 70, 30, .05);
+  --text: #1D1B16;
+  --text-2: rgba(29, 27, 22, .6);
+  --text-3: rgba(29, 27, 22, .3);
+  --sep: rgba(29, 27, 22, .14);
+  --bar: #FFFDF8; /* solid bars: a live blur behind them made scrolling stutter on phones */
+  --menu: #FFFDF8;
   --overlay: rgba(0, 0, 0, .3);
   --red: #FF3B30;
   --orange: #FF9500;
-  --yellow: #FFCC00;
-  --yellow-t: #C99700;
+  --yellow: #FF7A45;
+  --yellow-t: #E5602A;
   --green: #34C759;
   --blue: #007AFF;
   --purple: #AF52DE;
@@ -48,24 +49,25 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #000000;
-    --card: #1C1C1E;
-    --paper: #000000;
-    --elev: #2C2C2E;
-    --seg-on: #636366;
-    --fill: rgba(118, 118, 128, .24);
-    --fill-2: rgba(118, 118, 128, .14);
-    --text: #FFFFFF;
-    --text-2: rgba(235, 235, 245, .6);
-    --text-3: rgba(235, 235, 245, .3);
-    --sep: rgba(84, 84, 88, .65);
-    --bar: rgb(22, 22, 24);
-    --menu: rgb(40, 40, 42);
+    --on-accent: #FFFFFF;
+    --bg: #13120F;
+    --card: #1F1D18;
+    --paper: #13120F;
+    --elev: #2A2721;
+    --seg-on: #4A463D;
+    --fill: rgba(255, 240, 210, .1);
+    --fill-2: rgba(255, 240, 210, .06);
+    --text: #F5F0E4;
+    --text-2: rgba(245, 240, 228, .6);
+    --text-3: rgba(245, 240, 228, .3);
+    --sep: rgba(255, 240, 210, .14);
+    --bar: rgb(31, 29, 24);
+    --menu: rgb(42, 39, 33);
     --overlay: rgba(0, 0, 0, .55);
     --red: #FF453A;
     --orange: #FF9F0A;
-    --yellow: #FFD60A;
-    --yellow-t: #FFD60A;
+    --yellow: #FF8A55;
+    --yellow-t: #FF9A66;
     --green: #30D158;
     --blue: #0A84FF;
     --purple: #BF5AF2;
@@ -74,30 +76,31 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #000000;
-  --card: #1C1C1E;
-  --paper: #000000;
-  --elev: #2C2C2E;
-  --seg-on: #636366;
-  --fill: rgba(118, 118, 128, .24);
-  --fill-2: rgba(118, 118, 128, .14);
-  --text: #FFFFFF;
-  --text-2: rgba(235, 235, 245, .6);
-  --text-3: rgba(235, 235, 245, .3);
-  --sep: rgba(84, 84, 88, .65);
-  --bar: rgb(22, 22, 24);
-  --menu: rgb(40, 40, 42);
+  --on-accent: #FFFFFF;
+  --bg: #13120F;
+  --card: #1F1D18;
+  --paper: #13120F;
+  --elev: #2A2721;
+  --seg-on: #4A463D;
+  --fill: rgba(255, 240, 210, .1);
+  --fill-2: rgba(255, 240, 210, .06);
+  --text: #F5F0E4;
+  --text-2: rgba(245, 240, 228, .6);
+  --text-3: rgba(245, 240, 228, .3);
+  --sep: rgba(255, 240, 210, .14);
+  --bar: rgb(31, 29, 24);
+  --menu: rgb(42, 39, 33);
   --overlay: rgba(0, 0, 0, .55);
   --red: #FF453A;
   --orange: #FF9F0A;
-  --yellow: #FFD60A;
-  --yellow-t: #FFD60A;
+  --yellow: #FF8A55;
+  --yellow-t: #FF9A66;
   --green: #30D158;
   --blue: #0A84FF;
   --purple: #BF5AF2;
   --hl-ink: #0F0E0A;
 }
-body[data-tab="notes"] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: #2B2100; }
+body[data-tab="notes"] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: var(--on-accent); }
 body[data-tab="planner"] { --tint: var(--blue); }
 
 /* ---------- Base ---------- */
@@ -266,8 +269,8 @@ h1, h2, h3, p { margin: 0; }
 .fchips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 0 16px 2px; scrollbar-width: none; }
 .fchips::-webkit-scrollbar { display: none; }
 /* --on: 0 → 1 fades a button to yellow (it follows the finger while you swipe between folders) */
-.fchip { --on: 0; flex: none; height: 34px; padding: 0 14px; border-radius: 17px; background: color-mix(in srgb, var(--yellow) calc(var(--on) * 100%), var(--card)); color: color-mix(in srgb, #2B2100 calc(var(--on) * 100%), var(--text)); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: background .2s, color .2s, transform .15s; -webkit-touch-callout: none; }
-.fchip small { font-size: 13px; color: color-mix(in srgb, rgba(43, 33, 0, .6) calc(var(--on) * 100%), var(--text-2)); font-weight: 600; transition: color .2s; }
+.fchip { --on: 0; flex: none; height: 34px; padding: 0 14px; border-radius: 17px; background: color-mix(in srgb, var(--yellow) calc(var(--on) * 100%), var(--card)); color: color-mix(in srgb, var(--on-accent) calc(var(--on) * 100%), var(--text)); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: background .2s, color .2s, transform .15s; -webkit-touch-callout: none; }
+.fchip small { font-size: 13px; color: color-mix(in srgb, color-mix(in srgb, var(--on-accent) 78%, transparent) calc(var(--on) * 100%), var(--text-2)); font-weight: 600; transition: color .2s; }
 .fchip.on { --on: 1; }
 .fchip.add { background: none; color: var(--tint); padding: 0 6px; }
 .fchip:active { transform: scale(.95); }
@@ -390,7 +393,7 @@ h1, h2, h3, p { margin: 0; }
 .fmt-group button { flex: 1; height: 42px; display: grid; place-items: center; font-size: 18px; }
 .fmt-group button + button { box-shadow: inset .5px 0 0 var(--sep); }
 .fmt-group .gl { width: 22px; height: 22px; }
-.fmt button.on { background: var(--yellow); color: #231A00; }
+.fmt button.on { background: var(--yellow); color: var(--on-accent); }
 .fmt button, .tbp button { transition: background-color .2s, color .2s, transform .12s; }
 .fmt button:active, .tbp button:active { transform: scale(.95); }
 /* Highlight swatches: "Aa" in each colour; the one in use gets a ring */
@@ -501,7 +504,7 @@ h1, h2, h3, p { margin: 0; }
 .tbp-l { width: 58px; flex: none; font-size: 13px; font-weight: 600; color: var(--text-2); padding-left: 4px; }
 .tbp .fmt-group button { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 14px; font-weight: 600; }
 .tbp .fmt-group .gl { width: 15px; height: 15px; stroke-width: 2.4; }
-.tbp button.on { background: var(--yellow); color: #231A00; }
+.tbp button.on { background: var(--yellow); color: var(--on-accent); }
 .tbp [data-act="tb-del"], .tbp [data-v="del"] { color: var(--red); }
 .tbp .tbp-sets button { font-size: 13px; }
 .tbp-l:empty { visibility: hidden; }
@@ -934,7 +937,7 @@ h1, h2, h3, p { margin: 0; }
 /* Passcode pad */
 .lock { position: fixed; inset: 0; z-index: 80; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom); animation: fade-in .2s; }
 .lock.out { animation: fade-out .25s forwards; }
-.lock-ic { width: 60px; height: 60px; border-radius: 16px; background: var(--yellow); color: #2B2100; display: grid; place-items: center; margin-bottom: 18px; }
+.lock-ic { width: 60px; height: 60px; border-radius: 16px; background: var(--yellow); color: var(--on-accent); display: grid; place-items: center; margin-bottom: 18px; }
 .lock-ic .gl { width: 30px; height: 30px; stroke-width: 2; }
 .lock-title { font-size: 20px; font-weight: 700; }
 .lock-sub { font-size: 14px; color: var(--text-2); margin-top: 6px; min-height: 19px; text-align: center; }
@@ -988,9 +991,9 @@ h1, h2, h3, p { margin: 0; }
 .dr-tool { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--text); flex: none; transition: background-color .2s, color .2s, transform .12s; }
 .dr-tool:active { transform: scale(.9); }
 .dr-tool .gl { width: 23px; height: 23px; }
-.dr-tool.on { background: var(--yellow); color: #231A00; }
+.dr-tool.on { background: var(--yellow); color: var(--on-accent); }
 .dr-tool.magic { color: var(--yellow-t); }
-.dr-tool.magic.on { color: #231A00; }
+.dr-tool.magic.on { color: var(--on-accent); }
 .dr-color { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none; box-shadow: inset 0 0 0 2.5px var(--c, #1C1C1E); transition: box-shadow .25s, transform .12s; }
 .dr-color:active { transform: scale(.9); }
 .dr-color i { display: block; width: var(--s, 11px); height: var(--s, 11px); border-radius: 50%; background: var(--c, #1C1C1E); transition: width .2s cubic-bezier(.3, 1.3, .5, 1), height .2s cubic-bezier(.3, 1.3, .5, 1), background-color .25s; }
@@ -1011,7 +1014,7 @@ h1, h2, h3, p { margin: 0; }
 /* the ✨ button that appears next to a drawing or at the end of a sum, and the glow while it's being looked at */
 .dr-chip {
   position: absolute; pointer-events: auto; width: 40px; height: 40px; margin-left: -8px; border-radius: 50%;
-  background: var(--yellow); color: #231A00; display: grid; place-items: center;
+  background: var(--yellow); color: var(--on-accent); display: grid; place-items: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .18); animation: pop .3s cubic-bezier(.3, 1.4, .5, 1) both;
 }
 .dr-chip[data-kind="math"] { margin-left: 0; animation: pop .3s cubic-bezier(.3, 1.4, .5, 1) both, dr-breathe 2.2s ease-in-out .5s infinite; }
@@ -1073,7 +1076,7 @@ h1, h2, h3, p { margin: 0; }
 @keyframes dr-g-in { from { opacity: 0; transform: translateY(10px) scale(.9); } }
 .dr-pick-own { display: flex; gap: 8px; margin-top: 10px; }
 .dr-pick-own input { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; border-radius: 12px; background: var(--fill); padding: 0 12px; font-size: 16px; color: var(--text); }
-.dr-pick-own button { width: 40px; height: 40px; border-radius: 50%; background: var(--yellow); color: #231A00; display: grid; place-items: center; flex: none; transition: transform .12s; }
+.dr-pick-own button { width: 40px; height: 40px; border-radius: 50%; background: var(--yellow); color: var(--on-accent); display: grid; place-items: center; flex: none; transition: transform .12s; }
 .dr-pick-own button:active { transform: scale(.9); }
 .dr-pick-own .gl { width: 20px; height: 20px; stroke-width: 2.4; }
 .dr-style { margin-top: 10px; }
@@ -1144,7 +1147,7 @@ h1, h2, h3, p { margin: 0; }
   background: var(--elev); box-shadow: 0 8px 28px rgba(0, 0, 0, .18), 0 0 0 .5px var(--sep); pointer-events: auto; animation: rise .26s cubic-bezier(.2, .9, .3, 1) both;
 }
 .dbx.below .dbx-bar { bottom: auto; top: calc(100% + 10px); }
-.dbx-edit { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px 0 9px; border-radius: 11px; background: var(--yellow); color: #231A00; font-size: 15px; font-weight: 600; transition: transform .12s; }
+.dbx-edit { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px 0 9px; border-radius: 11px; background: var(--yellow); color: var(--on-accent); font-size: 15px; font-weight: 600; transition: transform .12s; }
 .dbx-edit .gl { width: 20px; height: 20px; }
 .dbx-lay { width: 138px; }
 .dbx-lay button { height: 32px; display: grid; place-items: center; }
@@ -1168,7 +1171,7 @@ h1, h2, h3, p { margin: 0; }
 .tile.ac-tile { width: 64px; height: 64px; border-radius: 18px; }
 .tile.ac-tile .gl { width: 36px; height: 36px; stroke-width: 1.9; }
 .ac-err { color: var(--red); min-height: 18px; }
-.ac-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; margin-top: 14px; border-radius: 14px; background: var(--yellow); color: #2B2100; font-size: 17px; font-weight: 700; transition: transform .12s, opacity .2s; }
+.ac-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; margin-top: 14px; border-radius: 14px; background: var(--yellow); color: var(--on-accent); font-size: 17px; font-weight: 700; transition: transform .12s, opacity .2s; }
 .ac-btn .gl { width: 21px; height: 21px; }
 .ac-btn.grey { background: var(--fill); color: var(--text); font-weight: 600; }
 .ac-btn:active { transform: scale(.97); }
