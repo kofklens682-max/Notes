@@ -137,7 +137,7 @@ ACTIONS['h-tick'] = (el) => {
     delete h.log[day];
     save();
     render();
-    if (h.target > 1) undoToast('Reset to 0', () => { h.log[day] = before; });
+    undoToast(h.target > 1 ? 'Reset to 0' : `${h.name} — not done`, () => { h.log[day] = before; });
     return;
   }
   h.log[day] = cnt + 1;
@@ -233,11 +233,13 @@ ACTIONS['h-minus'] = (el) => {
 ACTIONS['h-cell'] = (el) => {
   const h = habitOf(cur().id), d = el.dataset.v;
   if (!h) return;
+  const before = h.log[d];
   if (habitDone(h, d)) delete h.log[d]; else h.log[d] = h.target;
   if (d < h.start) h.start = d;
   buzz();
   save();
   render();
+  if (before && !h.log[d]) undoToast(`${dayName(d, true)} — not done`, () => { h.log[d] = before; });
 };
 ACTIONS['h-del-cur'] = async () => { if (await deleteHabit(cur().id)) pop(); };
 
@@ -388,10 +390,11 @@ ACTIONS['sl-save'] = () => {
   render();
 };
 ACTIONS['sl-del'] = () => {
-  const h = habitOf(SL.id);
-  if (h) { delete h.times[SL.day]; delete h.log[SL.day]; save(); }
+  const h = habitOf(SL.id), day = SL.day, t = h && h.times[day], lg = h && h.log[day];
+  if (h) { delete h.times[day]; delete h.log[day]; save(); }
   closeSheet();
   render();
+  if (t) undoToast('Night removed', () => { h.times[day] = t; if (lg) h.log[day] = lg; });
 };
 
 // ---------- New / edit habit ----------

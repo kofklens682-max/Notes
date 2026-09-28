@@ -197,12 +197,28 @@ function pickFolder(el, e, id, minH = '') {
 function bindFolderPager(el, e) {
   const r = $('.results', el);
   const at = (dir) => { const ids = folderIds(); return ids[ids.indexOf(e.folder) + dir]; };
+  // While the notes follow the finger, the yellow moves from this folder's button to the next one's.
+  const chipOf = (id) => id && $(`.fchip[data-id="${id}"]`, el);
+  let lit = [];
+  const unlight = () => { lit.forEach((c) => { c.style.removeProperty('--on'); c.style.transition = ''; }); lit = []; };
+  const light = (p, ease) => {
+    const dir = Math.sign(p), a = chipOf(e.folder), b = dir ? chipOf(at(dir)) : null, t = Math.min(1, Math.abs(p));
+    unlight();
+    if (!a) return;
+    lit = b ? [a, b] : [a];
+    lit.forEach((c) => { c.style.transition = ease ? ease.replace('transform', 'background-color') + ', ' + ease.replace('transform', 'color') : 'none'; });
+    a.style.setProperty('--on', (1 - (b ? t : 0)).toFixed(3));
+    if (b) b.style.setProperty('--on', t.toFixed(3));
+  };
   bindPager(r, {
     has: (dir) => !(e.q && e.q.trim()) && !!at(dir),
     page: (dir) => notesGridHtml(at(dir), 24),
     mount: (p) => fillPhotos(p),
+    move: (p, ease) => light(p, ease),
+    rest: () => setTimeout(unlight, 0),
     skip: (t) => !!t.closest('.more-notes'),
     go: (dir, top) => {
+      unlight();
       const scr = $('.scroll', el);
       if (top > 0 && scr) {
         // keep the new folder's notes exactly where they were shown while sliding in (a short

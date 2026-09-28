@@ -87,6 +87,8 @@ function fullDate(ms) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} at ${hm(ms)}`;
 }
 const fmtBtn = (act, v, inner, label) => `<button data-act="${act}" data-v="${v}" aria-label="${label}">${inner}</button>`;
+// A toolbar button: a colour tile with its name underneath (each tool has its own colour, --t-…).
+const edTool = (act, g, name, label, c) => `<button data-act="${act}" aria-label="${label}" style="--tc:var(--t-${c})"><span class="tl">${glyph(g)}</span><span class="lb">${name}</span></button>`;
 SCREENS.note = {
   bar: false, plain: true, keep: true,
   render(e) {
@@ -117,13 +119,13 @@ SCREENS.note = {
         <div class="tbp-row"><span class="tbp-l"></span><div class="fmt-group">${fmtBtn('tb-sort', 's', `${glyph('sort')}Sort A–Z`, 'Sort the rows by this column')}${fmtBtn('tb-del', 'x', `${glyph('trash')}Delete table`, 'Delete the table')}</div></div>
       </div>
       <div class="ed-bar">
-        <button data-act="ed-fmt" class="ed-style" aria-label="Text style"><span class="aa">Aa</span><span class="st-name">Body</span></button>
-        <button data-act="ed-check" aria-label="Checklist">${glyph('checklist')}</button>
-        <button data-act="ed-table" aria-label="Table">${glyph('table')}</button>
-        <button data-act="ed-photo" aria-label="Add photo">${glyph('camera')}</button>
-        <button data-act="ed-draw" aria-label="Draw">${glyph('draw')}</button>
-        <button data-act="ed-mic" aria-label="Voice typing">${glyph('mic')}</button>
-        <button data-act="ed-new" aria-label="New note">${glyph('compose')}</button>
+        <button data-act="ed-fmt" class="ed-style" aria-label="Text style" style="--tc:var(--t-style)"><span class="tl"><span class="aa">Aa</span></span><span class="lb st-name">Body</span></button>
+        ${edTool('ed-check', 'checklist', 'List', 'Checklist', 'list')}
+        ${edTool('ed-table', 'table', 'Table', 'Table', 'table')}
+        ${edTool('ed-photo', 'camera', 'Photo', 'Add photo', 'photo')}
+        ${edTool('ed-draw', 'draw', 'Draw', 'Draw', 'draw')}
+        ${edTool('ed-mic', 'mic', 'Voice', 'Voice typing', 'voice')}
+        ${edTool('ed-new', 'compose', 'New', 'New note', 'new')}
       </div>`;
     return page({ title: '', back: editorBackLabel(), right, body, big: false, after });
   },
@@ -205,10 +207,11 @@ function mountEditor(el, e) {
     }
   });
   ed.addEventListener('pointerdown', (ev) => {
-    if (checkboxHit(ev)) { ED.wasFocused = document.activeElement === ed; ev.preventDefault(); }
+    if (checkboxHit(ev)) { ED.wasFocused = document.activeElement === ed; ev.preventDefault(); clHold(ev); }
   });
   ed.addEventListener('click', (ev) => {
     const li = checkboxHit(ev);
+    if (li && Date.now() - clDroppedAt < 450) { ev.preventDefault(); return; } // (the end of a drag isn't a tick)
     if (li) {
       ev.preventDefault();
       li.classList.toggle('done');
@@ -340,6 +343,96 @@ function checkboxHit(ev) {
   const x = ev.clientX - li.getBoundingClientRect().left;
   return x >= -6 && x < 32 ? li : null;
 }
+// ---------- Moving checklist lines ----------
+// Hold a checklist line's circle for a moment: the line lifts, and dragging moves it up or down its
+// list — the other lines make room as it passes. Let go to drop it there. (A quick tap still ticks it.)
+let CLD = null, clDroppedAt = 0;
+function clHold(ev) {
+  const li = checkboxHit(ev);
+  if (!li || li.tagName !== 'LI' || ev.button > 0 || CLD) return;
+  CLD = { li, id: ev.pointerId, y0: ev.clientY, x0: ev.clientX, y: ev.clientY, on: false };
+  CLD.timer = setTimeout(clLift, 320);
+}
+function clLift() {
+  const s = CLD;
+  if (!s || !ED || !s.li.isConnected) { CLD = null; return; }
+  s.on = true;
+  s.scr = ED.ed.closest('.scroll');
+  s.st0 = s.scr ? s.scr.scrollTop : 0;
+  s.sibs = [...s.li.parentElement.children].filter((x) => x.tagName === 'LI');
+  s.from = s.to = s.sibs.indexOf(s.li);
+  s.rects = s.sibs.map((x) => x.getBoundingClientRect());
+  const next = s.rects[s.from + 1], prev = s.rects[s.from - 1], r = s.rects[s.from];
+  s.step = next ? next.top - r.top : prev ? r.top - prev.top : r.height + 6;
+  histNow();
+  ED.ed.style.webkitUserSelect = ED.ed.style.userSelect = 'none';
+  s.li.classList.add('cl-lift');
+  s.sibs.forEach((x) => { if (x !== s.li) x.style.transition = 'transform .22s cubic-bezier(.2, .9, .3, 1)'; });
+  buzz(15);
+  const tick = () => {
+    if (CLD !== s || !s.on) return;
+    const sr = s.scr && s.scr.getBoundingClientRect();
+    if (sr) {
+      const v = s.y < sr.top + 110 ? -Math.min(14, (sr.top + 110 - s.y) / 4) : s.y > sr.bottom - 150 ? Math.min(14, (s.y - sr.bottom + 150) / 4) : 0;
+      if (v) { s.scr.scrollTop += v; clMove(); }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+function clMove() {
+  const s = CLD;
+  const dy = s.y - s.y0 + (s.scr ? s.scr.scrollTop - s.st0 : 0);
+  s.li.style.transform = `translate3d(0, ${dy.toFixed(1)}px, 0)`;
+  const r = s.rects[s.from], mid = r.top + r.height / 2 + dy;
+  let to = s.from;
+  s.rects.forEach((q, i) => {
+    const m = q.top + q.height / 2;
+    if (i < s.from && mid < m) to = Math.min(to, i);
+    if (i > s.from && mid > m) to = Math.max(to, i);
+  });
+  if (to === s.to) return;
+  s.to = to;
+  buzz(6);
+  s.sibs.forEach((x, i) => {
+    if (x === s.li) return;
+    const shift = s.from < to && i > s.from && i <= to ? -s.step : to < s.from && i >= to && i < s.from ? s.step : 0;
+    x.style.transform = shift ? `translate3d(0, ${shift}px, 0)` : '';
+  });
+}
+function clDrop() {
+  const s = CLD;
+  CLD = null;
+  clDroppedAt = Date.now();
+  const before = s.li.getBoundingClientRect();
+  s.sibs.forEach((x) => { x.style.transform = ''; x.style.transition = ''; if (!x.getAttribute('style')) x.removeAttribute('style'); });
+  s.li.classList.remove('cl-lift');
+  if (!s.li.getAttribute('class')) s.li.removeAttribute('class');
+  if (ED) ED.ed.style.webkitUserSelect = ED.ed.style.userSelect = '';
+  if (!ED || !s.li.isConnected) return;
+  if (s.to !== s.from) {
+    if (s.to > s.from) s.sibs[s.to].after(s.li); else s.sibs[s.to].before(s.li);
+    afterCmd();
+    saveEditor();
+  }
+  const after = s.li.getBoundingClientRect();
+  if (!reduceMotion()) s.li.animate([{ transform: `translateY(${before.top - after.top}px)` }, { transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.2, .9, .3, 1)' });
+}
+document.addEventListener('pointermove', (e) => {
+  if (!CLD || e.pointerId !== CLD.id) return;
+  CLD.y = e.clientY;
+  if (!CLD.on) { if (Math.hypot(e.clientX - CLD.x0, e.clientY - CLD.y0) > 8) { clearTimeout(CLD.timer); CLD = null; } return; }
+  clMove();
+});
+['pointerup', 'pointercancel'].forEach((t) => document.addEventListener(t, (e) => {
+  if (!CLD || e.pointerId !== CLD.id) return;
+  clearTimeout(CLD.timer);
+  if (CLD.on) clDrop(); else CLD = null;
+}));
+// While a line is lifted the page must not scroll or select words under the finger.
+document.addEventListener('touchmove', (e) => { if (CLD && CLD.on && e.cancelable) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', (e) => { if (CLD) e.preventDefault(); });
+
 // The phone sometimes wraps a new list in an extra line box; unwrap it so each list is a line of its own.
 function liftLists() {
   const sel = getSelection();
@@ -886,7 +979,9 @@ function voiceUi(on) {
   if (!ED) return;
   const v = $('.voice', ED.el);
   v.hidden = !on;
-  $('[data-act="ed-mic"]', $('.ed-bar', ED.el)).classList.toggle('on', on);
+  const mb = $('[data-act="ed-mic"]', $('.ed-bar', ED.el)), ml = $('.lb', mb);
+  mb.classList.toggle('on', on);
+  if (ml) ml.textContent = on ? 'Stop' : 'Voice';
   if (on) {
     const l = VOICE_LANGS.find((x) => x[0] === S.settings.voiceLang) || VOICE_LANGS[0];
     $('.v-lang', v).textContent = l[1];
