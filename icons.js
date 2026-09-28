@@ -55,6 +55,10 @@ window.GLYPHS = {
   wrapL: '<rect x="3.5" y="4.5" width="8" height="8.5" rx="1.6"/><path d="M14.5 5.5h6M14.5 9h6M14.5 12.5h6M3.5 16.5h17M3.5 20h11"/>',
   wrapN: '<path d="M3.5 4h17"/><rect x="6.5" y="7" width="11" height="9" rx="1.6"/><path d="M3.5 19.5h17"/>',
   wrapR: '<rect x="12.5" y="4.5" width="8" height="8.5" rx="1.6"/><path d="M3.5 5.5h6M3.5 9h6M3.5 12.5h6M3.5 16.5h17M3.5 20h11"/>',
+  // photos in a note: crop, turn a quarter, move (grip)
+  crop: '<path d="M6.5 2.5v13.5a1.5 1.5 0 0 0 1.5 1.5h13.5"/><path d="M2.5 6.5H16a1.5 1.5 0 0 1 1.5 1.5v13.5"/>',
+  rotate: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.2 3.8v3.6h3.6"/>',
+  grip: '<circle cx="9" cy="6" r="1.3" class="f"/><circle cx="15" cy="6" r="1.3" class="f"/><circle cx="9" cy="12" r="1.3" class="f"/><circle cx="15" cy="12" r="1.3" class="f"/><circle cx="9" cy="18" r="1.3" class="f"/><circle cx="15" cy="18" r="1.3" class="f"/>',
   // table layouts
   tchart: '<path d="M3.5 8h17M12 8v12"/><path d="M5.5 4.5h4M14.5 4.5h4" opacity=".6"/>',
   plusminus: '<path d="M7.5 3.5v8M3.5 7.5h8M13 16.5h7.5"/><path d="M6 20.5 18 3.5" opacity=".45"/>',

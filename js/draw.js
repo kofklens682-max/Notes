@@ -1221,18 +1221,28 @@ function fadeOut(gone) {
 // fl = at the left with text on its right, fr = at the right with text on its left, neither = on its
 // own line. data-w = the width chosen by pulling its corner (% of the note).
 const DR_SIDE_MAX = 72; // a drawing with text beside it takes at most this much of the width
+// Photos work the same way (class ph without dr): full width on their own line unless resized, half
+// the width when put beside the text.
 function drawPct(ph, img) {
-  const want = +ph.dataset.w;
-  let p = want >= 15 && want <= 100 ? want : img.naturalWidth ? Math.min(100, (img.naturalWidth / (2 * DRAW_W)) * 100) : 0;
+  const want = +ph.dataset.w, side = ph.classList.contains('fl') || ph.classList.contains('fr');
+  let p = want >= 15 && want <= 100 ? want
+    : !ph.classList.contains('dr') ? (side ? 50 : 0)
+      : img.naturalWidth ? Math.min(100, (img.naturalWidth / (2 * DRAW_W)) * 100) : 0;
   if (!p) return 0;
-  if (ph.classList.contains('fl') || ph.classList.contains('fr')) p = Math.min(p, DR_SIDE_MAX);
+  if (side) p = Math.min(p, DR_SIDE_MAX);
   return Math.max(15, p);
 }
 // A drawing in a note is shown as wide, relative to the note, as it was on the paper (or as chosen).
 function sizeDrawing(img) {
   const ph = img.closest('.ph');
   if (!ph) return;
-  const set = () => { const p = drawPct(ph, img); img.style.width = ''; if (p) ph.style.width = `${p.toFixed(1)}%`; };
+  const set = () => {
+    const p = drawPct(ph, img);
+    if (img.style.width) img.style.width = '';
+    if (p) ph.style.width = `${p.toFixed(1)}%`;
+    else if (ph.style.width) ph.style.removeProperty('width');
+    for (const x of [img, ph]) if (x.getAttribute('style') === '') x.removeAttribute('style');
+  };
   if (img.complete && img.naturalWidth) set(); else img.addEventListener('load', set, { once: true });
 }
 async function readVec(id) {
@@ -1302,10 +1312,17 @@ async function editDrawing(img) {
     saveEditor();
   });
 }
-let DBX = null; // the picked-up drawing in the note: { ph, el, scr, ro }
+let DBX = null; // the picked-up drawing or photo in the note: { ph, el, scr, ro }
 function drawingTap(img) {
   const ph = img.closest('.ph');
   if (DBX && DBX.ph === ph) { editDrawing(img); return; }
+  showDrawBox(ph);
+}
+// Tap a photo: it's picked up like a drawing (Crop · where it sits · delete, a corner to resize, and
+// it can be dragged to another place). Tap it again to see it full screen.
+function photoTap(img) {
+  const ph = img.closest('.ph');
+  if (DBX && DBX.ph === ph) { openViewer(img); return; }
   showDrawBox(ph);
 }
 const layoutOf = (ph) => (ph.classList.contains('fl') ? 'fl' : ph.classList.contains('fr') ? 'fr' : 'blk');
@@ -1314,14 +1331,16 @@ function showDrawBox(ph) {
   if (!ED || !ph || !ph.isConnected) return;
   const scr = ph.closest('.scroll');
   if (!scr) return;
+  const dr = ph.classList.contains('dr');
   const el = document.createElement('div');
   el.className = 'dbx';
   el.innerHTML = `
     <div class="dbx-bar">
-      <button class="dbx-edit" data-dbx="edit">${glyph('draw')}<span>Edit</span></button>
+      ${dr ? `<button class="dbx-edit" data-dbx="edit">${glyph('draw')}<span>Edit</span></button>` : `<button class="dbx-edit" data-dbx="crop">${glyph('crop')}<span>Crop</span></button>`}
       <div class="seg dbx-lay">${segButtons('dbx-lay', [['fl', glyph('wrapL')], ['blk', glyph('wrapN')], ['fr', glyph('wrapR')]], layoutOf(ph))}</div>
-      <button class="dbx-del" data-dbx="del" aria-label="Delete drawing">${glyph('trash')}</button>
+      <button class="dbx-del" data-dbx="del" aria-label="${dr ? 'Delete drawing' : 'Delete photo'}">${glyph('trash')}</button>
     </div>
+    <i class="dbx-grab" aria-hidden="true"></i>
     <i class="dbx-h" aria-hidden="true"></i>`;
   scr.appendChild(el);
   $$('.dbx-lay button', el).forEach((b, i) => b.setAttribute('aria-label', ['Text on the right', 'On its own line', 'Text on the left'][i]));
@@ -1332,9 +1351,11 @@ function showDrawBox(ph) {
     if (!b || !DBX) return;
     const p = DBX.ph;
     if (b.dataset.dbx === 'edit') editDrawing($('img', p));
+    if (b.dataset.dbx === 'crop') openCrop($('img', p));
     if (b.dataset.dbx === 'del') deleteDrawing(p);
   });
   bindDrawResize(el);
+  bindPhMove(el);
   const ro = new ResizeObserver(() => placeDrawBox());
   ro.observe(ED.ed);
   DBX = { ph, el, scr, ro };
@@ -1418,13 +1439,14 @@ function glideTo(el, r0, scale = true) {
 function deleteDrawing(ph) {
   hideDrawBox();
   histNow();
+  const what = ph.classList.contains('dr') ? 'Drawing' : 'Photo';
   const done = () => {
     const next = ph.nextElementSibling;
     ph.remove();
     if (next) next.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 260 });
     afterCmd();
     saveEditor();
-    toast('Drawing deleted — Undo is at the top');
+    toast(`${what} deleted — Undo is at the top`);
   };
   if (reduceMotion()) { done(); return; }
   ph.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 200, easing: 'ease-in' }).onfinish = done;

@@ -27,11 +27,11 @@ function cleanBody(body) {
       if (tag === 'UL' && ch.classList.contains('cl')) keep.push(['class', 'cl']);
       if (tag === 'LI' && ch.classList.contains('done')) keep.push(['class', 'done']);
       if (tag === 'DIV' && ch.classList.contains('ph')) {
-        // a drawing: fl/fr = at the side with text next to it, data-w = its width (% of the note)
-        const dr = ch.classList.contains('dr'), side = dr && ['fl', 'fr'].find((x) => ch.classList.contains(x));
-        keep.push(['class', dr ? `ph dr${side ? ' ' + side : ''}` : 'ph']);
+        // a photo or drawing (dr): fl/fr = at the side with text next to it, data-w = its width (% of the note)
+        const dr = ch.classList.contains('dr'), side = ['fl', 'fr'].find((x) => ch.classList.contains(x));
+        keep.push(['class', `ph${dr ? ' dr' : ''}${side ? ' ' + side : ''}`]);
         const w = +ch.getAttribute('data-w');
-        if (dr && w >= 15 && w <= 100) keep.push(['data-w', String(Math.round(w))]);
+        if (w >= 15 && w <= 100) keep.push(['data-w', String(Math.round(w))]);
       }
       if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc', 'tc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
       if (tag === 'TD' && ch.classList.contains('tk')) keep.push(['class', ch.classList.contains('done') ? 'tk done' : 'tk']);
@@ -220,7 +220,7 @@ function mountEditor(el, e) {
     }
     const img = ev.target.closest('.ph img');
     if (img && img.closest('.dr') && img.dataset.vec) drawingTap(img);
-    else if (img) openViewer(img);
+    else if (img) photoTap(img);
   });
   const load = (html) => {
     if (ED !== me) return;
@@ -251,8 +251,9 @@ function openBody(n, load) {
 // Photos can't be typed into; fill in their pictures.
 function prepareEd() {
   $$('.ph, td.tk', ED.ed).forEach((p) => { p.contentEditable = 'false'; });
+  fitTables(ED.ed);
   $$('.ph img', ED.ed).forEach(async (img) => {
-    if (img.dataset.vec) sizeDrawing(img);
+    sizeDrawing(img);
     if (img.src) return;
     const url = await photoUrl(img.dataset.blob);
     if (url) img.src = url;
@@ -407,12 +408,12 @@ function liAtStart() {
   r.setEnd(sel.anchorNode, sel.anchorOffset);
   return r.toString() === '' && !r.cloneContents().querySelector('img') ? li : null;
 }
-// The drawing just before the cursor's line, when the cursor is at the very start of that line.
+// The drawing or photo just before the cursor's line, when the cursor is at the very start of that line.
 function phBeforeCaret() {
   const sel = getSelection();
   if (!sel.rangeCount || !sel.isCollapsed || caretLi()) return null;
   const block = topBlock(sel.anchorNode), prev = block && block.previousElementSibling;
-  if (!prev || !prev.classList.contains('ph') || !prev.classList.contains('dr')) return null;
+  if (!prev || !prev.classList.contains('ph')) return null;
   const r = document.createRange();
   r.selectNodeContents(block);
   r.setEnd(sel.anchorNode, sel.anchorOffset);

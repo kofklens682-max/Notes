@@ -114,6 +114,7 @@ function normalize(d) {
     due: DATE_RE.test(t.due) ? t.due : null,
     time: DATE_RE.test(t.due) && TIME_RE.test(t.time) ? t.time : null,
     repeat: DATE_RE.test(t.due) && REPEATS[t.repeat] ? t.repeat : null,
+    deadline: DATE_RE.test(t.due) && !!t.deadline, // (a countdown on Today — was lost at every start before build 2.1)
     prio: clamp(Math.round(+t.prio) || 0, 0, 3),
     subs: arr(t.subs).filter(okId).map((s) => ({ id: s.id, title: str(s.title, 300), done: !!s.done })),
     done: !!t.done, doneAt: +t.doneAt || 0, snooze: +t.snooze || 0, created: +t.created || Date.now(),
@@ -632,6 +633,98 @@ function bindDaysSlide(sel, set, done) {
   document.addEventListener('pointercancel', end);
   document.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350 && e.target.closest(sel)) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
+// ---------- Swiping between pages ----------
+// Part of a screen (the notes of one folder) that follows the finger sideways: the next or previous
+// page comes in from the side. Let go past about a third of the way, or flick, and it stays;
+// otherwise it springs back. At the ends it only gives a little. dir: 1 = next (finger moves left).
+// o: { has(dir), page(dir) → html, mount(pane, dir), move(p), go(dir, top), rest(), skip(target) }
+// go() gets `top`: how far down the page the neighbour was shown (it was lined up with the top of
+// the screen when the list was scrolled down).
+const PAGE_GAP = 32; // space between two pages while they move
+function bindPager(el, o) {
+  if (!el) return;
+  let st = null, movedAt = 0;
+  const side = (dir) => {
+    if (!o.has(dir)) return null;
+    const p = document.createElement('div');
+    p.className = 'pg-side';
+    p.inert = true;
+    p.setAttribute('aria-hidden', 'true');
+    p.style.transform = `translate3d(${dir * st.W}px, ${st.top}px, 0)`;
+    p.innerHTML = o.page(dir);
+    el.appendChild(p);
+    if (o.mount) o.mount(p, dir);
+    return p;
+  };
+  const follow = (dx) => {
+    const end = (dx > 0 && !st.prev) || (dx < 0 && !st.next);
+    st.x = end ? dx / 3 : clamp(dx, -st.W, st.W);
+    el.style.transform = `translate3d(${st.x.toFixed(1)}px,0,0)`;
+    if (o.move) o.move(-st.x / st.W);
+  };
+  el.addEventListener('pointerdown', (e) => {
+    if ((st && (st.on || st.done)) || e.button > 0 || (o.skip && o.skip(e.target))) return; // one finger at a time
+    st = { id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, x: 0, pts: [] };
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id || st.done) return;
+    const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+    if (!st.on) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2 || !(o.has(1) || o.has(-1))) { st = null; return; } // scrolling up or down
+      st.on = true;
+      el.classList.remove('from-r', 'from-l');
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      st.W = el.offsetWidth + PAGE_GAP;
+      // scrolled down past the top of the pages: the neighbour shows from its top, at the top of the screen
+      const scr = el.closest('.scroll'), nav = scr && scr.parentElement.querySelector('.nav');
+      st.top = scr ? Math.max(0, (nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top) + 8 - el.getBoundingClientRect().top) : 0;
+      st.prev = side(-1);
+      st.next = side(1);
+      el.classList.add('paging');
+    }
+    st.pts.push([e.timeStamp, e.clientX]);
+    if (st.pts.length > 8) st.pts.shift();
+    follow(dx);
+  });
+  const release = (e) => {
+    if (!st || e.pointerId !== st.id || st.done) return;
+    const s = st;
+    if (!s.on) { st = null; return; }
+    s.done = true; // a new swipe waits until this one has settled
+    movedAt = Date.now();
+    // How fast the finger was moving at the end (px per ms): a flick turns the page too.
+    const last = s.pts[s.pts.length - 1], recent = s.pts.filter((p) => last[0] - p[0] <= 100);
+    const v = recent.length > 1 ? (last[1] - recent[0][1]) / Math.max(1, last[0] - recent[0][0]) : 0;
+    let dir = 0;
+    if (e.type === 'pointerup') {
+      if (s.next && s.x < -16 && (s.x < -s.W * 0.3 || v < -0.25)) dir = 1;
+      else if (s.prev && s.x > 16 && (s.x > s.W * 0.3 || v > 0.25)) dir = -1;
+    }
+    const to = -dir * s.W;
+    const ms = reduceMotion() ? 0 : Math.round(clamp(Math.abs(to - s.x) / Math.max(Math.abs(v), 1.2), 150, 330));
+    const ease = `transform ${ms}ms cubic-bezier(.2, .75, .25, 1)`;
+    el.classList.add('settling');
+    el.style.transition = ease;
+    el.style.transform = `translate3d(${to}px,0,0)`;
+    if (o.move) o.move(dir, ease);
+    setTimeout(() => {
+      st = null;
+      [s.prev, s.next].forEach((p) => p && p.remove());
+      el.classList.remove('paging', 'settling');
+      el.style.transition = '';
+      el.style.transform = '';
+      if (!el.isConnected) return; // the screen was drawn again meanwhile
+      if (dir) { buzz(); o.go(dir, s.top); return; }
+      if (o.rest) o.rest();
+    }, ms + 30);
+  };
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointercancel', release);
+  // the end of a swipe must not also count as a tap
+  el.addEventListener('click', (e) => { if (Date.now() - movedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+
 function chrome() {
   const e = cur(), sc = SCREENS[e.s];
   document.body.dataset.tab = UI.tab;

@@ -263,6 +263,18 @@ h1, h2, h3, p { margin: 0; }
 .fchip.add { background: none; color: var(--tint); padding: 0 6px; }
 .fchip:active { transform: scale(.95); }
 .ngrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Swipe between folders: the notes follow the finger and the next folder's notes (.pg-side) come
+   in from the side. Empty room under a short folder takes swipes too. */
+.pager { position: relative; touch-action: pan-y; }
+.results.pager { min-height: max(160px, calc(100dvh - 400px)); }
+.pager.from-r { animation: slide-r .34s cubic-bezier(.2, .8, .2, 1); }
+.pager.from-l { animation: slide-l .34s cubic-bezier(.2, .8, .2, 1); }
+@keyframes slide-r { from { opacity: .35; transform: translate3d(36px, 0, 0); } }
+@keyframes slide-l { from { opacity: .35; transform: translate3d(-36px, 0, 0); } }
+.pager.paging { will-change: transform; }
+.pager.settling { pointer-events: none; }
+.pg-side { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; }
+.pg-side > .sec:first-child { margin-top: 2px; } /* lined up exactly with .results */
 .ncard {
   display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 128px; overflow: hidden; text-align: left;
   background: var(--card); border-radius: 14px; padding: 12px 13px 11px; -webkit-touch-callout: none;
@@ -381,10 +393,12 @@ h1, h2, h3, p { margin: 0; }
   border-spacing: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
 }
 .ed table::-webkit-scrollbar { display: none; }
-.ed tbody { display: table; width: 100%; border-collapse: separate; border-spacing: 0; }
+/* Columns keep their width while you type (fixed layout: equal columns, tick-box columns narrow —
+   see fitTables). Many columns: the table gets wider than the note and scrolls sideways. */
+.ed tbody { display: table; width: 100%; table-layout: fixed; min-width: calc(var(--tc, 2) * 80px + var(--tk, 0) * 52px); border-collapse: separate; border-spacing: 0; }
 .ed td, .ed th {
   min-width: 60px; padding: 8px 10px; vertical-align: top; text-align: left; font-size: 16px; line-height: 1.4;
-  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: break-word;
+  border-right: 1px solid var(--sep); border-bottom: 1px solid var(--sep); overflow-wrap: break-word; hyphens: auto;
   transition: background-color .25s, color .2s, padding .3s cubic-bezier(.2, .9, .3, 1), font-weight .25s, box-shadow .15s;
 }
 .ed tr > :last-child { border-right: 0; }
@@ -432,6 +446,8 @@ h1, h2, h3, p { margin: 0; }
 .ed.tb-prev { min-height: 0; padding: 0; pointer-events: none; }
 .tb-prev-card { overflow: hidden; }
 .tb-prev table { margin: 0; }
+.tb-prev { --tkw: 44px; }
+.tb-prev tbody { min-width: 0; } /* the preview always fits its card */
 .tb-prev td, .tb-prev th { min-width: 0; height: 34px; padding: 6px 9px; font-size: 13px; }
 .tb-prev td.tk { width: 44px; min-width: 44px; }
 .tb-prev td:first-child:not(.tk)::before { padding-top: 8px; font-size: 11px; }
@@ -1046,9 +1062,56 @@ h1, h2, h3, p { margin: 0; }
 .ed .ph.dr { max-width: 100%; }
 .ed .ph.dr img { width: 100%; }
 .ed .ph:not(.fl):not(.fr), .ed hr { clear: both; }
-.ed .ph.dr.fl { float: left; clear: left; margin: 4px 14px 8px 0; }
-.ed .ph.dr.fr { float: right; clear: right; margin: 4px 0 8px 14px; }
-.ed .ph.dr.fl ~ :is(ul, ol, blockquote), .ed .ph.dr.fr ~ :is(ul, ol, blockquote) { display: flow-root; } /* (list circles and quote lines stay clear of a drawing beside them) */
+.ed .ph.fl { float: left; clear: left; margin: 4px 14px 8px 0; }
+.ed .ph.fr { float: right; clear: right; margin: 4px 0 8px 14px; }
+.ed .ph.fl ~ :is(ul, ol, blockquote), .ed .ph.fr ~ :is(ul, ol, blockquote) { display: flow-root; } /* (list circles and quote lines stay clear of a drawing beside them) */
+/* Photos: as wide as the picture (at most the note) until resized; a resized one or one beside the
+   text fills the width chosen */
+.ed .ph:not(.dr) { width: fit-content; max-width: 100%; }
+.ed .ph:not(.dr):is([data-w], [style*="width"], .fl, .fr) img { width: 100%; max-height: none; }
+.ed .ph img { cursor: pointer; -webkit-user-drag: none; -webkit-touch-callout: none; }
+/* Moving a picture: the grab area over it, the copy under the finger and the line where it lands */
+.dbx-grab { position: absolute; inset: 0; pointer-events: auto; touch-action: none; border-radius: inherit; cursor: grab; }
+.dbx.lifting { opacity: 0; transition: opacity .15s; }
+.dbx.lifting .dbx-bar { visibility: hidden; }
+.ph-ghost { position: fixed; z-index: 60; pointer-events: none; border-radius: 12px; overflow: hidden; transform: scale(1.04); box-shadow: 0 18px 44px rgba(0, 0, 0, .28), 0 0 0 2.5px var(--tint); transition: box-shadow .2s; will-change: transform; }
+.ph-ghost.dr { background: #fff; border-radius: 14px; }
+.ph-ghost img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ph-drop { position: absolute; z-index: 5; height: 3px; border-radius: 2px; background: var(--tint); pointer-events: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint) 25%, transparent); transition: top .12s cubic-bezier(.2, .9, .3, 1); }
+.ph-drop::before, .ph-drop::after { content: ""; position: absolute; top: -3.5px; width: 10px; height: 10px; border-radius: 50%; background: var(--tint); }
+.ph-drop::before { left: -5px; }
+.ph-drop::after { right: -5px; }
+/* Crop: the photo on black, a frame with handles; outside the frame is dimmed */
+.crop { position: fixed; inset: 0; z-index: 70; background: #000; color: #fff; display: flex; flex-direction: column; opacity: 0; transition: opacity .24s ease; }
+.crop.show { opacity: 1; }
+.crop-top, .crop-bot { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
+.crop-top { height: calc(env(safe-area-inset-top) + 54px); padding-top: env(safe-area-inset-top); }
+.crop-top b { font-size: 17px; font-weight: 600; }
+.crop-top button { height: 44px; padding: 0 12px; font-size: 17px; color: #fff; }
+.crop-top button.strong { color: var(--yellow); font-weight: 700; }
+.crop-bot { height: calc(env(safe-area-inset-bottom) + 70px); padding-bottom: env(safe-area-inset-bottom); justify-content: center; gap: 14px; }
+.crop-bot button { height: 42px; padding: 0 16px; border-radius: 21px; background: rgba(255, 255, 255, .14); color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: transform .12s, background .2s; }
+.crop-bot button:active { transform: scale(.94); background: rgba(255, 255, 255, .24); }
+.crop-bot .gl { width: 20px; height: 20px; }
+.crop-stage { flex: 1; position: relative; overflow: hidden; touch-action: none; }
+.crop-cv { position: absolute; display: block; }
+.crop-box { position: absolute; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .58); outline: 1.5px solid rgba(255, 255, 255, .95); cursor: move; }
+.crop-grid { position: absolute; inset: 0; opacity: 0; transition: opacity .2s; pointer-events: none;
+  background: linear-gradient(90deg, transparent calc(33.33% - .5px), rgba(255, 255, 255, .55) calc(33.33% - .5px), rgba(255, 255, 255, .55) calc(33.33% + .5px), transparent calc(33.33% + .5px), transparent calc(66.66% - .5px), rgba(255, 255, 255, .55) calc(66.66% - .5px), rgba(255, 255, 255, .55) calc(66.66% + .5px), transparent calc(66.66% + .5px)),
+    linear-gradient(transparent calc(33.33% - .5px), rgba(255, 255, 255, .55) calc(33.33% - .5px), rgba(255, 255, 255, .55) calc(33.33% + .5px), transparent calc(33.33% + .5px), transparent calc(66.66% - .5px), rgba(255, 255, 255, .55) calc(66.66% - .5px), rgba(255, 255, 255, .55) calc(66.66% + .5px), transparent calc(66.66% + .5px)); }
+.crop.dragging .crop-grid { opacity: 1; }
+.crop-h { position: absolute; }
+.crop-h.t, .crop-h.b { left: 18px; right: 18px; height: 30px; }
+.crop-h.l, .crop-h.r { top: 18px; bottom: 18px; width: 30px; }
+.crop-h.t { top: -15px; } .crop-h.b { bottom: -15px; } .crop-h.l { left: -15px; } .crop-h.r { right: -15px; }
+.crop-h.tl, .crop-h.tr, .crop-h.br, .crop-h.bl { width: 40px; height: 40px; }
+.crop-h.tl { left: -20px; top: -20px; } .crop-h.tr { right: -20px; top: -20px; } .crop-h.br { right: -20px; bottom: -20px; } .crop-h.bl { left: -20px; bottom: -20px; }
+/* the corners are drawn as thick white L shapes */
+.crop-h.tl::before, .crop-h.tr::before, .crop-h.br::before, .crop-h.bl::before { content: ""; position: absolute; width: 20px; height: 20px; border: 0 solid #fff; }
+.crop-h.tl::before { left: 17px; top: 17px; border-width: 3.5px 0 0 3.5px; }
+.crop-h.tr::before { right: 17px; top: 17px; border-width: 3.5px 3.5px 0 0; }
+.crop-h.br::before { right: 17px; bottom: 17px; border-width: 0 3.5px 3.5px 0; }
+.crop-h.bl::before { left: 17px; bottom: 17px; border-width: 0 0 3.5px 3.5px; }
 .ed .ph.arrive { animation: appear .45s cubic-bezier(.2, .9, .3, 1) both; }
 /* A tapped drawing: a ring, a bar (Edit · where it sits · delete) and a corner to resize it */
 .screen[data-s="note"] .scroll { position: relative; }

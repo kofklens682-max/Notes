@@ -110,10 +110,10 @@ SCREENS.folders = {
     if (e.folder !== 'all' && !folderOf(e.folder)) e.folder = 'all';
     return page({
       title: 'Notes', right: navBtn('notes-menu', 'more', 'Sort and folder') + navBtn('settings', 'gear', 'Settings'),
-      body: `${searchField(e.q, 'Search')}${backupNudge()}${quickNoteHtml()}${folderChips(e.folder)}<div class="results">${homeResults(e)}</div>`,
+      body: `${searchField(e.q, 'Search')}${backupNudge()}${quickNoteHtml()}${folderChips(e.folder)}<div class="results pager">${homeResults(e)}</div>`,
     });
   },
-  mount(el, e) { bindSearch(el, e); bindQuickNote(el, e); fillPhotos(el); watchMoreNotes(el, e); },
+  mount(el, e) { bindSearch(el, e); bindQuickNote(el, e); fillPhotos(el); watchMoreNotes(el, e); bindFolderPager(el, e); },
   sig: () => S.notes.map((n) => n.id + n.edited + (n.pinned ? 'p' : '') + n.folder + (n.locked ? 'l' : '') + n.blobs.length).join() + '|' + JSON.stringify(S.folders) + '|' + (S.settings.noteSort || '') + '|' + (S.settings.lastBackup || ''),
   fab: () => ({ g: 'compose', act: 'new-note', label: 'New note' }),
 };
@@ -169,13 +169,51 @@ ACTIONS['more-notes'] = (b) => { const el = b.closest('.screen'); if (el) moreNo
 ACTIONS['pick-folder'] = (b) => {
   const e = cur(), el = curEl();
   if (e.folder === b.dataset.id) return;
-  e.folder = b.dataset.id;
-  e.limit = NOTES_PAGE;
-  $$('.fchip', el).forEach((c) => c.classList.toggle('on', c === b));
-  showResults(el, e);
-  const scr = $('.scroll', el), r = $('.results', el);
+  const ids = folderIds(), dir = Math.sign(ids.indexOf(b.dataset.id) - ids.indexOf(e.folder));
+  pickFolder(el, e, b.dataset.id);
+  // the notes slide in from the side of the chip that was tapped
+  const r = $('.results', el);
+  if (r && dir && !reduceMotion()) { r.classList.remove('from-r', 'from-l'); void r.offsetWidth; r.classList.add(dir > 0 ? 'from-r' : 'from-l'); }
+  const scr = $('.scroll', el);
   if (scr && r && r.offsetTop - 120 < scr.scrollTop) scr.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' });
 };
+// All, then your folders in order (the order of the chips).
+const folderIds = () => ['all', ...S.folders.map((f) => f.id)];
+function pickFolder(el, e, id, minH = '') {
+  e.folder = id;
+  e.limit = NOTES_PAGE;
+  const r = $('.results', el);
+  if (r) r.style.minHeight = minH;
+  $$('.fchip', el).forEach((c) => c.classList.toggle('on', c.dataset.id === id));
+  showResults(el, e);
+  // the chosen chip comes into view in the row of chips
+  const chip = $(`.fchip[data-id="${id}"]`, el), row = chip && chip.parentElement;
+  if (row) {
+    const x = chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2;
+    row.scrollTo({ left: Math.max(0, x), behavior: reduceMotion() ? 'auto' : 'smooth' });
+  }
+}
+// Swipe left or right on the notes to go to the next or previous folder; the notes follow the finger.
+function bindFolderPager(el, e) {
+  const r = $('.results', el);
+  const at = (dir) => { const ids = folderIds(); return ids[ids.indexOf(e.folder) + dir]; };
+  bindPager(r, {
+    has: (dir) => !(e.q && e.q.trim()) && !!at(dir),
+    page: (dir) => notesGridHtml(at(dir), 24),
+    mount: (p) => fillPhotos(p),
+    skip: (t) => !!t.closest('.more-notes'),
+    go: (dir, top) => {
+      const scr = $('.scroll', el);
+      if (top > 0 && scr) {
+        // keep the new folder's notes exactly where they were shown while sliding in (a short
+        // folder keeps some empty room below until the next change, so nothing jumps)
+        const y = scr.scrollTop;
+        pickFolder(el, e, at(dir), `${Math.ceil(scr.clientHeight)}px`);
+        scr.scrollTop = y - top;
+      } else pickFolder(el, e, at(dir));
+    },
+  });
+}
 ACTIONS['new-folder'] = async () => {
   const name = await askText({ title: 'New Folder', msg: 'Enter a name for this folder.', placeholder: 'Name', ok: 'Save' });
   if (!name) return;

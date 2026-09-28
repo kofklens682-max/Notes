@@ -91,6 +91,23 @@ function tidyTable(t, header) {
     while (row.cells.length < n) row.appendChild(newCell(head ? 'th' : 'td', !head && ticks.has(row.cells.length)));
   });
 }
+// Every column keeps its width while you type in it: text columns share the width equally and
+// tick-box columns are narrow. (Only on the screen — these sizes aren't saved with the note.)
+function fitTables(root) {
+  if (!root) return;
+  $$('table', root).forEach((t) => {
+    const ticks = tickCols(t), n = colCount(t);
+    t.style.setProperty('--tc', Math.max(1, n - ticks.size));
+    t.style.setProperty('--tk', ticks.size);
+    const first = t.rows[0];
+    if (!first) return;
+    [...first.cells].forEach((c, i) => {
+      const w = ticks.has(i) ? 'var(--tkw, 52px)' : '';
+      if (c.style.width !== w) c.style.width = w;
+      if (!c.getAttribute('style')) c.removeAttribute('style');
+    });
+  });
+}
 // The line right after a table (made if missing), with the cursor in it.
 function leaveTable(t) {
   let next = t.nextElementSibling;
@@ -175,6 +192,7 @@ function syncTableSheet() {
       if (swap) { t.classList.remove('swap'); void t.offsetWidth; t.classList.add('swap'); }
     }
     $('.tb-more', sh).textContent = tbMoreText();
+    fitTables($('.tb-prev', sh));
   });
 }
 const tbStepper = (act, v, min, max) => `<div class="stepper"><button data-act="${act}" data-v="-1" ${v <= min ? 'disabled' : ''} aria-label="Fewer">${glyph('minus')}</button><b>${v}</b><button data-act="${act}" data-v="1" ${v >= max ? 'disabled' : ''} aria-label="More">${glyph('plus')}</button></div>`;
@@ -197,6 +215,7 @@ function tableSheetHtml() {
     </div>`;
 }
 function mountTableSheet(sh) {
+  fitTables($('.tb-prev', sh));
   const on = $('.tb-tpl.on', sh);
   if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   sheetOn(sh, 'change', (e) => {
