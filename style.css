@@ -1156,3 +1156,22 @@ h1, h2, h3, p { margin: 0; }
 .dbx.side-r .dbx-h { right: auto; left: -12px; cursor: nesw-resize; }
 /* (the emoji font is looked up while the paper opens, so the guesses card appears without a stutter) */
 .dr-warm { position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none; font-size: 30px; font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+
+/* ---------- Account (acctui.js): create / sign in / recovery code ---------- */
+.acf .frow { cursor: text; }
+.acf .frow .lbl { flex: none; width: 118px; }
+.acf input { flex: 1; min-width: 0; border: 0; background: none; font-size: 17px; color: var(--text); outline: none; text-align: right; padding: 4px 0; }
+.acf input::placeholder { color: var(--text-3); }
+.ac-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; margin: 4px 16px 18px; }
+.ac-hero b { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.ac-hero p { margin: 0; color: var(--text-2); font-size: 15px; line-height: 1.4; max-width: 320px; }
+.tile.ac-tile { width: 64px; height: 64px; border-radius: 18px; }
+.tile.ac-tile .gl { width: 36px; height: 36px; stroke-width: 1.9; }
+.ac-err { color: var(--red); min-height: 18px; }
+.ac-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; margin-top: 14px; border-radius: 14px; background: var(--yellow); color: #2B2100; font-size: 17px; font-weight: 700; transition: transform .12s, opacity .2s; }
+.ac-btn .gl { width: 21px; height: 21px; }
+.ac-btn.grey { background: var(--fill); color: var(--text); font-weight: 600; }
+.ac-btn:active { transform: scale(.97); }
+.ac-btn:disabled { opacity: .55; }
+.ac-code { padding: 16px; text-align: center; font: 700 25px/1.5 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .06em; -webkit-user-select: all; user-select: all; }
+#acct-status { font-size: 14px; }

@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '2.2';
+const APP_BUILD = '2.3';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 // Press and slide: the tab bar, the segmented controls, the Habits week and a habit's Repeat days.
 bindTabSlide($('#tabs'), (t) => goTab(t));
@@ -57,6 +57,7 @@ function openLink(p) {
     checkDueNow(15 * 60e3);
     connectPush(false);
   }), 4000);
+  if (Acct.signedIn()) setTimeout(() => Acct.sync(), 1500); // newer copy from another phone? unsaved changes? (account.js)
 })();
 
 // A copy of the Notes screen (first cards) for the next start: index.html draws it at once while the app loads.

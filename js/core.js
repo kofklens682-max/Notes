@@ -180,6 +180,7 @@ function save(note) {
   clearTimeout(saveT);
   saveT = setTimeout(flush, 250);
   if (!note && typeof remindSoon === 'function') remindSoon();
+  if (window.Acct) Acct.changed(); // the online copy follows (account.js)
 }
 const stateRecord = () => ({ ...S, notes: S.notes.map((n) => { const m = { ...n }; BODY_KEYS.forEach((k) => delete m[k]); return m; }) });
 async function flush() {

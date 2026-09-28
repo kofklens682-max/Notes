@@ -8,7 +8,7 @@ SCREENS.settings = {
     const status = !notifSupported() ? 'Not available' : perm === 'denied' ? 'Blocked' : notifOn() ? (pushReady() ? 'On' : 'On, while open') : 'Off';
     const L = S.settings.lock;
     const last = S.settings.lastBackup;
-    const body = `
+    const body = `${acctSection()}
       <h2 class="sec">Notifications</h2>
       <div class="card">
         <div class="row static">${tile('bell', '#FF3B30')}<span class="lbl">Reminders</span><span class="val">${status}</span></div>
