@@ -12,12 +12,26 @@ const TABLE_OPTS = [
   ['zebra', 'Striped rows', 'list', '#34C759'],
   ['fc', 'Bold first column', 'star', '#FF9500'],
 ];
+// side: words already written down the first column. tc: the T-chart look (one line under the
+// headings, one down the middle).
 const TABLE_TPLS = [
   { id: 'blank', name: 'Blank', g: 'table', c: '#8E8E93', heads: ['', ''], rows: 3 },
   { id: 'vocab', name: 'Vocabulary', g: 'book', c: '#FF9500', heads: ['Word', 'Meaning', 'Example'], rows: 5, fc: 1 },
   { id: 'hw', name: 'Homework', g: 'checkCircle', c: '#34C759', heads: ['Task', 'Due', 'Done'], ticks: [2], rows: 4 },
   { id: 'marks', name: 'Marks', g: 'gradcap', c: '#007AFF', heads: ['Name', 'Mark', 'Comment'], rows: 6, num: 1, zebra: 1 },
   { id: 'plan', name: 'Lesson plan', g: 'clock', c: '#AF52DE', heads: ['Time', 'Activity', 'Materials'], rows: 4, fc: 1 },
+  { id: 'tchart', name: 'T-chart', g: 'tchart', c: '#FF2D55', heads: ['', ''], rows: 6, tc: 1, desc: 'Two sides to compare' },
+  { id: 'pros', name: 'Pros & Cons', g: 'plusminus', c: '#30B0C7', heads: ['Pros', 'Cons'], rows: 5, tc: 1 },
+  { id: 'kwl', name: 'KWL chart', g: 'bulb', c: '#FFCC00', heads: ['Know', 'Want to know', 'Learned'], rows: 4 },
+  { id: 'cornell', name: 'Cornell notes', g: 'cornell', c: '#A2845E', heads: ['Questions', 'Notes'], rows: 5, fc: 1 },
+  { id: 'forms', name: 'Word forms', g: 'letters', c: '#5856D6', heads: ['Noun', 'Verb', 'Adjective', 'Adverb'], rows: 5 },
+  { id: 'verbs', name: 'Irregular verbs', g: 'repeat', c: '#FF9F0A', heads: ['Verb', 'Past simple', 'Past participle', 'Meaning'], rows: 6, fc: 1 },
+  { id: 'tenses', name: 'Tenses', g: 'today', c: '#0A84FF', heads: ['Tense', '+', '−', '?'], rows: 4, fc: 1, side: ['Present simple', 'Present continuous', 'Past simple', 'Future (will)'] },
+  { id: 'mistakes', name: 'Mistakes', g: 'bang', c: '#FF3B30', heads: ['Mistake', 'Correct', 'Why'], rows: 4 },
+  { id: 'attend', name: 'Attendance', g: 'users', c: '#00C7BE', heads: ['Name', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'], ticks: [1, 2, 3, 4, 5], rows: 6, num: 1 },
+  { id: 'week', name: 'Timetable', g: 'calendar', c: '#BF5AF2', heads: ['Time', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'], rows: 5, fc: 1 },
+  { id: 'dead', name: 'Deadlines', g: 'flag', c: '#FF6482', heads: ['Module', 'Task', 'Due', 'Done'], ticks: [3], rows: 4 },
+  { id: 'ielts', name: 'IELTS Speaking', g: 'star', c: '#64D2FF', heads: ['Student', 'FC', 'LR', 'GRA', 'P', 'Band'], rows: 5, num: 1, zebra: 1, desc: 'Fluency · Vocabulary · Grammar · Pronunciation' },
 ];
 
 const cellOf = (n) => {
@@ -89,7 +103,7 @@ function leaveTable(t) {
 }
 
 // ---------- New Table sheet ----------
-let TB = null; // { tpl, cols, rows, header, num, zebra, fc, heads, ticks }
+let TB = null; // { tpl, cols, rows, header, num, zebra, fc, tc, heads, ticks, side }
 function tableSheet() {
   restoreSel();
   const li = caretLi(), line = li && unlistLi(li);
@@ -102,8 +116,10 @@ function tableSheet() {
   openSheet(tableSheetHtml(), mountTableSheet, 'tall');
 }
 function useTemplate(tp) {
-  Object.assign(TB, { tpl: tp.id, cols: tp.heads.length, rows: tp.rows, heads: [...tp.heads], ticks: tp.ticks || [], header: 1, num: tp.num || 0, zebra: tp.zebra || 0, fc: tp.fc || 0 });
+  Object.assign(TB, { tpl: tp.id, cols: tp.heads.length, rows: tp.rows, heads: [...tp.heads], ticks: tp.ticks || [], side: tp.side || [], header: 1, num: tp.num || 0, zebra: tp.zebra || 0, fc: tp.fc || 0, tc: tp.tc || 0 });
 }
+// The words already written in a row's first cell (Tenses: "Present simple" …).
+const sideText = (r, i) => (i === 0 && TB.side[r]) || '';
 // A small picture of the table that will be made, drawn with the real table styles. It stays on
 // the screen while you change things: switches only change its classes (so stripes, numbers and
 // bold fade in and out), and new rows/columns fade in.
@@ -111,10 +127,10 @@ const tbPrevRows = () => Math.min(TB.rows, 4);
 function tablePreviewBody(oldRows = Infinity, oldCols = Infinity) {
   const shown = tbPrevRows(), inn = (r, i) => (r >= oldRows || i >= oldCols ? ' in' : '');
   let h = `<tr class="hd">${Array.from({ length: TB.cols }, (_, i) => `<th class="${inn(-1, i)}">${esc(TB.heads[i] || '')}</th>`).join('')}</tr>`;
-  for (let r = 0; r < shown; r++) h += `<tr>${Array.from({ length: TB.cols }, (_, i) => (TB.ticks.includes(i) ? `<td class="tk${r === 0 ? ' done' : ''}${inn(r, i)}"></td>` : `<td class="${inn(r, i)}"></td>`)).join('')}</tr>`;
+  for (let r = 0; r < shown; r++) h += `<tr>${Array.from({ length: TB.cols }, (_, i) => (TB.ticks.includes(i) ? `<td class="tk${r === 0 ? ' done' : ''}${inn(r, i)}"></td>` : `<td class="${inn(r, i)}">${esc(sideText(r, i))}</td>`)).join('')}</tr>`;
   return h;
 }
-const tbPrevClass = () => ['num', 'zebra', 'fc'].filter((k) => TB[k]).concat(TB.header ? [] : ['nohead']).join(' ');
+const tbPrevClass = () => ['num', 'zebra', 'fc', 'tc'].filter((k) => TB[k]).concat(TB.header ? [] : ['nohead']).join(' ');
 const tbMoreText = () => (TB.rows > tbPrevRows() ? `+ ${TB.rows - tbPrevRows()} more row${TB.rows - tbPrevRows() > 1 ? 's' : ''}` : '');
 function tablePreview() {
   return `<div class="ed tb-prev" aria-hidden="true"><table class="${tbPrevClass()}" data-cols="${TB.cols}" data-rows="${tbPrevRows()}" data-tpl="${TB.tpl}"><tbody>${tablePreviewBody()}</tbody></table></div>
@@ -167,7 +183,7 @@ function tableSheetHtml() {
   return `${sheetHead('New Table', '<button data-act="close-sheet">Cancel</button>', '<button class="strong" data-act="tbs-add">Add</button>')}
     <div class="sheet-body">
       <div class="tb-tpls">${TABLE_TPLS.map((tp) => `<button class="tb-tpl ${TB.tpl === tp.id ? 'on' : ''}" data-act="tbs-tpl" data-v="${tp.id}" style="--c:${tp.c}">
-        <span class="tb-tpl-ic">${glyph(tp.g)}</span><b>${tp.name}</b><small>${tp.id === 'blank' ? 'Empty grid' : tp.heads.join(' · ')}</small></button>`).join('')}</div>
+        <span class="tb-tpl-ic">${glyph(tp.g)}</span><b>${tp.name}</b><small>${tp.desc || (tp.id === 'blank' ? 'Empty grid' : tp.heads.join(' · '))}</small></button>`).join('')}</div>
       <div class="card tb-prev-card">${tablePreview()}</div>
       <div class="card form">
         <div class="frow">${tile('table', '#8E8E93')}<span class="lbl">Columns</span>${tbStepper('tbs-cols', TB.cols, 1, 6)}</div>
@@ -208,7 +224,7 @@ ACTIONS['tbs-add'] = () => {
   S.settings.tableTpl = o.tpl;
   save();
   const t = document.createElement('table'), body = document.createElement('tbody');
-  const cls = ['num', 'zebra', 'fc'].filter((k) => o[k]);
+  const cls = ['num', 'zebra', 'fc', 'tc'].filter((k) => o[k]);
   if (cls.length) t.className = cls.join(' ');
   t.appendChild(body);
   if (o.header) {
@@ -218,7 +234,11 @@ ACTIONS['tbs-add'] = () => {
   }
   for (let r = 0; r < o.rows; r++) {
     const tr = document.createElement('tr');
-    for (let i = 0; i < o.cols; i++) tr.appendChild(newCell('td', o.ticks.includes(i)));
+    for (let i = 0; i < o.cols; i++) {
+      const c = newCell('td', o.ticks.includes(i));
+      if (i === 0 && o.side[r] && !o.ticks.includes(0)) c.textContent = o.side[r];
+      tr.appendChild(c);
+    }
     body.appendChild(tr);
   }
   ED.ed.focus({ preventScroll: true });

@@ -409,16 +409,25 @@ h1, h2, h3, p { margin: 0; }
 .ed td.tk.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
 .ed td.tk:active::before { transform: scale(.88); }
 .ed tr:has(> td.tk.done) > td:not(.tk) { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-3); }
+/* T-chart: no frame, a strong line under the headings and down the middle */
+.ed table.tc { border-color: transparent; border-radius: 0; }
+.ed table.tc th { background: none; text-align: center; font-size: 17px; border-bottom: 2.5px solid var(--text); }
+.ed table.tc td { border-bottom-color: transparent; }
+.ed table.tc tr > :not(:last-child) { border-right: 2.5px solid var(--text); }
 /* New Table sheet: layouts to start from, a live preview, size and settings */
-.tb-tpls { display: flex; gap: 8px; overflow-x: auto; margin: 4px -16px 12px; padding: 3px 16px 4px; scrollbar-width: none; }
+/* (17 layouts: two rows that scroll sideways) */
+.tb-tpls {
+  display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, 1fr); grid-auto-columns: 128px; gap: 8px;
+  overflow-x: auto; margin: 4px -16px 12px; padding: 3px 16px 4px; scrollbar-width: none; scroll-padding: 0 16px; overscroll-behavior-x: contain;
+}
 .tb-tpls::-webkit-scrollbar { display: none; }
-.tb-tpl { flex: none; width: 122px; display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--card); border-radius: 14px; padding: 10px 11px 12px; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .18s, transform .15s; }
+.tb-tpl { min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--card); border-radius: 14px; padding: 10px 11px 12px; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .18s, transform .15s; }
 .tb-tpl.on { box-shadow: inset 0 0 0 2px var(--c); }
 .tb-tpl:active { transform: scale(.96); }
 .tb-tpl-ic { width: 30px; height: 30px; border-radius: 8px; background: var(--c); color: #fff; display: grid; place-items: center; margin-bottom: 6px; }
 .tb-tpl-ic .gl { width: 18px; height: 18px; stroke-width: 2.1; }
 .tb-tpl b { font-size: 15px; font-weight: 600; }
-.tb-tpl small { font-size: 12px; line-height: 1.3; color: var(--text-2); }
+.tb-tpl small { font-size: 12px; line-height: 1.3; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tb-prev-card { padding: 12px; }
 .ed.tb-prev { min-height: 0; padding: 0; pointer-events: none; }
 .tb-prev-card { overflow: hidden; }
@@ -932,24 +941,48 @@ h1, h2, h3, p { margin: 0; }
 .dr-float { position: absolute; inset: 0; pointer-events: none; }
 .dr-hint { flex: none; text-align: center; font-size: 12.5px; color: var(--text-2); padding: 8px 18px 4px; min-height: 32px; transition: color .2s; }
 .dr-hint.now { color: var(--tint); font-weight: 600; }
-.dr-tools { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 10px 10px; }
-.dr-inks { display: flex; gap: 6px; flex: 1; min-width: 0; }
-.ink { width: 30px; height: 30px; border-radius: 50%; background: var(--c); flex: none; transition: transform .18s, box-shadow .18s; }
-.ink.on { box-shadow: 0 0 0 2.5px var(--bg), 0 0 0 4.5px var(--c); transform: scale(1.06); }
-.dr-tool { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: var(--text); flex: none; transition: background-color .18s, color .18s, transform .12s; }
+.dr-hint.swap { animation: fade-in .28s ease; }
+/* Tools like iPhone Notes: pen, eraser, lasso, ✨, clear — and the colour at the end (tap it for
+   colours and pen sizes, in a bubble) */
+.dr-tools { flex: none; position: relative; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 6px 14px 10px; max-width: 520px; width: 100%; margin: 0 auto; }
+.ink { width: 32px; height: 32px; border-radius: 50%; background: var(--c); flex: none; transition: transform .18s, box-shadow .18s; }
+.ink.on { box-shadow: 0 0 0 2.5px var(--elev), 0 0 0 4.5px var(--c); transform: scale(1.06); }
+.ink:active { transform: scale(.9); }
+.dr-tool { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--text); flex: none; transition: background-color .2s, color .2s, transform .12s; }
 .dr-tool:active { transform: scale(.9); }
 .dr-tool .gl { width: 23px; height: 23px; }
 .dr-tool.on { background: var(--yellow); color: #231A00; }
 .dr-tool.magic { color: var(--yellow-t); }
 .dr-tool.magic.on { color: #231A00; }
-.dr-tool .dot { display: block; width: var(--s); height: var(--s); border-radius: 50%; background: #1C1C1E; transition: width .15s, height .15s; }
-/* the ✨ button that appears next to a drawing, and the glow while it's being looked at */
+.dr-color { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none; box-shadow: inset 0 0 0 2.5px var(--c, #1C1C1E); transition: box-shadow .25s, transform .12s; }
+.dr-color:active { transform: scale(.9); }
+.dr-color i { display: block; width: var(--s, 11px); height: var(--s, 11px); border-radius: 50%; background: var(--c, #1C1C1E); transition: width .2s cubic-bezier(.3, 1.3, .5, 1), height .2s cubic-bezier(.3, 1.3, .5, 1), background-color .25s; }
+.dr-pop {
+  position: absolute; right: 8px; bottom: calc(100% + 2px); z-index: 3; background: var(--elev); border-radius: 18px; padding: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .2), 0 0 0 .5px var(--sep); transform-origin: calc(100% - 28px) 100%;
+  animation: dr-pop-in .28s cubic-bezier(.3, 1.3, .5, 1) both;
+}
+.dr-pop.out { animation: dr-pop-out .16s ease-in both; pointer-events: none; }
+@keyframes dr-pop-in { from { opacity: 0; transform: scale(.55) translateY(12px); } }
+@keyframes dr-pop-out { to { opacity: 0; transform: scale(.8) translateY(6px); } }
+.dr-pop-inks { display: grid; grid-template-columns: repeat(6, 32px); gap: 11px; padding: 2px; }
+.dr-pop-sizes { display: flex; justify-content: space-around; margin-top: 12px; padding-top: 10px; box-shadow: 0 -.5px 0 var(--sep); }
+.dr-sz { width: 52px; height: 38px; border-radius: 11px; display: grid; place-items: center; transition: background-color .2s, transform .12s; }
+.dr-sz.on { background: var(--fill); }
+.dr-sz:active { transform: scale(.9); }
+.dr-sz i { display: block; width: var(--s); height: var(--s); border-radius: 50%; background: #1C1C1E; transition: background-color .25s; }
+/* the ✨ button that appears next to a drawing or at the end of a sum, and the glow while it's being looked at */
 .dr-chip {
   position: absolute; pointer-events: auto; width: 40px; height: 40px; margin-left: -8px; border-radius: 50%;
   background: var(--yellow); color: #231A00; display: grid; place-items: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .18); animation: pop .3s cubic-bezier(.3, 1.4, .5, 1) both;
 }
+.dr-chip[data-kind="math"] { margin-left: 0; animation: pop .3s cubic-bezier(.3, 1.4, .5, 1) both, dr-breathe 2.2s ease-in-out .5s infinite; }
+@keyframes dr-breathe { 50% { box-shadow: 0 4px 14px rgba(0, 0, 0, .18), 0 0 0 7px color-mix(in srgb, var(--yellow) 28%, transparent); } }
+.dr-chip.out { animation: dr-chip-out .18s ease-in both; pointer-events: none; }
+@keyframes dr-chip-out { to { opacity: 0; transform: scale(.5); } }
 .dr-chip .gl { width: 22px; height: 22px; }
+.dr-chip:active { transform: scale(.9); }
 .dr-glow {
   position: absolute; border-radius: 18px; pointer-events: none;
   background: linear-gradient(110deg, transparent 20%, color-mix(in srgb, var(--yellow) 32%, transparent) 45%, transparent 70%) 0 0 / 250% 100%;
@@ -960,9 +993,82 @@ h1, h2, h3, p { margin: 0; }
 @keyframes dr-shine { from { background-position: 150% 0; } to { background-position: -150% 0; } }
 
 /* a picked-up picture or answer: drag it, pull the corner to resize, × removes it */
-.dr-sel { position: absolute; pointer-events: auto; touch-action: none; cursor: move; border: 2px dashed var(--tint); border-radius: 14px; background: color-mix(in srgb, var(--tint) 6%, transparent); animation: fade-in .18s ease both; transition: box-shadow .15s; }
+.dr-sel { position: absolute; pointer-events: auto; touch-action: none; cursor: move; border: 2px dashed var(--tint); border-radius: 14px; background: color-mix(in srgb, var(--tint) 6%, transparent); animation: dr-sel-in .22s cubic-bezier(.2, .9, .3, 1) both; transition: box-shadow .15s; }
+@keyframes dr-sel-in { from { opacity: 0; transform: scale(1.04); } }
+.dr-sel.out { animation: fade-out .18s ease both; pointer-events: none; }
 .dr-sel.moving { box-shadow: 0 10px 28px rgba(0, 0, 0, .16); }
-.dr-sel-x { position: absolute; top: -15px; right: -15px; width: 30px; height: 30px; border-radius: 50%; background: var(--elev); color: var(--text); display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
-.dr-sel-x .gl { width: 16px; height: 16px; stroke-width: 2.6; }
+.dr-sel-x, .dr-sel-re { position: absolute; top: -15px; right: -15px; width: 30px; height: 30px; border-radius: 50%; background: var(--elev); color: var(--text); display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transition: transform .12s; }
+.dr-sel-re { right: auto; left: -15px; color: var(--yellow-t); }
+.dr-sel-re[hidden] { display: none; }
+.dr-sel-x:active, .dr-sel-re:active { transform: scale(.88); }
+.dr-sel-x .gl, .dr-sel-re .gl { width: 16px; height: 16px; stroke-width: 2.6; }
 .dr-sel-r { position: absolute; right: -11px; bottom: -11px; width: 22px; height: 22px; border-radius: 50%; background: var(--tint); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); cursor: nwse-resize; }
 .dr-sel-r::before { content: ""; position: absolute; inset: -12px; }
+
+/* "What did you draw?" — three guesses, your own words, and the style (like Image Wand) */
+.dr-pick {
+  position: absolute; z-index: 4; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 10px); max-width: 520px; margin: 0 auto;
+  background: var(--elev); border-radius: 20px; padding: 14px 14px 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .22), 0 0 0 .5px var(--sep); animation: dr-pick-in .36s cubic-bezier(.2, .9, .3, 1) both;
+}
+.dr-pick.top { bottom: auto; top: calc(env(safe-area-inset-top) + 54px); animation-name: dr-pick-in-top; }
+.dr-pick.out { animation: dr-pick-out .2s ease-in both; pointer-events: none; }
+.dr-pick.top.out { animation-name: dr-pick-out-top; }
+@keyframes dr-pick-in { from { opacity: 0; transform: translateY(34px) scale(.98); } }
+@keyframes dr-pick-in-top { from { opacity: 0; transform: translateY(-26px) scale(.98); } }
+@keyframes dr-pick-out { to { opacity: 0; transform: translateY(18px) scale(.98); } }
+@keyframes dr-pick-out-top { to { opacity: 0; transform: translateY(-14px) scale(.98); } }
+.dr-pick-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dr-pick-h b { font-size: 17px; font-weight: 700; }
+.dr-pick-x { width: 30px; height: 30px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; color: var(--text-2); flex: none; }
+.dr-pick-x .gl { width: 15px; height: 15px; stroke-width: 2.6; }
+.dr-pick-gs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dr-g {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 10px 4px 9px; border-radius: 14px;
+  box-shadow: inset 0 0 0 1.5px var(--sep); animation: dr-g-in .4s cubic-bezier(.3, 1.3, .5, 1) both; animation-delay: calc(var(--i) * 55ms + 70ms);
+  transition: transform .12s, background-color .2s, box-shadow .2s;
+}
+.dr-g:first-child { box-shadow: inset 0 0 0 2px var(--yellow); } /* the best guess */
+.dr-g:active { transform: scale(.94); }
+.dr-g.chosen { background: color-mix(in srgb, var(--yellow) 30%, transparent); box-shadow: inset 0 0 0 2px var(--yellow); }
+.dr-g-e { font-size: 30px; line-height: 1.15; font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+.dr-g-n { font-size: 14px; font-weight: 600; text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
+@keyframes dr-g-in { from { opacity: 0; transform: translateY(10px) scale(.9); } }
+.dr-pick-own { display: flex; gap: 8px; margin-top: 10px; }
+.dr-pick-own input { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; border-radius: 12px; background: var(--fill); padding: 0 12px; font-size: 16px; color: var(--text); }
+.dr-pick-own button { width: 40px; height: 40px; border-radius: 50%; background: var(--yellow); color: #231A00; display: grid; place-items: center; flex: none; transition: transform .12s; }
+.dr-pick-own button:active { transform: scale(.9); }
+.dr-pick-own .gl { width: 20px; height: 20px; stroke-width: 2.4; }
+.dr-style { margin-top: 10px; }
+
+/* A drawing in a note can sit at the side with text next to it (fl = left, fr = right) */
+.ed { display: flow-root; } /* (the note is as tall as a drawing at its end) */
+.ed .ph.dr { max-width: 100%; }
+.ed .ph.dr img { width: 100%; }
+.ed .ph:not(.fl):not(.fr), .ed hr { clear: both; }
+.ed .ph.dr.fl { float: left; clear: left; margin: 4px 14px 8px 0; }
+.ed .ph.dr.fr { float: right; clear: right; margin: 4px 0 8px 14px; }
+.ed .ph.dr.fl ~ :is(ul, ol, blockquote), .ed .ph.dr.fr ~ :is(ul, ol, blockquote) { display: flow-root; } /* (list circles and quote lines stay clear of a drawing beside them) */
+.ed .ph.arrive { animation: appear .45s cubic-bezier(.2, .9, .3, 1) both; }
+/* A tapped drawing: a ring, a bar (Edit · where it sits · delete) and a corner to resize it */
+.screen[data-s="note"] .scroll { position: relative; }
+.dbx { position: absolute; z-index: 4; pointer-events: none; border-radius: 14px; box-shadow: 0 0 0 2.5px var(--tint); animation: fade-in .18s ease both; transition: box-shadow .2s; }
+.dbx.out { animation: fade-out .18s ease both; }
+.dbx.sizing { box-shadow: 0 0 0 2.5px var(--tint), 0 12px 30px rgba(0, 0, 0, .14); }
+.dbx-bar {
+  position: absolute; bottom: calc(100% + 10px); display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 16px; white-space: nowrap;
+  background: var(--elev); box-shadow: 0 8px 28px rgba(0, 0, 0, .18), 0 0 0 .5px var(--sep); pointer-events: auto; animation: rise .26s cubic-bezier(.2, .9, .3, 1) both;
+}
+.dbx.below .dbx-bar { bottom: auto; top: calc(100% + 10px); }
+.dbx-edit { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px 0 9px; border-radius: 11px; background: var(--yellow); color: #231A00; font-size: 15px; font-weight: 600; transition: transform .12s; }
+.dbx-edit .gl { width: 20px; height: 20px; }
+.dbx-lay { width: 138px; }
+.dbx-lay button { height: 32px; display: grid; place-items: center; }
+.dbx-lay .gl { width: 22px; height: 22px; }
+.dbx-del { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: var(--red); transition: transform .12s; }
+.dbx-edit:active, .dbx-del:active { transform: scale(.92); }
+.dbx-h { position: absolute; right: -12px; bottom: -12px; width: 24px; height: 24px; border-radius: 50%; background: var(--tint); border: 3px solid var(--paper); box-shadow: 0 2px 6px rgba(0, 0, 0, .2); pointer-events: auto; touch-action: none; cursor: nwse-resize; }
+.dbx-h::before { content: ""; position: absolute; inset: -14px; }
+.dbx.side-r .dbx-h { right: auto; left: -12px; cursor: nesw-resize; }
+/* (the emoji font is looked up while the paper opens, so the guesses card appears without a stutter) */
+.dr-warm { position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none; font-size: 30px; font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }

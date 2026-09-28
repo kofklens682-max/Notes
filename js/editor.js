@@ -26,8 +26,14 @@ function cleanBody(body) {
       const keep = [];
       if (tag === 'UL' && ch.classList.contains('cl')) keep.push(['class', 'cl']);
       if (tag === 'LI' && ch.classList.contains('done')) keep.push(['class', 'done']);
-      if (tag === 'DIV' && ch.classList.contains('ph')) keep.push(['class', ch.classList.contains('dr') ? 'ph dr' : 'ph']);
-      if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
+      if (tag === 'DIV' && ch.classList.contains('ph')) {
+        // a drawing: fl/fr = at the side with text next to it, data-w = its width (% of the note)
+        const dr = ch.classList.contains('dr'), side = dr && ['fl', 'fr'].find((x) => ch.classList.contains(x));
+        keep.push(['class', dr ? `ph dr${side ? ' ' + side : ''}` : 'ph']);
+        const w = +ch.getAttribute('data-w');
+        if (dr && w >= 15 && w <= 100) keep.push(['data-w', String(Math.round(w))]);
+      }
+      if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc', 'tc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
       if (tag === 'TD' && ch.classList.contains('tk')) keep.push(['class', ch.classList.contains('done') ? 'tk done' : 'tk']);
       if (tag === 'MARK') keep.push(['class', HL.map((c) => 'hl-' + c).find((c) => ch.classList.contains(c)) || 'hl-y']);
       if (tag === 'IMG') {
@@ -122,8 +128,9 @@ SCREENS.note = {
     return page({ title: '', back: editorBackLabel(), right, body, big: false, after });
   },
   mount(el, e) { mountEditor(el, e); },
-  hide() { stopVoice(); saveEditor(); },
+  hide() { stopVoice(); hideDrawBox(); saveEditor(); },
   leave(e) {
+    hideDrawBox();
     const n = noteOf(e.id);
     if (n && !n.locked && !n.title && !n.blobs.length) { S.notes = S.notes.filter((x) => x !== n); save(); }
     ED = null;
@@ -137,7 +144,7 @@ function mountEditor(el, e) {
   const me = ED;
   // Keep the keyboard open (and the selection) when tapping the toolbars.
   $$('.ed-bar, .fmt, .hlq, .tbp, .voice, .nav', el).forEach((b) => b.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input')) ev.preventDefault(); }));
-  ed.addEventListener('input', () => { queueSave(); histSoon(); });
+  ed.addEventListener('input', () => { queueSave(); histSoon(); hideDrawBox(); });
   ed.addEventListener('focus', () => el.classList.add('editing'));
   ed.addEventListener('blur', () => { el.classList.remove('editing'); saveEditor(); });
   ed.addEventListener('paste', (ev) => {
@@ -154,6 +161,15 @@ function mountEditor(el, e) {
     // bullet) and keeps the words. Some keyboards don't let us stop the normal Backspace; then
     // it's undone right after (see 'input').
     if (ev.inputType === 'deleteContentBackward') {
+      // Backspace at the start of the line after a drawing doesn't delete the drawing: it picks it
+      // up (its bar has Delete); a second Backspace then deletes it.
+      const ph = phBeforeCaret();
+      if (ph && ev.cancelable) {
+        ev.preventDefault();
+        if (DBX && DBX.ph === ph) deleteDrawing(ph);
+        else showDrawBox(ph);
+        return;
+      }
       const li = liAtStart();
       if (!li) return;
       if (ev.cancelable) { ev.preventDefault(); histNow(); unlistAtCaret(li); afterCmd(); return; }
@@ -203,7 +219,7 @@ function mountEditor(el, e) {
       return;
     }
     const img = ev.target.closest('.ph img');
-    if (img && img.closest('.dr') && img.dataset.vec) editDrawing(img);
+    if (img && img.closest('.dr') && img.dataset.vec) drawingTap(img);
     else if (img) openViewer(img);
   });
   const load = (html) => {
@@ -391,6 +407,17 @@ function liAtStart() {
   r.setEnd(sel.anchorNode, sel.anchorOffset);
   return r.toString() === '' && !r.cloneContents().querySelector('img') ? li : null;
 }
+// The drawing just before the cursor's line, when the cursor is at the very start of that line.
+function phBeforeCaret() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed || caretLi()) return null;
+  const block = topBlock(sel.anchorNode), prev = block && block.previousElementSibling;
+  if (!prev || !prev.classList.contains('ph') || !prev.classList.contains('dr')) return null;
+  const r = document.createRange();
+  r.selectNodeContents(block);
+  r.setEnd(sel.anchorNode, sel.anchorOffset);
+  return r.toString() === '' && !r.cloneContents().querySelector('img') ? prev : null;
+}
 // Is this list line indented (inside another list)?
 const indented = (li) => !!li.parentElement.parentElement.closest('ul, ol, li');
 // Take one line out of its list — the words stay, the circle/bullet/number goes. The list is
@@ -499,6 +526,7 @@ function histGo(step) {
   histNow();
   const i = ED.hi + step, h = ED.hist[i];
   if (!h) return;
+  hideDrawBox();
   ED.hi = i;
   ED.ed.innerHTML = h.html;
   prepareEd();

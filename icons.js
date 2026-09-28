@@ -50,6 +50,17 @@ window.GLYPHS = {
   sort: '<path d="M7 4.5v15M3.5 16 7 19.5 10.5 16"/><path d="M13.5 7h7M13.5 12h5M13.5 17h3"/>',
   draw: '<path d="M15.5 4.5 19.5 8.5 9 19H5v-4z"/><path d="m13.5 6.5 4 4"/><path d="M3.5 21.5c2.5-1.2 4.2-.8 5.6.2 1.5 1 3.3 1.2 5.4-.2" opacity=".55"/>',
   eraser: '<path d="M8.5 20h11"/><path d="M4.6 14.6 13.7 5.5a2 2 0 0 1 2.8 0l3 3a2 2 0 0 1 0 2.8L11.3 19.5a1.8 1.8 0 0 1-1.3.5H8a1.8 1.8 0 0 1-1.3-.5l-2.1-2.1a2 2 0 0 1 0-2.8z"/><path d="m9 10.3 5.7 5.7"/>',
+  lasso: '<path d="M12 3.5c4.7 0 8.5 2.5 8.5 5.6s-3.8 5.6-8.5 5.6-8.5-2.5-8.5-5.6S7.3 3.5 12 3.5z" stroke-dasharray="2.7 2.5"/><path d="M8.3 14.2c-1.2 1.8-.6 3.9 1.2 4.7 1.7.7 3.3-.2 3.1-1.7-.1-1.2-1.5-1.7-2.5-1"/>',
+  // a drawing in a note: text on its right, on its own line, text on its left
+  wrapL: '<rect x="3.5" y="4.5" width="8" height="8.5" rx="1.6"/><path d="M14.5 5.5h6M14.5 9h6M14.5 12.5h6M3.5 16.5h17M3.5 20h11"/>',
+  wrapN: '<path d="M3.5 4h17"/><rect x="6.5" y="7" width="11" height="9" rx="1.6"/><path d="M3.5 19.5h17"/>',
+  wrapR: '<rect x="12.5" y="4.5" width="8" height="8.5" rx="1.6"/><path d="M3.5 5.5h6M3.5 9h6M3.5 12.5h6M3.5 16.5h17M3.5 20h11"/>',
+  // table layouts
+  tchart: '<path d="M3.5 8h17M12 8v12"/><path d="M5.5 4.5h4M14.5 4.5h4" opacity=".6"/>',
+  plusminus: '<path d="M7.5 3.5v8M3.5 7.5h8M13 16.5h7.5"/><path d="M6 20.5 18 3.5" opacity=".45"/>',
+  bulb: '<path d="M9.2 17.5h5.6M10.2 20.5h3.6"/><path d="M12 3.5a6 6 0 0 0-3.6 10.8c.7.6 1 1.3 1 2.2h5.2c0-.9.3-1.6 1-2.2A6 6 0 0 0 12 3.5z"/>',
+  cornell: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v10M3.5 14.5h17"/>',
+  letters: '<path d="M3 18.5 7.5 5.5l4.5 13M4.7 14h5.6"/><circle cx="17" cy="15.2" r="3.3"/><path d="M20.3 11.5v7"/>',
   quote: '<path d="M5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
   divider: '<path d="M3.5 12h17"/><path d="M8 6.5h8M8 17.5h8" opacity=".35"/>',
   share: '<path d="M12 3.5v11.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
