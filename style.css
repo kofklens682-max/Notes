@@ -9,7 +9,7 @@
 /* ---------- Tokens ---------- */
 :root {
   color-scheme: light;
-  --on-accent: #FFFFFF;
+  --on-accent: #0B3D20;
   --bg: #F5F1E6;
   --card: #FFFFFF;
   --paper: #FFFDF9;
@@ -26,8 +26,8 @@
   --overlay: rgba(0, 0, 0, .3);
   --red: #FF3B30;
   --orange: #FF9500;
-  --yellow: #FF7A45;
-  --yellow-t: #E5602A;
+  --yellow: #86D9A0;
+  --yellow-t: #2A9656;
   --green: #34C759;
   --blue: #007AFF;
   --purple: #AF52DE;
@@ -49,7 +49,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --on-accent: #FFFFFF;
+    --on-accent: #0B2E18;
     --bg: #13120F;
     --card: #1F1D18;
     --paper: #13120F;
@@ -66,8 +66,8 @@
     --overlay: rgba(0, 0, 0, .55);
     --red: #FF453A;
     --orange: #FF9F0A;
-    --yellow: #FF8A55;
-    --yellow-t: #FF9A66;
+    --yellow: #7ED99A;
+    --yellow-t: #8FE3A8;
     --green: #30D158;
     --blue: #0A84FF;
     --purple: #BF5AF2;
@@ -76,7 +76,7 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --on-accent: #FFFFFF;
+  --on-accent: #0B2E18;
   --bg: #13120F;
   --card: #1F1D18;
   --paper: #13120F;
@@ -93,8 +93,8 @@
   --overlay: rgba(0, 0, 0, .55);
   --red: #FF453A;
   --orange: #FF9F0A;
-  --yellow: #FF8A55;
-  --yellow-t: #FF9A66;
+  --yellow: #7ED99A;
+  --yellow-t: #8FE3A8;
   --green: #30D158;
   --blue: #0A84FF;
   --purple: #BF5AF2;
@@ -329,7 +329,7 @@ h1, h2, h3, p { margin: 0; }
 .ed ul.cl { list-style: none; padding-left: 0; }
 .ed ul.cl li { position: relative; padding-left: 34px; min-height: 26px; }
 .ed ul.cl li::before { content: ""; position: absolute; left: 0; top: 1px; width: 23px; height: 23px; border-radius: 50%; border: 1.6px solid var(--text-3); box-sizing: border-box; cursor: pointer; transition: background .15s, border-color .15s; }
-.ed ul.cl li.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
+.ed ul.cl li.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='%230B3D20' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
 .ed ul.cl li.done { color: var(--text-2); }
 .ed ul.cl ul.cl { padding-left: 0; }
 /* a checklist line being dragged (hold its circle): lifted above the others */
@@ -444,7 +444,7 @@ h1, h2, h3, p { margin: 0; }
 /* Tick boxes: tap to tick; a ticked row fades and is crossed out */
 .ed td.tk { width: 52px; min-width: 52px; text-align: center; vertical-align: middle; cursor: pointer; -webkit-user-select: none; user-select: none; }
 .ed td.tk::before { content: ""; display: inline-block; vertical-align: middle; width: 23px; height: 23px; border-radius: 50%; border: 1.6px solid var(--text-3); box-sizing: border-box; transition: background .15s, border-color .15s, transform .2s; }
-.ed td.tk.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
+.ed td.tk.done::before { border-color: var(--yellow); background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5.5 12.5 4 4 9-9.5' fill='none' stroke='%230B3D20' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 15px no-repeat; }
 .ed td.tk:active::before { transform: scale(.88); }
 .ed tr:has(> td.tk.done) > td:not(.tk) { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-3); }
 /* T-chart: no frame, a strong line under the headings and down the middle */
