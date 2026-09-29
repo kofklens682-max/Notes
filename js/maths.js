@@ -86,7 +86,8 @@ function mqChipFor(line) {
   const scr = mqScroller();
   if (!scr) return;
   let c = MQ.chip;
-  if (!c || !c.isConnected) {
+  if (!c || c.parentElement !== scr) {
+    if (c) c.remove(); // (it was in another note's screen)
     c = document.createElement('button');
     c.className = 'mq-chip';
     c.setAttribute('aria-label', 'Solve');
@@ -265,7 +266,7 @@ async function mqSolve(line) {
     const r = await aiCall('/solve', { text: q }, 75000);
     const it = r && r.items && r.items[0];
     if (!it) throw new Error('none');
-    if (ED !== me || !box.isConnected) return;
+    if (ED !== me || !box.isConnected) { mqStore(me.id, q, [mqFromAI(it)]); return; }
     box.setAttribute('data-a', JSON.stringify(mqFromAI(it)));
     mqSwap(box);
     setTimeout(() => mqShow(box), 60);
@@ -313,25 +314,11 @@ async function mqReadPhoto(box, ph, file) {
     const small = await shrinkImage(file, 1400);
     const img = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(small); });
     const r = await aiCall('/solve', { img }, 100000);
-    if (ED !== me || !box.isConnected) return;
     const items = (r && r.items) || [];
     if (!items.length) throw new Error('none');
-    const q = box.getAttribute('data-q');
-    // one box per question, in order
-    $$('.mq', ED.ed).filter((b) => b !== box && b.getAttribute('data-q') === q).forEach((b) => b.remove());
-    box.setAttribute('data-a', JSON.stringify(mqFromAI(items[0], true)));
-    mqSwap(box);
-    let last = box;
-    for (const it of items.slice(1)) {
-      const b = document.createElement('div');
-      b.className = 'mq new';
-      b.setAttribute('data-q', q);
-      b.setAttribute('data-a', JSON.stringify(mqFromAI(it, true)));
-      last.after(b);
-      mqRender(b);
-      setTimeout(() => b.classList.remove('new'), 400);
-      last = b;
-    }
+    const q = box.getAttribute('data-q'), datas = items.map((it) => mqFromAI(it, true));
+    if (ED !== me || !box.isConnected) { mqStore(me.id, q, datas); return; }
+    mqFill(box, q, datas);
     setTimeout(() => mqShow(box), 60);
     buzz(8);
   } catch (e) {
@@ -341,6 +328,46 @@ async function mqReadPhoto(box, ph, file) {
   } finally {
     if (ED === me) mqSaved();
   }
+}
+
+// The answers for one question (a photo can hold several): the waiting box gets the first, and a box
+// for each of the others follows it.
+function mqFill(box, q, datas) {
+  const root = box.parentElement;
+  [...root.children].filter((b) => b !== box && b.classList.contains('mq') && b.getAttribute('data-q') === q).forEach((b) => b.remove());
+  box.setAttribute('data-a', JSON.stringify(datas[0]));
+  if (box.isConnected && ED && ED.ed.contains(box)) mqSwap(box); else mqRender(box);
+  let last = box;
+  for (const a of datas.slice(1)) {
+    const b = document.createElement('div');
+    b.className = 'mq new';
+    b.setAttribute('data-q', q);
+    b.setAttribute('data-a', JSON.stringify(a));
+    last.after(b);
+    mqRender(b);
+    setTimeout(() => b.classList.remove('new'), 400);
+    last = b;
+  }
+}
+// An answer that arrives after you've left the note still goes into it (into the open editor if
+// you've come back to it, otherwise into the saved note) — so nothing has to be asked twice.
+function mqStore(id, q, datas) {
+  if (ED && ED.id === id) {
+    const box = $$('.mq', ED.ed).find((b) => b.getAttribute('data-q') === q);
+    if (box) { mqFill(box, q, datas); mqSaved(); }
+    return;
+  }
+  const n = noteOf(id);
+  if (!n || n.locked || !n.html) return;
+  const body = parseBody(n.html);
+  const box = $$('.mq', body).find((b) => b.getAttribute('data-q') === q);
+  if (!box) return;
+  mqFill(box, q, datas);
+  const html = cleanBody(body).innerHTML, info = noteInfo(html);
+  n.html = html;
+  n.preview = info.preview;
+  n.text = info.text;
+  save(n);
 }
 
 // ---------- In the note: Steps, Remove, Try again; keeping answers with their questions ----------
