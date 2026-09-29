@@ -159,11 +159,22 @@ async function aiCall(path, body, ms) {
   try {
     const r = await fetch(AI_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
     const j = await r.json();
+    if (j && typeof j.left === 'number') aiLeftSet(j.left);
     if (j.error === 'quota') { aiRestUntil = nextUtcMidnight(); quotaToast(); const e = new Error('quota'); e.shown = true; throw e; }
     if (!r.ok) throw new Error(j.error || 'ai');
     return j;
   } finally { clearTimeout(t); }
 }
+// How much of today's free allowance is left (the helper says so with every answer), kept for the day.
+// A normal picture uses about 31, a best-quality one about 1,410, a question in words about 100.
+const AI_DAILY = 10000, AI_COST = { pic: 31.4, best: 1411, q: 100 };
+const utcDay = () => new Date().toISOString().slice(0, 10);
+let AI_LEFT = (() => { try { const v = JSON.parse(localStorage.getItem('ai-left') || 'null'); return v && v.day === utcDay() ? v : null; } catch (e) { return null; } })();
+function aiLeftSet(left) {
+  AI_LEFT = { left: Math.max(0, Math.round(left)), day: utcDay(), at: Date.now() };
+  try { localStorage.setItem('ai-left', JSON.stringify(AI_LEFT)); } catch (e) { /* private mode */ }
+}
+const aiLeftNow = () => (AI_LEFT && AI_LEFT.day === utcDay() ? AI_LEFT.left : null);
 // The helper runs on a free plan with a daily allowance; when it's used up it comes back at
 // midnight UTC (5:00 in Tashkent) — until then the app says so instead of trying.
 let aiRestUntil = 0;
@@ -959,7 +970,8 @@ const pickHtml = (title, gs) => `
     <div class="dr-pick-h"><b>${title}</b><button class="dr-pick-x" data-dr="pick-x" aria-label="Close">${glyph('x')}</button></div>
     ${gs.length ? `<div class="dr-pick-gs">${gs.map((g, i) => `<button class="dr-g" data-dr="pick" data-i="${i}" style="--i:${i}"><span class="dr-g-e">${esc(g.emoji || '✨')}</span><span class="dr-g-n">${esc(cap(g.name))}</span></button>`).join('')}</div>` : ''}
     <form class="dr-pick-own"><input type="text" maxlength="40" placeholder="${gs.length ? 'Something else? Type it' : 'Type what it is'}" enterkeyhint="go" autocomplete="off" aria-label="What it is"><button type="submit" aria-label="Draw it">${glyph('chevR')}</button></form>
-    <div class="seg dr-style">${segButtons('dr-style', DRAW_STYLES, drawStyle())}</div>`;
+    <div class="seg dr-style">${segButtons('dr-style', DRAW_STYLES, drawStyle())}</div>
+    <div class="dr-best"><span class="t">✦ Best quality<small>Nicer, but uses as much as 40 normal ones</small></span>${toggle('dr-best', false, 'Best quality')}</div>`;
 // "What did you draw?" — three guesses, a box to type your own, and the style.
 function openPick(o) {
   const d = DR;
@@ -1015,13 +1027,16 @@ async function choose(o, g) {
   if (!d || !o || d.pick !== o) return;
   const name = String(g.name || '').trim().toLowerCase().slice(0, 40);
   if (!name) return;
+  const sw = o.el && $('input[name="dr-best"]', o.el);
+  let best = !!(sw && sw.checked);
+  if (best && aiLeftNow() !== null && aiLeftNow() < AI_COST.best + 20) { best = false; toast("Not enough left today for a best-quality picture — drawing a normal one"); }
   closePick(true);
   const style = drawStyle();
   const from = o.item ? o.item.from : o.group.map(({ fade, ...s }) => ({ ...s }));
   const guesses = [{ name, emoji: g.emoji || '' }].concat(o.guesses.filter((x) => x.name !== name)).slice(0, 4);
-  hint(`${cap(name)} — drawing it…`);
+  hint(`${cap(name)} — drawing it${best ? ' (best quality)' : ''}…`);
   try {
-    const r = await aiCall('/redraw', { img: await cropPng(from, true), name, style, seed: Math.floor(Math.random() * 2e9) }, 70000); // (the drawing model is sometimes busy)
+    const r = await aiCall('/redraw', { img: await cropPng(from, true), name, style, best, seed: Math.floor(Math.random() * 2e9) }, 90000); // (the drawing model is sometimes busy)
     if (DR !== d) return;
     const target = o.item ? DR.items.find((x) => x.id === o.item.id) : null;
     if (o.item ? !target : !o.group.every((s) => DR.items.includes(s))) return; // changed meanwhile

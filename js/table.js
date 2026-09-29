@@ -16,6 +16,7 @@ const TABLE_OPTS = [
 // headings, one down the middle).
 const TABLE_TPLS = [
   { id: 'blank', name: 'Blank', g: 'table', c: '#8E8E93', heads: ['', ''], rows: 3 },
+  { id: 'eis', name: 'Eisenhower box', g: 'grid4', c: '#1FA24A', heads: ['', 'Urgent', 'Not urgent'], rows: 2, side: ['Important', 'Not important'], eis: 1, desc: 'Do · Schedule · Delegate · Delete' },
   { id: 'vocab', name: 'Vocabulary', g: 'book', c: '#FF9500', heads: ['Word', 'Meaning', 'Example'], rows: 5, fc: 1 },
   { id: 'hw', name: 'Homework', g: 'checkCircle', c: '#34C759', heads: ['Task', 'Due', 'Done'], ticks: [2], rows: 4 },
   { id: 'marks', name: 'Marks', g: 'gradcap', c: '#007AFF', heads: ['Name', 'Mark', 'Comment'], rows: 6, num: 1, zebra: 1 },
@@ -133,7 +134,7 @@ function tableSheet() {
   openSheet(tableSheetHtml(), mountTableSheet, 'tall');
 }
 function useTemplate(tp) {
-  Object.assign(TB, { tpl: tp.id, cols: tp.heads.length, rows: tp.rows, heads: [...tp.heads], ticks: tp.ticks || [], side: tp.side || [], header: 1, num: tp.num || 0, zebra: tp.zebra || 0, fc: tp.fc || 0, tc: tp.tc || 0 });
+  Object.assign(TB, { tpl: tp.id, cols: tp.heads.length, rows: tp.rows, heads: [...tp.heads], ticks: tp.ticks || [], side: tp.side || [], header: 1, num: tp.num || 0, zebra: tp.zebra || 0, fc: tp.fc || 0, tc: tp.tc || 0, eis: tp.eis || 0 });
 }
 // The words already written in a row's first cell (Tenses: "Present simple" …).
 const sideText = (r, i) => (i === 0 && TB.side[r]) || '';
@@ -142,12 +143,13 @@ const sideText = (r, i) => (i === 0 && TB.side[r]) || '';
 // bold fade in and out), and new rows/columns fade in.
 const tbPrevRows = () => Math.min(TB.rows, 4);
 function tablePreviewBody(oldRows = Infinity, oldCols = Infinity) {
+  if (TB.eis) return eisRows(true);
   const shown = tbPrevRows(), inn = (r, i) => (r >= oldRows || i >= oldCols ? ' in' : '');
   let h = `<tr class="hd">${Array.from({ length: TB.cols }, (_, i) => `<th class="${inn(-1, i)}">${esc(TB.heads[i] || '')}</th>`).join('')}</tr>`;
   for (let r = 0; r < shown; r++) h += `<tr>${Array.from({ length: TB.cols }, (_, i) => (TB.ticks.includes(i) ? `<td class="tk${r === 0 ? ' done' : ''}${inn(r, i)}"></td>` : `<td class="${inn(r, i)}">${esc(sideText(r, i))}</td>`)).join('')}</tr>`;
   return h;
 }
-const tbPrevClass = () => ['num', 'zebra', 'fc', 'tc'].filter((k) => TB[k]).concat(TB.header ? [] : ['nohead']).join(' ');
+const tbPrevClass = () => (TB.eis ? 'eis' : ['num', 'zebra', 'fc', 'tc'].filter((k) => TB[k]).concat(TB.header ? [] : ['nohead']).join(' '));
 const tbMoreText = () => (TB.rows > tbPrevRows() ? `+ ${TB.rows - tbPrevRows()} more row${TB.rows - tbPrevRows() > 1 ? 's' : ''}` : '');
 function tablePreview() {
   return `<div class="ed tb-prev" aria-hidden="true"><table class="${tbPrevClass()}" data-cols="${TB.cols}" data-rows="${tbPrevRows()}" data-tpl="${TB.tpl}"><tbody>${tablePreviewBody()}</tbody></table></div>
@@ -179,6 +181,7 @@ function syncTableSheet() {
     st.firstElementChild.disabled = v <= min;
     st.lastElementChild.disabled = v >= max;
   };
+  $('.sheet-body', sh).classList.toggle('tb-fixed', !!TB.eis);
   setStep('tbs-cols', TB.cols, 1, 6);
   setStep('tbs-rows', TB.rows, 1, 30);
   $$('.switch input[name^="tb-"]', sh).forEach((i) => { const on = !!TB[i.name.slice(3)]; if (i.checked !== on) i.checked = on; });
@@ -199,7 +202,7 @@ const tbStepper = (act, v, min, max) => `<div class="stepper"><button data-act="
 const tbOption = (k, label, g, c, on) => `<div class="frow">${tile(g, c)}<span class="lbl">${label}</span>${toggle('tb-' + k, on, label)}</div>`;
 function tableSheetHtml() {
   return `${sheetHead('New Table', '<button data-act="close-sheet">Cancel</button>', '<button class="strong" data-act="tbs-add">Add</button>')}
-    <div class="sheet-body">
+    <div class="sheet-body${TB.eis ? ' tb-fixed' : ''}">
       <div class="tb-tpls">${TABLE_TPLS.map((tp) => `<button class="tb-tpl ${TB.tpl === tp.id ? 'on' : ''}" data-act="tbs-tpl" data-v="${tp.id}" style="--c:${tp.c}">
         <span class="tb-tpl-ic">${glyph(tp.g)}</span><b>${tp.name}</b><small>${tp.desc || (tp.id === 'blank' ? 'Empty grid' : tp.heads.join(' · '))}</small></button>`).join('')}</div>
       <div class="card tb-prev-card">${tablePreview()}</div>
@@ -211,7 +214,7 @@ function tableSheetHtml() {
         ${tbOption('header', 'Header row', 'thead', '#FFCC00', TB.header)}
         ${TABLE_OPTS.map(([k, l, g, c]) => tbOption(k, l, g, c, TB[k])).join('')}
       </div>
-      <p class="tb-hint">Tip: in the table, Enter jumps to the next cell and adds rows by itself.</p>
+      <p class="tb-hint"><span class="tb-hint-n">Tip: in the table, Enter jumps to the next cell and adds rows by itself.</span><span class="tb-hint-e">Write tasks into the four boxes and tick them when they're done. Enter adds the next task; Enter on an empty line goes to the next box.</span></p>
     </div>`;
 }
 function mountTableSheet(sh) {
@@ -242,6 +245,7 @@ ACTIONS['tbs-add'] = () => {
   if (!ED) return;
   S.settings.tableTpl = o.tpl;
   save();
+  if (o.eis) { addEisenhower(o); return; }
   const t = document.createElement('table'), body = document.createElement('tbody');
   const cls = ['num', 'zebra', 'fc', 'tc'].filter((k) => o[k]);
   if (cls.length) t.className = cls.join(' ');
@@ -300,6 +304,7 @@ function cellEnter(cell) {
 // Called from the editor's key handling. Returns true when the table took care of the key.
 function tableBeforeInput(ev, me) {
   const sel = getSelection(), cell = caretCell();
+  if (cell && cell.closest('table.eis') && (ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak')) return eisEnter(ev, cell);
   if (ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak') {
     if (!cell) return false;
     if (ev.cancelable) { ev.preventDefault(); histNow(); cellEnter(cell); }
@@ -347,7 +352,8 @@ function tableInput(me) {
 // ---------- The table panel ----------
 function tablePanel(open) {
   if (!ED) return;
-  const p = $('.tbp', ED.el);
+  const p = $('.tbp', ED.el), c = caretCell();
+  p.classList.toggle('eis', !!(c && c.closest('table.eis')));
   p.hidden = !open;
   if (open) { const f = $('.fmt', ED.el); f.hidden = true; $('[data-act="ed-fmt"]', ED.el).classList.remove('on'); }
   tableMarks();
@@ -364,6 +370,7 @@ function tableEdit(fn) {
   const cell = caretCell();
   if (!cell) { tablePanel(false); return; }
   const t = cell.closest('table'), row = cell.parentElement;
+  if (t.classList.contains('eis')) { toast('The Eisenhower box keeps its four boxes'); return; }
   const where = { t, cell, row, r: [...t.rows].indexOf(row), i: [...row.cells].indexOf(cell), header: hasHeader(t) };
   const back = fn(where);
   if (back === false) return;
@@ -500,3 +507,50 @@ document.addEventListener('selectionchange', () => {
   const sel = getSelection();
   if (sel.rangeCount && ED.ed.contains(sel.anchorNode)) tableMarks();
 });
+
+// ---------- Eisenhower box ----------
+// Urgent / Not urgent across the top, Important / Not important down the side; the four boxes are
+// Do · Schedule · Delegate · Delete (their names and colours come from the style sheet), and each is a
+// checklist. Saved as <table class="eis">; the headings can't be typed over (eisPrepare).
+function eisRows(preview) {
+  const box = () => '<td><ul class="cl"><li><br></li></ul></td>';
+  return '<tr><th></th><th>Urgent</th><th>Not urgent</th></tr>'
+    + '<tr><td>Important</td>' + box() + box() + '</tr>'
+    + '<tr><td>Not important</td>' + box() + box() + '</tr>';
+}
+function eisPrepare(root) {
+  $$('table.eis', root).forEach((t) => {
+    $$('th', t).forEach((c) => { c.contentEditable = 'false'; });
+    [...t.rows].slice(1).forEach((r) => { if (r.cells[0]) r.cells[0].contentEditable = 'false'; });
+  });
+}
+const eisBoxes = (t) => [...t.rows].slice(1).flatMap((r) => [...r.cells].slice(1)); // Do, Schedule, Delegate, Delete
+function addEisenhower(o) {
+  const t = document.createElement('table');
+  t.className = 'eis';
+  t.innerHTML = '<tbody>' + eisRows() + '</tbody>';
+  ED.ed.focus({ preventScroll: true });
+  if (o.range && ED.ed.contains(o.range.startContainer)) ED.range = o.range;
+  histNow();
+  insertBlock(t);
+  eisPrepare(ED.ed);
+  const li = $('li', eisBoxes(t)[0]);
+  if (li) caretIn(li, true);
+  afterCmd();
+}
+// Enter on a task: the next task in the same box (the phone makes it). Enter on an empty task: the
+// next box (after the last box, the line under the table).
+function eisEnter(ev, cell) {
+  const li = caretLi();
+  if (li && cell.contains(li) && li.textContent.trim()) return true; // (a new task, made the usual way)
+  if (!ev.cancelable) return true;
+  ev.preventDefault();
+  const t = cell.closest('table'), boxes = eisBoxes(t), next = boxes[boxes.indexOf(cell) + 1];
+  if (li && li.previousElementSibling && !li.textContent.trim()) li.remove(); // (the empty task it was on goes)
+  if (!next) { leaveTable(t); afterCmd(); return true; }
+  let last = $$('li', next).pop();
+  if (!last) { next.innerHTML = '<ul class="cl"><li><br></li></ul>'; last = $('li', next); }
+  caretIn(last);
+  afterCmd();
+  return true;
+}

@@ -35,6 +35,10 @@ SCREENS.settings = {
       <h2 class="sec">Voice Typing Language</h2>
       <div class="card pad"><div class="seg">${segButtons('voice-lang', VOICE_LANGS.map(([v, , l]) => [v, esc(l)]), S.settings.voiceLang)}</div></div>
 
+      <h2 class="sec">AI Helper</h2>
+      <div class="card ai-left" id="ai-left">${aiLeftHtml(aiLeftNow())}</div>
+      <p class="foot">Pictures, reading your handwriting and questions in words use a free daily allowance. It fills up again every day at ${hm(nextUtcMidnight())}. Sums and formulas don't use it.</p>
+
       <h2 class="sec">Backup</h2>
       <div class="card">
         <button class="row" data-act="backup-save">${tile('share', '#007AFF')}<span class="lbl">Save Backup File</span></button>
@@ -53,6 +57,7 @@ SCREENS.settings = {
     return page({ title: 'Settings', back: UI.tab === 'notes' ? 'Notes' : 'Today', body });
   },
   mount(el) {
+    aiLeftCheck(el);
     const t = $('input[name="allDay"]', el);
     t.addEventListener('change', () => { if (t.value) { S.settings.allDay = t.value; save(); } });
     if (navigator.storage && navigator.storage.estimate) {
@@ -179,3 +184,29 @@ ACTIONS.erase = async () => {
   resetScreens();
   toast('Everything erased');
 };
+
+// ---------- AI Helper: how much is left today ----------
+const aboutN = (v) => (v >= 1000 ? Math.round(v / 100) * 100 : v).toLocaleString('en-US');
+function aiLeftHtml(v) {
+  if (v === null || v === undefined) return `<div class="ai-top"><b>Left today</b><span class="val">${navigator.onLine ? 'Checking…' : 'Needs the internet to check'}</span></div><div class="ai-bar"><i style="width:0"></i></div><div class="ai-sub">&nbsp;</div>`;
+  const pics = Math.floor(v / AI_COST.pic), best = Math.floor(v / AI_COST.best), qs = Math.floor(v / AI_COST.q);
+  const sub = v < AI_COST.pic ? `Used up for today — it's back at ${hm(nextUtcMidnight())}`
+    : `Enough for about ${aboutN(pics)} picture${pics === 1 ? '' : 's'}${best ? `, or ${best} best-quality one${best === 1 ? '' : 's'}` : ''}, or ${aboutN(qs)} question${qs === 1 ? '' : 's'} in words.`;
+  return `<div class="ai-top"><b>Left today</b><span class="val">${v <= 0 ? 'none' : 'about ' + aboutN(v) + ' of ' + aboutN(AI_DAILY)}</span></div>
+    <div class="ai-bar"><i style="width:${Math.max(0, Math.min(100, (v / AI_DAILY) * 100)).toFixed(1)}%"></i></div><div class="ai-sub">${sub}</div>`;
+}
+// Ask the helper (no AI is used for this) and let the bar glide to the new amount.
+async function aiLeftCheck(el) {
+  if (!navigator.onLine) return;
+  let v = null;
+  try { const r = await aiCall('/left', {}, 8000); if (r && typeof r.left === 'number') v = r.left; } catch (e) { if (e && e.message === 'quota') v = 0; }
+  const box = $('#ai-left', el);
+  if (v === null || !box || !box.isConnected) { if (box && aiLeftNow() === null) $('.val', box).textContent = "Couldn't check just now"; return; }
+  const bar = $('.ai-bar i', box), w0 = bar ? bar.style.width : '0';
+  box.innerHTML = aiLeftHtml(v);
+  const nb = $('.ai-bar i', box), w1 = nb.style.width;
+  nb.style.width = w0;
+  nb.getBoundingClientRect();
+  nb.style.transition = 'width .6s cubic-bezier(.2, .9, .3, 1)';
+  nb.style.width = w1;
+}

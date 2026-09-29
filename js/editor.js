@@ -40,7 +40,7 @@ function cleanBody(body) {
         keep.push(['class', 'mq'], ['data-q', (ch.getAttribute('data-q') || '').slice(0, 600)], ['data-a', JSON.stringify(a)]);
         ch.textContent = mqPlain(a);
       }
-      if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc', 'tc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
+      if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc', 'tc', 'eis'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
       if (tag === 'TD' && ch.classList.contains('tk')) keep.push(['class', ch.classList.contains('done') ? 'tk done' : 'tk']);
       if (tag === 'MARK') keep.push(['class', HL.map((c) => 'hl-' + c).find((c) => ch.classList.contains(c)) || 'hl-y']);
       if (tag === 'IMG') {
@@ -186,7 +186,7 @@ function mountEditor(el, e) {
         return;
       }
       const li = liAtStart();
-      if (!li) return;
+      if (!li || li.closest('table.eis')) return;
       if (ev.cancelable) { ev.preventDefault(); histNow(); unlistAtCaret(li); afterCmd(); return; }
       me.redoUnlist = { html: ed.innerHTML, path: pathOf(li) };
     }
@@ -269,6 +269,7 @@ function openBody(n, load) {
 function prepareEd() {
   $$('.ph, td.tk', ED.ed).forEach((p) => { p.contentEditable = 'false'; });
   mqPrepare(ED.ed);
+  eisPrepare(ED.ed);
   fitTables(ED.ed);
   $$('.ph img', ED.ed).forEach(async (img) => {
     sizeDrawing(img);
