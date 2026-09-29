@@ -1,7 +1,7 @@
 // Offline support and reminders. Bump VERSION whenever the app files change: the phone notices
 // the new service worker, downloads the whole new version at once, and the app reloads into it.
 // This site shares its address with the Budget app, so only "notes-" caches are ours.
-const VERSION = 'notes-v23';
+const VERSION = 'notes-v24';
 importScripts('js/config.js', 'js/store.js', 'js/remind.js');
 
 const SHELL = [
@@ -20,6 +20,7 @@ const SHELL = [
   './js/table.js',
   './js/mathsolve.js',
   './js/draw.js',
+  './js/maths.js',
   './js/photo.js',
   './fonts/caveat-latin.woff2',
   './js/planner.js',

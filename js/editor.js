@@ -33,6 +33,13 @@ function cleanBody(body) {
         const w = +ch.getAttribute('data-w');
         if (w >= 15 && w <= 100) keep.push(['data-w', String(Math.round(w))]);
       }
+      if (tag === 'DIV' && ch.classList.contains('mq')) {
+        // a worked-out answer (see maths.js): its data, and its text for search and the preview
+        const a = mqData(ch.getAttribute('data-a'));
+        if (!a) { ch.remove(); continue; }
+        keep.push(['class', 'mq'], ['data-q', (ch.getAttribute('data-q') || '').slice(0, 600)], ['data-a', JSON.stringify(a)]);
+        ch.textContent = mqPlain(a);
+      }
       if (tag === 'TABLE') { const c = ['num', 'zebra', 'fc', 'tc'].filter((x) => ch.classList.contains(x)).join(' '); if (c) keep.push(['class', c]); }
       if (tag === 'TD' && ch.classList.contains('tk')) keep.push(['class', ch.classList.contains('done') ? 'tk done' : 'tk']);
       if (tag === 'MARK') keep.push(['class', HL.map((c) => 'hl-' + c).find((c) => ch.classList.contains(c)) || 'hl-y']);
@@ -112,6 +119,7 @@ SCREENS.note = {
         </div>
       </div>
       <div class="hlq hlsw" hidden>${hlSwatches()}</div>
+      ${mqPanelHtml()}
       <div class="tbp" hidden>
         <div class="tbp-row"><span class="tbp-l">Row</span><div class="fmt-group">${fmtBtn('tb-row', 'above', `${glyph('plus')}Above`, 'Add a row above')}${fmtBtn('tb-row', 'below', `${glyph('plus')}Below`, 'Add a row below')}${fmtBtn('tb-row', 'del', `${glyph('minus')}Delete`, 'Delete this row')}</div></div>
         <div class="tbp-row"><span class="tbp-l">Column</span><div class="fmt-group">${fmtBtn('tb-col', 'left', `${glyph('plus')}Left`, 'Add a column on the left')}${fmtBtn('tb-col', 'right', `${glyph('plus')}Right`, 'Add a column on the right')}${fmtBtn('tb-tick', 't', `${glyph('check')}Ticks`, 'Tick boxes in this column')}${fmtBtn('tb-col', 'del', `${glyph('minus')}Delete`, 'Delete this column')}</div></div>
@@ -124,6 +132,7 @@ SCREENS.note = {
         ${edTool('ed-table', 'table', 'Table', 'Table', 'table')}
         ${edTool('ed-photo', 'camera', 'Photo', 'Add photo', 'photo')}
         ${edTool('ed-draw', 'draw', 'Draw', 'Draw', 'draw')}
+        ${edTool('ed-maths', 'sigma', 'Maths', 'Maths', 'maths')}
         ${edTool('ed-mic', 'mic', 'Voice', 'Voice typing', 'voice')}
         ${edTool('ed-new', 'compose', 'New', 'New note', 'new')}
       </div>`;
@@ -145,7 +154,9 @@ function mountEditor(el, e) {
   ED = { el, ed, id: e.id, range: null, t: 0, dirty: false, wasFocused: false, hist: [], hi: -1, ht: 0 };
   const me = ED;
   // Keep the keyboard open (and the selection) when tapping the toolbars.
-  $$('.ed-bar, .fmt, .hlq, .tbp, .voice, .nav', el).forEach((b) => b.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input')) ev.preventDefault(); }));
+  $$('.ed-bar, .fmt, .hlq, .tbp, .mqp, .voice, .nav', el).forEach((b) => b.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input')) ev.preventDefault(); }));
+  // (tapping an answer box doesn't move the cursor or bring up the keyboard)
+  ed.addEventListener('mousedown', (ev) => { if (ev.target.closest('.mq')) ev.preventDefault(); });
   ed.addEventListener('input', () => { queueSave(); histSoon(); hideDrawBox(); });
   ed.addEventListener('focus', () => el.classList.add('editing'));
   ed.addEventListener('blur', () => { el.classList.remove('editing'); saveEditor(); });
@@ -162,7 +173,9 @@ function mountEditor(el, e) {
     // Backspace at the start of a checklist/bullet/number line removes only the circle (or
     // bullet) and keeps the words. Some keyboards don't let us stop the normal Backspace; then
     // it's undone right after (see 'input').
+    if (ev.inputType === 'deleteContentForward' && mqDeleteForward(ev)) return;
     if (ev.inputType === 'deleteContentBackward') {
+      if (mqBackspace(ev)) return; // (the line under a worked-out answer)
       // Backspace at the start of the line after a drawing doesn't delete the drawing: it picks it
       // up (its bar has Delete); a second Backspace then deletes it.
       const ph = phBeforeCaret();
@@ -225,6 +238,7 @@ function mountEditor(el, e) {
     if (img && img.closest('.dr') && img.dataset.vec) drawingTap(img);
     else if (img) photoTap(img);
   });
+  mqBind(me);
   const load = (html) => {
     if (ED !== me) return;
     ed.innerHTML = cleanHtml(html) || '<h1><br></h1>';
@@ -254,6 +268,7 @@ function openBody(n, load) {
 // Photos can't be typed into; fill in their pictures.
 function prepareEd() {
   $$('.ph, td.tk', ED.ed).forEach((p) => { p.contentEditable = 'false'; });
+  mqPrepare(ED.ed);
   fitTables(ED.ed);
   $$('.ph img', ED.ed).forEach(async (img) => {
     sizeDrawing(img);
@@ -316,7 +331,7 @@ function restoreSel() {
 function caretToEnd(focus) {
   const ed = ED.ed;
   let last = ed.lastElementChild;
-  if (!last || last.classList.contains('ph')) { last = document.createElement('div'); last.innerHTML = '<br>'; ed.appendChild(last); }
+  if (!last || last.classList.contains('ph') || last.classList.contains('mq')) { last = document.createElement('div'); last.innerHTML = '<br>'; ed.appendChild(last); }
   const r = document.createRange();
   r.selectNodeContents(last);
   r.collapse(false);
@@ -758,6 +773,7 @@ ACTIONS['ed-fmt'] = () => {
   const f = $('.fmt', ED.el);
   f.hidden = !f.hidden;
   $('[data-act="ed-fmt"]', ED.el).classList.toggle('on', !f.hidden);
+  if (!f.hidden) mqPanel(false);
   if (!f.hidden) { $('.tbp', ED.el).hidden = true; tableMarks(); updateFmt(); }
   quickHl();
 };
@@ -871,8 +887,10 @@ ACTIONS['ed-photo'] = async (el) => {
   const v = await menu(el, [
     { id: 'take', label: 'Take Photo', g: 'camera' },
     { id: 'pick', label: 'Choose from Gallery', g: 'image' },
+    { id: 'solve', label: 'Solve a Question…', g: 'sparkles' },
   ]);
-  if (v) $(v === 'take' ? '#take-photo' : '#pick-photo').click();
+  if (v === 'solve' && !navigator.onLine) { toast('Solving a photo needs the internet'); return; }
+  if (v) $(v === 'take' ? '#take-photo' : v === 'pick' ? '#pick-photo' : '#solve-photo').click();
 };
 async function shrinkImage(file, max = 1600) {
   let src;
@@ -887,15 +905,15 @@ async function shrinkImage(file, max = 1600) {
   return new Promise((res) => c.toBlob((b) => res(b || file), 'image/jpeg', 0.82));
 }
 async function addPhotos(files) {
-  if (!ED || !files.length) return;
-  const me = ED, n = noteOf(me.id);
+  if (!ED || !files.length) return [];
+  const me = ED, n = noteOf(me.id), added = [];
   for (const f of files) {
     if (!/^image\//.test(f.type)) continue;
     let blob;
     try { blob = await shrinkImage(f); } catch (e) { toast("Couldn't read that picture"); continue; }
     const id = uid();
     await putPhoto(id, blob, n && n.locked ? LOCK.key : null);
-    if (ED !== me) return;
+    if (ED !== me) return added;
     const url = URL.createObjectURL(blob);
     photoUrls.set(id, { url, locked: !!(n && n.locked) });
     const ph = document.createElement('div');
@@ -903,9 +921,11 @@ async function addPhotos(files) {
     ph.contentEditable = 'false';
     ph.innerHTML = `<img data-blob="${id}" src="${url}" alt="">`;
     insertBlock(ph);
+    added.push(ph);
   }
   queueSave();
   saveEditor();
+  return added;
 }
 // Put a block (a photo) after the line with the cursor, with an empty line below to keep typing.
 function insertBlock(node) {
@@ -929,6 +949,13 @@ function insertBlock(node) {
     e.target.value = '';
     addPhotos(files);
   });
+});
+// Photo → Solve a Question… (maths.js)
+document.addEventListener('change', (e) => {
+  if (!e.target.matches('#solve-photo')) return;
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (f && /^image\//.test(f.type)) mqPhoto(f);
 });
 function openViewer(img) {
   const wrap = document.createElement('div');

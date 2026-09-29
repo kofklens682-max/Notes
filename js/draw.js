@@ -5,7 +5,8 @@
    - Write a sum or an equation: a ✨ appears at the end of the line. Nothing is worked out until you
      tap it — then the answer is written UNDER the line, in handwriting (the AI helper reads the
      writing; the app works the answer out itself, so it's always right). Two equations with x and y
-     under each other are solved together.
+     under each other are solved together. Σ, d/dx, ∫ and statistics work too (mathsolve.js), and a
+     question written in words goes to the helper (✨ tool on it). Tap an answer, then Steps, to see how.
    - Tap ✨ next to a drawing (or the ✨ tool, then a drawing): the helper guesses what it is and you
      pick the right guess (or type it) and a style, like Image Wand on the iPhone. A neat picture in
      your drawing's shape replaces the sketch; ↻ on it tries again or picks another style.
@@ -712,7 +713,7 @@ function answerBelow(res, lineItems, extra = {}) {
   return { t: 'a', id: nid(), s: lines.join('\n'), x, y, w: m.w, h: m.h, size: m.size, lh: m.lh, c, line: lineItems.map((s) => s.id), ...rest };
 }
 // Read a picture of maths (a second reader tries when the first can't be worked out).
-async function readMath(items, solve = solveMath) {
+async function readMath(items, solve = solveQuestion) {
   const img = await cropPng(items);
   let r = await aiCall('/read', { img, hint: 'math' }, 15000);
   let res = r.kind === 'math' ? solve(r.expression) : null;
@@ -772,6 +773,9 @@ async function solveLine(ids) {
       }
       if (!out) { toast(other ? "Couldn't solve these two together — check they're written clearly" : 'Two unknowns need two equations — write the other one under it'); return; }
     }
+    // a question in words: the AI helper works it out (and the app checks it)
+    if (!out && r.kind === 'text' && r.text) out = await solveWords(r.text, d);
+    if (DR !== d) return;
     if (!out) {
       toast(r.kind === 'math' ? (/[=<>≤≥]/.test(r.expression) ? "Couldn't solve that one — check it's written clearly" : 'Nothing to work out there — add “=” to get an answer') : "That doesn't look like a sum — try writing it a little bigger");
       return;
@@ -779,12 +783,27 @@ async function solveLine(ids) {
     // (two equations: the answer goes under the lower one, sized like one line of writing)
     const allIds = items.map((x) => x.id);
     const same = (x) => ansLine(x).some((id) => allIds.includes(id));
-    putAnswer(answerBelow(out, items, { read: r.expression, replaces: same, lineH: bboxOf(line).h }), same);
+    putAnswer(answerBelow(out, items, { read: r.expression || r.text, steps: out.steps && out.steps.length ? out.steps : undefined, replaces: same, lineH: bboxOf(line).h }), same);
   } catch (e) {
     if (DR === d) aiFail(e, "Couldn't work it out just now — try again", 'Working out sums needs the internet');
   } finally {
     d.busy.delete(key);
     off();
+  }
+}
+// A handwritten question in words → an answer to write under it ({ kind, lines, steps }), or null.
+async function solveWords(text, d) {
+  try {
+    const r = await aiCall('/solve', { text }, 75000);
+    const it = r && r.items && r.items[0];
+    if (!it || DR !== d) return null;
+    const a = mqFromAI(it);
+    if (!a.m) return null;
+    const st = (a.u ? [`Understood as: ${a.u}`] : []).concat(a.st || []);
+    return { kind: 'words', lines: [a.m, a.s].filter(Boolean), steps: st };
+  } catch (e) {
+    if (DR === d) aiFail(e, "Couldn't work it out just now — try again", 'Questions in words need the internet');
+    return null;
   }
 }
 // The equation written just above or below this one (lined up with it), or null.
@@ -894,6 +913,16 @@ async function makeNeat(group) {
     return;
   }
   if (read.kind === 'text' && read.text) {
+    // a question in words: worked out and answered under it
+    if (looksLikeMath(read.text) || /\?\s*$/.test(read.text)) {
+      const out = await solveWords(read.text, d);
+      off();
+      d.busy.delete(key);
+      if (!out || DR !== d) return;
+      const ids = group.map((x) => x.id), same = (x) => ansLine(x).some((id) => ids.includes(id));
+      putAnswer(answerBelow(out, group, { read: read.text, steps: out.steps, replaces: same }), same);
+      return;
+    }
     off();
     d.busy.delete(key);
     toast(`That looks like writing: “${read.text}”`);
@@ -1118,12 +1147,13 @@ function selFrame() {
   if (!its.length) {
     if (f) { f.classList.add('out'); setTimeout(() => f.remove(), 180); }
     DR.sel = null;
+    stepsCard(null);
     return;
   }
   if (!f) {
     f = document.createElement('div');
     f.className = 'dr-sel';
-    f.innerHTML = `<button class="dr-sel-x" aria-label="Remove">${glyph('x')}</button><button class="dr-sel-re" aria-label="Draw it again" hidden>${glyph('repeat')}</button><i class="dr-sel-r" aria-hidden="true"></i>`;
+    f.innerHTML = `<button class="dr-sel-x" aria-label="Remove">${glyph('x')}</button><button class="dr-sel-re" aria-label="Draw it again" hidden>${glyph('repeat')}</button><button class="dr-sel-st" hidden>Steps</button><i class="dr-sel-r" aria-hidden="true"></i>`;
     $('.dr-float', DR.wrap).appendChild(f);
     bindSel(f);
   }
@@ -1131,6 +1161,36 @@ function selFrame() {
   Object.assign(f.style, { left: `${b.x0 * s - pad}px`, top: `${b.y0 * s - pad}px`, width: `${b.w * s + pad * 2}px`, height: `${b.h * s + pad * 2}px` });
   const one = its.length === 1 && (its[0].t === 'i' || its[0].t === 'e') && its[0].from;
   $('.dr-sel-re', f).hidden = !one;
+  // a worked-out answer: "Steps" shows how
+  const ans = its.length === 1 && its[0].t === 'a' && Array.isArray(its[0].steps) && its[0].steps.length ? its[0] : null;
+  $('.dr-sel-st', f).hidden = !ans;
+  if (DR.stepsFor && (!ans || DR.stepsFor !== ans.id)) stepsCard(null);
+  else if (DR.stepsFor) stepsCard(ans, true);
+}
+// The steps of a worked-out answer, in a card under it (tap Steps again, or anywhere else, to close).
+function stepsCard(it, move) {
+  if (!DR) return;
+  const old = $('.dr-steps:not(.out)', DR.wrap);
+  if (!it) {
+    DR.stepsFor = null;
+    if (old) { old.classList.add('out'); setTimeout(() => old.remove(), 180); }
+    return;
+  }
+  const f = $('.dr-sel:not(.out)', DR.wrap);
+  if (!f) return;
+  let c = old;
+  if (!c) {
+    c = document.createElement('div');
+    c.className = 'dr-steps';
+    c.innerHTML = `<ol>${it.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`;
+    c.addEventListener('pointerdown', (e) => e.stopPropagation());
+    $('.dr-float', DR.wrap).appendChild(c);
+  }
+  DR.stepsFor = it.id;
+  const left = parseFloat(f.style.left), top = parseFloat(f.style.top) + parseFloat(f.style.height) + 42, fw = $('.dr-float', DR.wrap).clientWidth;
+  c.style.left = `${Math.max(8, Math.min(left, fw - c.offsetWidth - 8))}px`;
+  c.style.top = `${top}px`;
+  if (!move) buzz(4);
 }
 const moveItem = (o, dx, dy) => (o.t === 's' ? { ...o, p: o.p.map((v, i) => v + (i % 2 ? dy : dx)) } : { ...o, x: o.x + dx, y: o.y + dy });
 function scaleItem(o, x0, y0, k) {
@@ -1142,7 +1202,7 @@ function scaleItem(o, x0, y0, k) {
 function bindSel(f) {
   let st = null;
   f.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.dr-sel-x, .dr-sel-re')) return;
+    if (e.target.closest('.dr-sel-x, .dr-sel-re, .dr-sel-st')) return;
     const its = selItems();
     if (!its.length) return;
     e.preventDefault();
@@ -1202,6 +1262,12 @@ function bindSel(f) {
     e.stopPropagation();
     const it = selItems()[0];
     if (it) repick(it);
+  });
+  $('.dr-sel-st', f).addEventListener('click', (e) => {
+    e.stopPropagation();
+    const it = selItems()[0];
+    if (!it || !DR) return;
+    if (DR.stepsFor === it.id) stepsCard(null); else stepsCard(it);
   });
 }
 // Removed parts fade away instead of vanishing.
