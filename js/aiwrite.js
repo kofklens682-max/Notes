@@ -225,7 +225,7 @@ async function photoToText(file) {
     else { let at = null; for (const b of blocks) { if (!at) insertBlock(b); else at.after(b); at = b; } }
     queueSave();
     saveEditor();
-    if (forCheck && CW) { CW.state = 'idle'; CW.note = 'Read from the photo and added to the note — fix any word that was read wrongly, then tap Check.'; cwRead(); cwView(); }
+    if (forCheck && CW) { CW.state = 'idle'; CW.note = 'Read from the photo and added to the note. Compare it with the paper: fix words read wrongly, and put back any spelling mistakes the reader corrected (it sometimes does) — then tap Check.'; cwRead(); cwView(); }
     else { glideTo(blocks[0], 60); toast('Text added — you can edit it'); }
   } catch (e) {
     if (forCheck && CW && ED === me) { CW.state = 'error'; CW.err = e && e.message === 'quota' ? `Today's AI allowance is used up — it's back at ${hm(nextUtcMidnight())}.` : "Couldn't read that photo — please try again."; cwView(); }
