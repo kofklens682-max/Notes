@@ -847,6 +847,10 @@ ACTIONS['note-menu'] = async (el) => {
   const n = noteOf(cur().id);
   if (!n) return;
   const v = await menu(el, [
+    { id: 'check', label: 'Check Writing', g: 'sparkles', cls: 'ai' },
+    { id: 'vocab', label: 'Make Vocabulary', g: 'sparkles', cls: 'ai' },
+    { id: 'text', label: 'Photo to Text', g: 'sparkles', cls: 'ai' },
+    '-',
     { id: 'pin', label: n.pinned ? 'Unpin Note' : 'Pin Note', g: n.pinned ? 'unpin' : 'pin' },
     { id: 'lock', label: n.locked ? 'Remove Lock' : 'Lock Note', g: n.locked ? 'unlock' : 'lock' },
     { id: 'move', label: 'Move Note', g: 'folderMove' },
@@ -854,6 +858,9 @@ ACTIONS['note-menu'] = async (el) => {
     { id: 'delete', label: 'Delete Note', g: 'trash', danger: true },
   ]);
   if (!v || !ED) return;
+  if (v === 'check') { await saveEditor(); checkWriting(); return; }
+  if (v === 'vocab') { makeVocab(); return; }
+  if (v === 'text') { ACTIONS['photo-text'](el); return; }
   if (v === 'pin') { n.pinned = !n.pinned; save(); toast(n.pinned ? 'Pinned' : 'Unpinned'); }
   if (v === 'move') { await saveEditor(); moveSheet(n.id, () => { const b = $('.back span', ED && ED.el); if (b) b.textContent = editorBackLabel(); }); }
   if (v === 'delete') {

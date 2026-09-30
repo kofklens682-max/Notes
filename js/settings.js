@@ -37,7 +37,7 @@ SCREENS.settings = {
 
       <h2 class="sec">AI Helper</h2>
       <div class="card ai-left" id="ai-left">${aiLeftHtml(aiLeftNow())}</div>
-      <p class="foot">Pictures, reading your handwriting and questions in words use a free daily allowance. It fills up again every day at ${hm(nextUtcMidnight())}. Sums and formulas don't use it.</p>
+      <p class="foot">Pictures, reading handwriting and photos, questions in words, writing checks and vocabulary use a free daily allowance. It fills up again every day at ${hm(nextUtcMidnight())}. Sums and formulas don't use it.</p>
 
       <h2 class="sec">Backup</h2>
       <div class="card">
@@ -186,20 +186,30 @@ ACTIONS.erase = async () => {
 };
 
 // ---------- AI Helper: how much is left today ----------
-const aboutN = (v) => (v >= 1000 ? Math.round(v / 100) * 100 : v).toLocaleString('en-US');
+// Exact numbers (a normal picture uses only about 31 of the 10,000, so rounding would hide it), and what
+// used the allowance today.
+const AI_KIND_NAMES = { pic: ['picture', 'pictures'], best: ['best-quality picture', 'best-quality pictures'], read: ['drawing read', 'drawings read'], question: ['question in words', 'questions in words'], write: ['writing check', 'writing checks'], vocab: ['vocabulary list', 'vocabulary lists'], ocr: ['photo to text', 'photos to text'] };
+let aiUses = null;
+function aiUsesText(uses) {
+  if (!uses) return '';
+  const parts = Object.entries(uses).filter(([k, u]) => u && u.n > 0 && AI_KIND_NAMES[k]).sort((a, b) => b[1].cost - a[1].cost).map(([k, u]) => `${u.n} ${AI_KIND_NAMES[k][u.n === 1 ? 0 : 1]}`);
+  return parts.length ? `Used today: ${parts.join(' · ')}.` : 'Nothing used yet today.';
+}
 function aiLeftHtml(v) {
   if (v === null || v === undefined) return `<div class="ai-top"><b>Left today</b><span class="val">${navigator.onLine ? 'Checking…' : 'Needs the internet to check'}</span></div><div class="ai-bar"><i style="width:0"></i></div><div class="ai-sub">&nbsp;</div>`;
-  const pics = Math.floor(v / AI_COST.pic), best = Math.floor(v / AI_COST.best), qs = Math.floor(v / AI_COST.q);
-  const sub = v < AI_COST.pic ? `Used up for today — it's back at ${hm(nextUtcMidnight())}`
-    : `Enough for about ${aboutN(pics)} picture${pics === 1 ? '' : 's'}${best ? `, or ${best} best-quality one${best === 1 ? '' : 's'}` : ''}, or ${aboutN(qs)} question${qs === 1 ? '' : 's'} in words.`;
-  return `<div class="ai-top"><b>Left today</b><span class="val">${v <= 0 ? 'none' : 'about ' + aboutN(v) + ' of ' + aboutN(AI_DAILY)}</span></div>
-    <div class="ai-bar"><i style="width:${Math.max(0, Math.min(100, (v / AI_DAILY) * 100)).toFixed(1)}%"></i></div><div class="ai-sub">${sub}</div>`;
+  const n = (x) => Math.floor(x).toLocaleString('en-US');
+  const pics = Math.floor(v / AI_COST.pic), checks = Math.floor(v / AI_COST.write), qs = Math.floor(v / AI_COST.q);
+  const enough = v < AI_COST.pic ? `Used up for today — it's back at ${hm(nextUtcMidnight())}.`
+    : `Enough for about ${n(pics)} picture${pics === 1 ? '' : 's'}, ${n(checks)} writing check${checks === 1 ? '' : 's'} or ${n(qs)} question${qs === 1 ? '' : 's'} in words.`;
+  const used = aiUsesText(aiUses);
+  return `<div class="ai-top"><b>Left today</b><span class="val">${v <= 0 ? 'none' : `${n(v)} of ${n(AI_DAILY)}`}</span></div>
+    <div class="ai-bar"><i style="width:${Math.max(0, Math.min(100, (v / AI_DAILY) * 100)).toFixed(2)}%"></i></div>${used ? `<div class="ai-sub ai-used">${used}</div>` : ''}<div class="ai-sub">${enough}</div>`;
 }
 // Ask the helper (no AI is used for this) and let the bar glide to the new amount.
 async function aiLeftCheck(el) {
   if (!navigator.onLine) return;
   let v = null;
-  try { const r = await aiCall('/left', {}, 8000); if (r && typeof r.left === 'number') v = r.left; } catch (e) { if (e && e.message === 'quota') v = 0; }
+  try { const r = await aiCall('/left', {}, 8000); if (r && typeof r.left === 'number') { v = r.left; aiUses = r.uses || null; } } catch (e) { if (e && e.message === 'quota') v = 0; }
   const box = $('#ai-left', el);
   if (v === null || !box || !box.isConnected) { if (box && aiLeftNow() === null) $('.val', box).textContent = "Couldn't check just now"; return; }
   const bar = $('.ai-bar i', box), w0 = bar ? bar.style.width : '0';

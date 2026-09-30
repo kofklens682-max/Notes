@@ -917,7 +917,7 @@ function menu(anchor, items) {
   return new Promise((resolve) => {
     const wrap = document.createElement('div');
     wrap.className = 'menu-wrap';
-    wrap.innerHTML = `<div class="menu" role="menu">${items.map((it) => (it === '-' ? '<hr>' : `<button role="menuitem" data-id="${esc(it.id)}" class="${it.danger ? 'danger' : ''}">${it.check !== undefined ? `<span class="mck">${it.check ? glyph('check') : ''}</span>` : ''}<span class="ml">${esc(it.label)}</span>${it.g ? glyph(it.g) : ''}</button>`)).join('')}</div>`;
+    wrap.innerHTML = `<div class="menu" role="menu">${items.map((it) => (it === '-' ? '<hr>' : `<button role="menuitem" data-id="${esc(it.id)}" class="${it.danger ? 'danger' : it.cls || ''}">${it.check !== undefined ? `<span class="mck">${it.check ? glyph('check') : ''}</span>` : ''}<span class="ml">${esc(it.label)}</span>${it.g ? glyph(it.g) : ''}</button>`)).join('')}</div>`;
     document.body.appendChild(wrap);
     const m = $('.menu', wrap);
     const r = anchor.getBoundingClientRect();

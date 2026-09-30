@@ -166,8 +166,8 @@ async function aiCall(path, body, ms) {
   } finally { clearTimeout(t); }
 }
 // How much of today's free allowance is left (the helper says so with every answer), kept for the day.
-// A normal picture uses about 31, a best-quality one about 1,410, a question in words about 100.
-const AI_DAILY = 10000, AI_COST = { pic: 31.4, best: 1411, q: 100 };
+// A normal picture uses about 31, a best-quality one about 1,410, a question in words or a writing check about 100.
+const AI_DAILY = 10000, AI_COST = { pic: 31.4, best: 1411, q: 100, write: 100 };
 const utcDay = () => new Date().toISOString().slice(0, 10);
 let AI_LEFT = (() => { try { const v = JSON.parse(localStorage.getItem('ai-left') || 'null'); return v && v.day === utcDay() ? v : null; } catch (e) { return null; } })();
 function aiLeftSet(left) {
