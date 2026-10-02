@@ -35,11 +35,26 @@ function cwLines() {
   for (const b of ED ? ED.ed.children : []) {
     if (b.matches('.ph, .mq, table, hr')) continue;
     if (/^H[1-3]$/.test(b.tagName) && CW_FEEDBACK.test(b.textContent.trim())) break;
-    if (b.matches('ul, ol')) { for (const li of b.querySelectorAll(':scope > li')) { const t = li.textContent.trim(); if (t) lines.push(t); } continue; }
-    const t = (b.innerText || b.textContent || '').replace(/ /g, ' ').replace(/\n{2,}/g, '\n').trim();
+    if (b.matches('ul, ol')) { for (const li of b.querySelectorAll(':scope > li')) { const t = cwPlain(li).textContent.trim(); if (t) lines.push(t); } continue; }
+    const p = cwPlain(b);
+    const t = (p === b ? b.innerText || b.textContent || '' : p.textContent).replace(/ /g, ' ').replace(/\n{2,}/g, '\n').trim();
     if (t) lines.push(t);
   }
   return lines;
+}
+// A correction put into the essay by cwMarkNote: bold "(…)" right after a pink highlight.
+function cwIsFix(el) {
+  if (!el || el.tagName !== 'B' || !/^\s*\(.*\)\s*$/.test(el.textContent)) return false;
+  let p = el.previousSibling;
+  while (p && p.nodeType === 3 && !p.data) p = p.previousSibling; // empty text left by a split
+  return !!p && p.nodeName === 'MARK';
+}
+// A block as the student wrote it: the corrections Check Writing put into it are left out.
+function cwPlain(b) {
+  if (![...b.querySelectorAll('b')].some(cwIsFix)) return b;
+  const c = b.cloneNode(true);
+  for (const x of [...c.querySelectorAll('b')].filter(cwIsFix)) x.remove();
+  return c;
 }
 // The task question (the first lines, if they are one) is sent apart from the answer: it isn't
 // marked, it only shows the examiner what was asked. A short title line is left out.
@@ -252,13 +267,6 @@ ACTIONS['cw-add'] = () => {
   if (b && b.strict) add('div', `Likely band <b>${b.big}</b> · a strict examiner would likely give <b>${b.strict}</b>`);
   if (r.weak && r.weak.length) { add('div', '<b>Key weaknesses</b>'); add('ul', r.weak.map((t) => `<li>${esc(t)}</li>`).join('')); }
   if (!none) add('ul', ['tr', 'ta', 'cc', 'lr', 'gra'].filter((k) => r.crit[k]).map((k) => `<li><b>${CW_NAMES[k]} ${r.crit[k].band}</b> — ${esc(r.crit[k].why)}</li>`).join(''));
-  // A copy of the essay with the corrections in place (the essay itself above stays as written).
-  if (r.text && cwMarks(r.text, r.fixes).length) {
-    add('div', '<b>Your essay, corrected</b>');
-    const tmp = document.createElement('div');
-    tmp.innerHTML = cwMarkedHtml(r.text, r.fixes);
-    for (const p of tmp.children) add('div', p.innerHTML.replace(/<span[^>]*>|<\/span>/g, ''));
-  }
   let vt = null;
   if (r.vocab && r.vocab.length) {
     add('div', '<b>Vocabulary to upgrade</b>');
@@ -278,15 +286,62 @@ ACTIONS['cw-add'] = () => {
   if (r.tips && r.tips.length) { add('div', '<b>To score higher</b>'); add('ul', r.tips.map((t) => `<li>${esc(t)}</li>`).join('')); }
   add('div', '<br>');
   histNow();
+  const marked = cwMarkNote(r.fixes);
   const first = frag.firstChild;
   ED.ed.appendChild(frag);
   if (vt) fitTables(ED.ed);
   queueSave();
   saveEditor();
   closeSheet();
-  glideTo(first);
-  toast('Feedback added to the end of the note');
+  glideTo(marked ? $('mark.hl-p', ED.ed) || first : first);
+  toast(marked ? `${marked} mistake${marked === 1 ? '' : 's'} marked in your essay · feedback added at the end` : 'Feedback added to the end of the note');
 };
+// The essay blocks of the note (the same ones cwLines reads), each list item on its own.
+function cwEssayUnits() {
+  const units = [];
+  for (const b of ED ? ED.ed.children : []) {
+    if (b.matches('.ph, .mq, table, hr')) continue;
+    if (/^H[1-3]$/.test(b.tagName) && CW_FEEDBACK.test(b.textContent.trim())) break;
+    if (b.matches('ul, ol')) units.push(...b.querySelectorAll(':scope > li')); else units.push(b);
+  }
+  return units;
+}
+// Marks every mistake in the essay itself: the wrong words highlighted, the right ones in brackets just after
+// them — "schools [teaches] (teach) us". Words already marked are left alone. Returns how many were marked.
+function cwMarkNote(fixes) {
+  let text = '';
+  const nodes = []; // { n: text node, at: where it starts in text }
+  for (const u of cwEssayUnits()) {
+    const w = document.createTreeWalker(u, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) {
+      if (n.parentElement.closest('mark.hl-p') || cwIsFix(n.parentElement.closest('b'))) { text += ' '.repeat(n.data.length); continue; } // already marked
+      nodes.push({ n, at: text.length });
+      text += n.data;
+    }
+    text += '\n';
+  }
+  const where = (pos, end) => {
+    for (const x of nodes) if (pos >= x.at && (end ? pos <= x.at + x.n.data.length : pos < x.at + x.n.data.length)) return [x.n, pos - x.at];
+    return null;
+  };
+  const marks = cwMarks(text, fixes).filter((m) => !text.slice(m.at, m.end).includes('\n')); // never across paragraphs
+  for (const m of marks.reverse()) { // from the end, so the places found earlier stay right
+    const a = where(m.at, false), z = where(m.end, true);
+    if (!a || !z) continue;
+    const rg = document.createRange();
+    rg.setStart(a[0], a[1]);
+    rg.setEnd(z[0], z[1]);
+    const mk = document.createElement('mark');
+    mk.className = 'hl-p';
+    mk.appendChild(rg.extractContents());
+    const fx = document.createElement('b');
+    fx.textContent = ` (${fixes[m.i].to})`;
+    rg.insertNode(fx);
+    rg.insertNode(mk);
+  }
+  if (marks.length) for (const u of cwEssayUnits()) u.normalize(); // join the split text back up
+  return marks.length;
+}
 // Tap a marked mistake in "Your essay, marked": why it's wrong.
 ACTIONS['cw-why'] = (el) => {
   const f = CW && CW.res && CW.res.fixes[+el.dataset.i];
