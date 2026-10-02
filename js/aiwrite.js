@@ -90,14 +90,72 @@ function cwView() {
   if (CW.state === 'busy') requestAnimationFrame(() => requestAnimationFrame(() => { const b = $('.cw-prog i', m); if (b) b.style.width = '92%'; }));
 }
 
-// The band is always shown as a half-band range: the marking's average rounded down to a half band, and half a
-// band above it. On 27 examiner-marked essays the examiner's band was inside this range for 19 and at most half a
-// band outside it for 24 (the misses were all band 8–8.5 essays, which the AI marks a little low).
+// The band is always shown as a half-band range, on the strict side (the user's choice, 2026-10-02: when in doubt
+// the lower band, so a student aims higher): it ends at the marking's average rounded down to a half band.
 function cwBandText(avg) {
-  const q = Math.round(avg * 4) / 4, lo = Math.min(8.5, Math.floor(q * 2) / 2), hi = lo + 0.5;
+  const q = Math.round(avg * 4) / 4, hi = Math.max(1, Math.floor(q * 2) / 2), lo = hi - 0.5;
   const f = (v) => (v % 1 ? v.toFixed(1) : String(v));
   return { big: f(lo) + '–' + f(hi), lo, hi };
 }
+// One correction as it reads in the essay: words that stay are plain, what goes is struck through and what comes in
+// is bold — "she go" → "she go<b>es</b>", "however I" → "however<b>,</b> I".
+function cwDiffHtml(from, to) {
+  const a = from.split(/\s+/), b = to.split(/\s+/);
+  const L = a.map(() => Array(b.length + 1).fill(0)).concat([Array(b.length + 1).fill(0)]);
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0, del = [], ins = [];
+  const flush = () => {
+    if (del.length === 1 && ins.length === 1) { // one word changed: show just the letters that differ
+      const x = del[0], y = ins[0];
+      let p = 0; while (p < x.length && p < y.length && x[p] === y[p]) p++;
+      let s = 0; while (s < x.length - p && s < y.length - p && x[x.length - 1 - s] === y[y.length - 1 - s]) s++;
+      out.push(esc(x.slice(0, p)) + (x.length - s > p ? `<s>${esc(x.slice(p, x.length - s))}</s>` : '') + (y.length - s > p ? `<b>${esc(y.slice(p, y.length - s))}</b>` : '') + esc(x.slice(x.length - s)));
+    } else {
+      if (del.length) out.push(`<s>${esc(del.join(' '))}</s>`);
+      if (ins.length) out.push(`<b>${esc(ins.join(' '))}</b>`);
+    }
+    del = []; ins = [];
+  };
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) { flush(); out.push(esc(a[i])); i++; j++; }
+    else if (j < b.length && (i >= a.length || L[i][j + 1] >= L[i + 1][j])) ins.push(b[j++]);
+    else del.push(a[i++]);
+  }
+  flush();
+  return out.join(' ');
+}
+// The essay with every mistake marked where it is (the first place each wrong phrase appears that no other mark
+// already covers). Tap a mark to see why.
+function cwMarks(text, fixes) {
+  const marks = [];
+  fixes.forEach((f, i) => {
+    // any run of spaces or line breaks in the essay matches a space in the correction
+    const re = new RegExp(f.from.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'g');
+    for (let m; f.from.trim() && (m = re.exec(text));) {
+      const at = m.index, end = at + m[0].length;
+      if (!marks.some((x) => at < x.end && end > x.at)) { marks.push({ at, end, i }); break; }
+      re.lastIndex = at + 1;
+    }
+  });
+  return marks.sort((x, y) => x.at - y.at);
+}
+function cwMarkedHtml(text, fixes) {
+  let h = '', k = 0;
+  for (const m of cwMarks(text, fixes)) {
+    h += esc(text.slice(k, m.at)) + `<span class="cw-m" data-act="cw-why" data-i="${m.i}">${cwDiffHtml(fixes[m.i].from, fixes[m.i].to)}</span>`;
+    k = m.end;
+  }
+  h += esc(text.slice(k));
+  // A line that doesn't end a sentence was broken by the page (a photo, or typed line by line): join it to the next.
+  const ends = (p) => /[.!?:"”)]\s*(<\/(b|s|span)>\s*)*$/.test(p);
+  const paras = h.split('\n').filter((p) => p.trim()).reduce((ps, l) => {
+    if (ps.length && !ends(ps[ps.length - 1])) ps[ps.length - 1] += ' ' + l.trim(); else ps.push(l.trim());
+    return ps;
+  }, []);
+  return paras.map((p) => `<p>${p}</p>`).join('');
+}
+const CW_KINDS = { word: 'word', collocation: 'collocation', phrasal: 'phrasal verb' };
 function cwMainHtml() {
   const c = CW, none = c.task === 'none';
   const cost = 'Takes about 15 seconds and uses about 1% of today\'s AI allowance.';
@@ -118,7 +176,7 @@ function cwResultHtml(r) {
   let h = '';
   if (!none && r.avg != null) {
     const b = cwBandText(r.avg);
-    h += `<div class="card cw-band"><div class="big">${b.big}</div><div class="t"><b>Estimated band</b>An examiner would most likely give a band in this range.${b.hi >= 7.5 ? ' Very strong essays can be marked a little low.' : ''}${r.words < (r.task === 't2' ? 250 : 150) ? ` Under ${r.task === 't2' ? 250 : 150} words (${r.words}) — this lowers the score.` : ''}</div></div>
+    h += `<div class="card cw-band"><div class="big">${b.big}</div><div class="t"><b>Estimated band</b>Marked on the strict side — a real examiner may give up to half a band more.${r.words < (r.task === 't2' ? 250 : 150) ? ` Under ${r.task === 't2' ? 250 : 150} words (${r.words}) — this lowers the score.` : ''}</div></div>
 `;
     if (r.weak && r.weak.length) h += `<h2 class="sec">Key weaknesses</h2><div class="card">${r.weak.map((t) => `<div class="cw-fix cw-weak">${esc(t)}</div>`).join('')}</div>`;
     h += `<h2 class="sec">The four criteria</h2><div class="card">`;
@@ -129,8 +187,14 @@ function cwResultHtml(r) {
     }
     h += '</div>';
   }
+  const marked = r.text ? cwMarks(r.text, r.fixes).length : 0;
+  if (marked) h += `<h2 class="sec">Your essay, marked</h2><div class="card cw-essay">${cwMarkedHtml(r.text, r.fixes)}<small>${marked} mistake${marked === 1 ? '' : 's'} · tap one to see why</small></div>`;
+  if (r.vocab && r.vocab.length) {
+    h += `<h2 class="sec">Vocabulary to upgrade</h2><div class="card cw-voc"><div class="cw-vr cw-vh"><span>In your essay</span><span>Try instead</span></div>${r.vocab.map((v) => `<div class="cw-vr"><span>${esc(v.used)}</span><span><b>${esc(v.better)}</b><small>${CW_KINDS[v.kind] || 'word'}</small></span></div>`).join('')}</div>`;
+  }
   if (r.fixes.length) {
-    h += `<h2 class="sec">Corrections</h2><div class="card">${r.fixes.map((f) => `<div class="cw-fix"><s>${esc(f.from)}</s> → <ins>${esc(f.to)}</ins>${f.why ? `<small>${esc(f.why)}</small>` : ''}</div>`).join('')}</div>`;
+    const top = r.fixes.slice(0, 12), more = r.fixes.length - top.length;
+    h += `<h2 class="sec">Corrections</h2><div class="card">${top.map((f) => `<div class="cw-fix"><s>${esc(f.from)}</s> → <ins>${esc(f.to)}</ins>${f.why ? `<small>${esc(f.why)}</small>` : ''}</div>`).join('')}${more > 0 ? `<div class="cw-fix cw-more">${more} more ${marked ? 'marked in your essay above' : 'in the feedback'}</div>` : ''}</div>`;
   } else h += `<h2 class="sec">Corrections</h2><div class="card"><div class="cw-fix">No mistakes found.</div></div>`;
   if (r.tips && r.tips.length) h += `<h2 class="sec">To score higher</h2><div class="card">${r.tips.map((t) => `<div class="cw-fix">${esc(t)}</div>`).join('')}</div>`;
   h += `<button class="cw-go" data-act="cw-add">Add Feedback to the Note</button>`;
@@ -159,6 +223,8 @@ ACTIONS['cw-go'] = async () => {
     const r = await aiCall('/write', { text: me.text, question: me.question || undefined, task: me.task }, 150000);
     if (!r || (me.task !== 'none' && (!r.crit || Object.keys(r.crit).length < 4))) throw new Error('ai');
     r.fixes = Array.isArray(r.fixes) ? r.fixes : [];
+    r.vocab = Array.isArray(r.vocab) ? r.vocab : [];
+    r.text = me.text; // the marks in "Your essay, marked" are found in exactly this text
     cwDone.set(key, r);
     if (CW !== me) return; // the sheet was closed: the answer is kept for next time
     me.state = 'done';
@@ -184,6 +250,25 @@ ACTIONS['cw-add'] = () => {
   add('h2', `Writing check${b ? ` — band ${b.big}` : ''}`);
   if (r.weak && r.weak.length) { add('div', '<b>Key weaknesses</b>'); add('ul', r.weak.map((t) => `<li>${esc(t)}</li>`).join('')); }
   if (!none) add('ul', ['tr', 'ta', 'cc', 'lr', 'gra'].filter((k) => r.crit[k]).map((k) => `<li><b>${CW_NAMES[k]} ${r.crit[k].band}</b> — ${esc(r.crit[k].why)}</li>`).join(''));
+  // A copy of the essay with the corrections in place (the essay itself above stays as written).
+  if (r.text && cwMarks(r.text, r.fixes).length) {
+    add('div', '<b>Your essay, corrected</b>');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = cwMarkedHtml(r.text, r.fixes);
+    for (const p of tmp.children) add('div', p.innerHTML.replace(/<span[^>]*>|<\/span>/g, ''));
+  }
+  let vt = null;
+  if (r.vocab && r.vocab.length) {
+    add('div', '<b>Vocabulary to upgrade</b>');
+    vt = document.createElement('table');
+    const body = document.createElement('tbody');
+    vt.className = 'fc';
+    vt.appendChild(body);
+    const row = (tag, cells) => { const tr = document.createElement('tr'); for (const c of cells) { const td = newCell(tag); td.textContent = c; tr.appendChild(td); } body.appendChild(tr); };
+    row('th', ['In your essay', 'Try instead']);
+    for (const v of r.vocab) row('td', [v.used, `${v.better} (${CW_KINDS[v.kind] || 'word'})`]);
+    frag.appendChild(vt);
+  }
   if (r.fixes.length) {
     add('div', '<b>Corrections</b>');
     add('ul', r.fixes.map((f) => `<li><s>${esc(f.from)}</s> → <b>${esc(f.to)}</b>${f.why ? ` (${esc(f.why)})` : ''}</li>`).join(''));
@@ -193,11 +278,20 @@ ACTIONS['cw-add'] = () => {
   histNow();
   const first = frag.firstChild;
   ED.ed.appendChild(frag);
+  if (vt) fitTables(ED.ed);
   queueSave();
   saveEditor();
   closeSheet();
   glideTo(first);
   toast('Feedback added to the end of the note');
+};
+// Tap a marked mistake in "Your essay, marked": why it's wrong.
+ACTIONS['cw-why'] = (el) => {
+  const f = CW && CW.res && CW.res.fixes[+el.dataset.i];
+  if (!f) return;
+  for (const m of el.parentElement.querySelectorAll('.cw-m.on')) m.classList.remove('on');
+  el.classList.add('on');
+  toast(`${f.from} → ${f.to}${f.why ? ' — ' + f.why : ''}`);
 };
 // A photo of handwritten (or printed) writing: its words go into the note first, so you can fix any
 // word that was read wrongly before it's marked.
