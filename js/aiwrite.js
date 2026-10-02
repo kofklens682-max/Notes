@@ -20,7 +20,8 @@ function glideTo(node, wait = 480) {
 const needNet = (what) => { if (navigator.onLine) return true; toast(`${what} needs the internet`); return false; };
 
 // ---------- Check Writing ----------
-const CW_TASKS = [['t2', 'Task 2'], ['t1', 'Task 1'], ['letter', 'Letter'], ['none', 'Correct only']];
+// Task 1 and letters are not offered: only Task 2 marking has been checked against IELTS examiners' bands.
+const CW_TASKS = [['t2', 'Task 2 Essay'], ['none', 'Correct only']];
 const CW_NAMES = { tr: 'Task Response', ta: 'Task Achievement', cc: 'Coherence & Cohesion', lr: 'Lexical Resource', gra: 'Grammar Range & Accuracy' };
 const CW_FEEDBACK = /^Writing check\b/; // the heading of feedback already added to the note
 const CW_QUESTION = /\?\s*$|to what extent|agree or disagree|both (these )?views|your (own )?opinion|advantages|disadvantages|outweigh|positive or (a )?negative|give reasons|write a letter|the (chart|graph|table|diagram|map)s? (below )?shows?/i;
@@ -63,7 +64,7 @@ function cwRead() {
 
 function checkWriting() {
   if (!ED) return;
-  CW = { id: ED.id, task: S.settings.cwTask || 't2', state: 'idle', res: null, err: '', note: '' };
+  CW = { id: ED.id, task: S.settings.cwTask === 'none' ? 'none' : 't2', state: 'idle', res: null, err: '', note: '' };
   cwRead();
   openSheet(cwSheetHtml(), cwMount, 'tall cw-sheet');
 }
@@ -89,10 +90,13 @@ function cwView() {
   if (CW.state === 'busy') requestAnimationFrame(() => requestAnimationFrame(() => { const b = $('.cw-prog i', m); if (b) b.style.width = '92%'; }));
 }
 
+// The band is always shown as a half-band range: the marking's average rounded down to a half band, and half a
+// band above it. On 27 examiner-marked essays the examiner's band was inside this range for 19 and at most half a
+// band outside it for 24 (the misses were all band 8–8.5 essays, which the AI marks a little low).
 function cwBandText(avg) {
-  const q = Math.round(avg * 4) / 4, lo = Math.floor(q * 2) / 2, hi = Math.ceil(q * 2) / 2;
+  const q = Math.round(avg * 4) / 4, lo = Math.min(8.5, Math.floor(q * 2) / 2), hi = lo + 0.5;
   const f = (v) => (v % 1 ? v.toFixed(1) : String(v));
-  return lo === hi ? { big: f(lo), small: '', exact: true } : { big: f(lo), small: '–' + f(hi), exact: false };
+  return { big: f(lo) + '–' + f(hi), lo, hi };
 }
 function cwMainHtml() {
   const c = CW, none = c.task === 'none';
@@ -114,8 +118,10 @@ function cwResultHtml(r) {
   let h = '';
   if (!none && r.avg != null) {
     const b = cwBandText(r.avg);
-    h += `<div class="card cw-band"><div class="big">${b.big}${b.small ? `<small>${b.small}</small>` : ''}</div><div class="t"><b>Estimated band</b>${b.exact ? 'The average of the four criteria below.' : `The four criteria average ${r.avg.toFixed(2)}, between two bands.`}${r.words < (r.task === 't2' ? 250 : 150) ? ` Under ${r.task === 't2' ? 250 : 150} words (${r.words}) — this lowers the score.` : ''}</div></div>
-      <h2 class="sec">The four criteria</h2><div class="card">`;
+    h += `<div class="card cw-band"><div class="big">${b.big}</div><div class="t"><b>Estimated band</b>An examiner would most likely give a band in this range.${b.hi >= 7.5 ? ' Very strong essays can be marked a little low.' : ''}${r.words < (r.task === 't2' ? 250 : 150) ? ` Under ${r.task === 't2' ? 250 : 150} words (${r.words}) — this lowers the score.` : ''}</div></div>
+`;
+    if (r.weak && r.weak.length) h += `<h2 class="sec">Key weaknesses</h2><div class="card">${r.weak.map((t) => `<div class="cw-fix cw-weak">${esc(t)}</div>`).join('')}</div>`;
+    h += `<h2 class="sec">The four criteria</h2><div class="card">`;
     for (const k of ['tr', 'ta', 'cc', 'lr', 'gra']) {
       const c = r.crit[k];
       if (!c) continue;
@@ -175,7 +181,8 @@ ACTIONS['cw-add'] = () => {
   const b = !none && r.avg != null ? cwBandText(r.avg) : null;
   const frag = document.createDocumentFragment();
   const add = (tag, html) => { const n = document.createElement(tag); n.innerHTML = html; frag.appendChild(n); return n; };
-  add('h2', `Writing check${b ? ` — band ${b.big}${b.small}` : ''}`);
+  add('h2', `Writing check${b ? ` — band ${b.big}` : ''}`);
+  if (r.weak && r.weak.length) { add('div', '<b>Key weaknesses</b>'); add('ul', r.weak.map((t) => `<li>${esc(t)}</li>`).join('')); }
   if (!none) add('ul', ['tr', 'ta', 'cc', 'lr', 'gra'].filter((k) => r.crit[k]).map((k) => `<li><b>${CW_NAMES[k]} ${r.crit[k].band}</b> — ${esc(r.crit[k].why)}</li>`).join(''));
   if (r.fixes.length) {
     add('div', '<b>Corrections</b>');

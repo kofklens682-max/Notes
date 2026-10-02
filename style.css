@@ -1333,7 +1333,7 @@ h1, h2, h3, p { margin: 0; }
 .cw-note { margin: 10px 4px 0; font-size: 12.5px; color: var(--text-2); text-align: center; line-height: 1.4; }
 .cw-err { margin: 12px 4px 0; font-size: 14px; color: var(--red); text-align: center; line-height: 1.4; }
 .cw-band { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
-.cw-band .big { white-space: nowrap; flex: none; font-size: 40px; font-weight: 800; letter-spacing: -.02em; color: var(--yellow-t); line-height: 1; }
+.cw-band .big { white-space: nowrap; flex: none; font-size: 34px; font-weight: 800; letter-spacing: -.02em; color: var(--yellow-t); line-height: 1; }
 .cw-band .big small { font-size: 18px; font-weight: 700; color: var(--text-2); margin-left: 2px; }
 .cw-band .t { font-size: 14px; color: var(--text-2); line-height: 1.35; }
 .cw-band .t b { color: var(--text); font-weight: 600; display: block; font-size: 16px; margin-bottom: 2px; }
