@@ -90,12 +90,13 @@ function cwView() {
   if (CW.state === 'busy') requestAnimationFrame(() => requestAnimationFrame(() => { const b = $('.cw-prog i', m); if (b) b.style.width = '92%'; }));
 }
 
-// The band is always shown as a half-band range, on the strict side (the user's choice, 2026-10-02: when in doubt
-// the lower band, so a student aims higher): it ends at the marking's average rounded down to a half band.
+// Two half-band ranges (the user's choice, 2026-10-02). Likely: from the marking's average rounded down to a half
+// band, half a band up — on 27 examiner-marked essays the examiner's band was inside it for 19. Strict examiner:
+// half a band lower, so a student sees what to aim past.
 function cwBandText(avg) {
-  const q = Math.round(avg * 4) / 4, hi = Math.max(1, Math.floor(q * 2) / 2), lo = hi - 0.5;
+  const q = Math.round(avg * 4) / 4, lo = Math.min(8.5, Math.floor(q * 2) / 2), hi = lo + 0.5;
   const f = (v) => (v % 1 ? v.toFixed(1) : String(v));
-  return { big: f(lo) + '–' + f(hi), lo, hi };
+  return { big: f(lo) + '–' + f(hi), strict: lo > 1 ? f(lo - 0.5) + '–' + f(lo) : '', lo, hi };
 }
 // One correction as it reads in the essay: words that stay are plain, what goes is struck through and what comes in
 // is bold — "she go" → "she go<b>es</b>", "however I" → "however<b>,</b> I".
@@ -176,7 +177,7 @@ function cwResultHtml(r) {
   let h = '';
   if (!none && r.avg != null) {
     const b = cwBandText(r.avg);
-    h += `<div class="card cw-band"><div class="big">${b.big}</div><div class="t"><b>Estimated band</b>Marked on the strict side — a real examiner may give up to half a band more.${r.words < (r.task === 't2' ? 250 : 150) ? ` Under ${r.task === 't2' ? 250 : 150} words (${r.words}) — this lowers the score.` : ''}</div></div>
+    h += `<div class="card cw-band"><div class="big">${b.big}</div><div class="t"><b>Likely band</b>${b.strict ? `A strict examiner would likely give <span class="cw-strict">${b.strict}</span>.` : ''}${r.words < (r.task === 't2' ? 250 : 150) ? ` Under ${r.task === 't2' ? 250 : 150} words (${r.words}) — this lowers the score.` : ''}</div></div>
 `;
     if (r.weak && r.weak.length) h += `<h2 class="sec">Key weaknesses</h2><div class="card">${r.weak.map((t) => `<div class="cw-fix cw-weak">${esc(t)}</div>`).join('')}</div>`;
     h += `<h2 class="sec">The four criteria</h2><div class="card">`;
@@ -248,6 +249,7 @@ ACTIONS['cw-add'] = () => {
   const frag = document.createDocumentFragment();
   const add = (tag, html) => { const n = document.createElement(tag); n.innerHTML = html; frag.appendChild(n); return n; };
   add('h2', `Writing check${b ? ` — band ${b.big}` : ''}`);
+  if (b && b.strict) add('div', `Likely band <b>${b.big}</b> · a strict examiner would likely give <b>${b.strict}</b>`);
   if (r.weak && r.weak.length) { add('div', '<b>Key weaknesses</b>'); add('ul', r.weak.map((t) => `<li>${esc(t)}</li>`).join('')); }
   if (!none) add('ul', ['tr', 'ta', 'cc', 'lr', 'gra'].filter((k) => r.crit[k]).map((k) => `<li><b>${CW_NAMES[k]} ${r.crit[k].band}</b> — ${esc(r.crit[k].why)}</li>`).join(''));
   // A copy of the essay with the corrections in place (the essay itself above stays as written).
