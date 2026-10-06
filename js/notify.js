@@ -38,12 +38,83 @@ async function connectPush(force) {
   try {
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uDec(PUSH.key) });
-    return await pushSync(reg, S, force);
+    const r = await pushSync(reg, S, force);
+    PUSHLOG = (await dbGet('meta', 'pushlog')) || PUSHLOG;
+    return r;
   } catch (e) {
     if (force) toast("Couldn't reach the reminder server — reminders still work while the app is open");
+    // Try again in a minute: a reminder the server doesn't know about would never arrive.
+    clearTimeout(retryT);
+    retryT = setTimeout(() => connectPush(false), 60e3);
     return 'error';
   }
 }
+let retryT = 0;
+
+// ---------- Reliable Reminders (Settings) ----------
+// The server keeps a short log: when each reminder was due, when it sent the wake-up, and when
+// this phone answered. That shows whether a late reminder was the phone's fault or the server's.
+let PUSHLOG = null;
+dbGet('meta', 'pushlog').then((v) => { PUSHLOG = v || null; }).catch(() => {});
+const lateText = (ms) => {
+  const m = Math.round(ms / 60e3);
+  if (m < 1) return 'On time';
+  if (m < 60) return `${m} min late`;
+  return `${Math.floor(m / 60)} h ${m % 60 ? (m % 60) + ' min ' : ''}late`;
+};
+function logRows() {
+  const log = ((PUSHLOG && PUSHLOG.log) || []).slice().reverse().slice(0, 10);
+  const now = Date.now();
+  return log.map((x) => {
+    const late = x.ack ? x.ack - x.due : null;
+    const st = x.ack ? lateText(late) : now - x.sent < 15 * 60e3 ? 'Waiting…' : 'Missed';
+    const bad = !x.ack ? now - x.sent >= 15 * 60e3 : late >= 60e3;
+    return { day: dateOf(x.due), at: x.due, st, bad, tries: x.tries || 1 };
+  });
+}
+function remSummary() {
+  const rows = logRows();
+  if (!rows.length) return '';
+  const ok = rows.filter((r) => !r.bad).length;
+  return `${ok} of ${rows.length} on time`;
+}
+const PHONE_STEPS = [
+  ['Chrome → Autostart', 'Turn it on, so the phone lets Chrome wake up for a reminder.'],
+  ['Chrome → Battery saver', 'Choose “No restrictions”. This is the usual reason a reminder comes an hour late.'],
+  ['Notes → Notifications', 'Allow them, with Lock screen and Floating notifications on.'],
+  ['Recent apps', 'Open the list of recent apps, hold Chrome and tap the lock, so cleaning doesn\'t close it.'],
+];
+SCREENS.remcheck = {
+  render() {
+    const rows = logRows();
+    const body = `
+      <h2 class="sec">Last Reminders</h2>
+      <div class="card">${rows.length ? rows.map((r) => `<div class="row static">${tile(r.bad ? 'x' : 'check', r.bad ? '#FF3B30' : '#34C759')}<span class="lbl">${esc(dayName(r.day))}, ${hm(r.at)}</span><span class="val">${esc(r.st)}${r.tries > 1 && !r.bad ? ' · resent' : ''}</span></div>`).join('')
+        : `<div class="row static"><span class="lbl">No reminders yet</span></div>`}
+        <button class="row" data-act="notif-test-off">${tile('sparkles', '#FF9500')}<span class="lbl tinted">Test with the Screen Off</span></button>
+      </div>
+      <p class="foot">The reminder server sends a wake-up at the exact time, and again if the phone doesn't answer. If one shows as late here, the phone held it back — the steps below fix that.</p>
+      <h2 class="sec">On a Xiaomi / Redmi Phone</h2>
+      <div class="card">${PHONE_STEPS.map(([t, d], i) => `<div class="row static step"><span class="tile" style="--c:#007AFF"><b>${i + 1}</b></span><span class="lbl"><b>${esc(t)}</b><small>${esc(d)}</small></span></div>`).join('')}</div>
+      <p class="foot">Steps 1–3 are in the phone's Settings → Apps → Manage apps. Afterwards, tap Test with the Screen Off and lock the phone.</p>`;
+    return page({ title: 'Reliable Reminders', back: 'Settings', body });
+  },
+  mount(el, e) {
+    if (e.fetched) return; // once per visit: the redraw below mounts again
+    e.fetched = true;
+    connectPush(true).then(() => { if (cur() === e) repaint(el, e); });
+  },
+};
+ACTIONS['rem-check'] = () => push({ s: 'remcheck' });
+// A test through the reminder server in 1 minute, so there's time to lock the phone.
+ACTIONS['notif-test-off'] = async () => {
+  if (!notifOn() && !(await enableNotifications())) return;
+  const at = Date.now() + 60e3;
+  await dbPut('meta', 'test', at);
+  const ok = pushReady() && (await connectPush(true)) === 'ok';
+  if (!ok) { toast("Couldn't reach the reminder server"); return; }
+  toast(`Lock your phone now — the test arrives at ${hm(at)}`);
+};
 ACTIONS['notif-on'] = async (el) => {
   if (!(await enableNotifications())) return;
   toast('Notifications on');

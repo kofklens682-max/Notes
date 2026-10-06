@@ -1,7 +1,7 @@
 // Offline support and reminders. Bump VERSION whenever the app files change: the phone notices
 // the new service worker, downloads the whole new version at once, and the app reloads into it.
 // This site shares its address with the Budget app, so only "notes-" caches are ours.
-const VERSION = 'notes-v29';
+const VERSION = 'notes-v30';
 importScripts('js/config.js', 'js/store.js', 'js/remind.js');
 
 const SHELL = [
@@ -97,8 +97,20 @@ async function showTestNow() {
 // The reminder server woke us: show what's due. (Android requires showing something.)
 self.addEventListener('push', (e) => {
   e.waitUntil(serial(async () => {
-    if (await showDueNow(self.registration, LATE_OK)) return;
-    if (await showTestNow()) return;
+    const n0 = await showDueNow(self.registration, LATE_OK, 3 * 60e3);
+    const t0 = await showTestNow();
+    await pushAck(n0 + (t0 ? 1 : 0));
+    if (n0 || t0) return;
+    // A repeat of a wake-up we already answered: quietly re-show what's on screen instead of a new alert.
+    const open = await self.registration.getNotifications();
+    const last = open.filter((x) => x.tag !== 'summary').sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+    if (last) {
+      await self.registration.showNotification(last.title, {
+        body: last.body, tag: last.tag, icon: last.icon, badge: last.badge, timestamp: last.timestamp,
+        data: last.data, actions: last.actions, silent: true, renotify: false,
+      });
+      return;
+    }
     const S = await dbGet('state', 'S');
     const today = todayIso();
     const n = S ? (S.tasks || []).filter((t) => !t.done && t.due && t.due <= today).length : 0;

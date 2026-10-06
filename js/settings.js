@@ -14,10 +14,11 @@ SCREENS.settings = {
         <div class="row static">${tile('bell', '#FF3B30')}<span class="lbl">Reminders</span><span class="val">${status}</span></div>
         ${notifOn() ? `<button class="row" data-act="notif-test">${tile('sparkles', '#FF9500')}<span class="lbl">Send a Test Notification</span></button>`
           : notifSupported() && perm !== 'denied' ? `<button class="row" data-act="notif-on">${tile('bell', '#34C759')}<span class="lbl tinted">Turn On Notifications</span></button>` : ''}
+        ${notifOn() && pushReady() ? `<button class="row" data-act="rem-check">${tile('shield', '#34C759')}<span class="lbl">Reliable Reminders</span><span class="val">${esc(remSummary())}</span>${glyph('chevR', 'chev')}</button>` : ''}
         <label class="row">${tile('clock', '#007AFF')}<span class="lbl">Default time</span><input class="row-input" type="time" name="allDay" value="${S.settings.allDay}"></label>
       </div>
       <p class="foot">Reminders with a date but no time alert you at the default time. ${perm === 'denied' ? "Notifications are blocked. Open the phone's Settings → Apps → Notes → Notifications and allow them." : pushReady()
-        ? "Reminders arrive even when the app is closed. Only the times are sent to the reminder server — never what your notes or reminders say. If some arrive late, set Chrome's battery use to “Unrestricted” in the phone's Settings → Apps → Chrome → Battery."
+        ? "Reminders arrive even when the app is closed. Only the times are sent to the reminder server — never what your notes or reminders say. If some arrive late, open Reliable Reminders."
         : "The reminder server isn't set up yet, so reminders appear only while the app is open or was used recently."}</p>
 
       <h2 class="sec">Locked Notes</h2>

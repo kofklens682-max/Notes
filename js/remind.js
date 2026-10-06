@@ -117,12 +117,14 @@ function showDue(reg, lateMs) {
   dueChain = dueChain.catch(() => 0).then(() => showDueNow(reg, lateMs));
   return dueChain;
 }
-async function showDueNow(reg, lateMs) {
+// earlyMs: a wake-up from the server can reach a phone whose clock is a little behind, so then
+// anything due in the next few minutes counts as due (otherwise that reminder would be lost).
+async function showDueNow(reg, lateMs, earlyMs = 30e3) {
   const S = await dbGet('state', 'S');
   if (!S) return 0;
   const now = Date.now();
   const shown = (await dbGet('meta', 'shown')) || {};
-  const due = reminders(S, now, 1).filter((r) => r.at <= now + 30e3 && r.at >= now - lateMs && !shown[r.key]);
+  const due = reminders(S, now, 1).filter((r) => r.at <= now + earlyMs && r.at >= now - lateMs && !shown[r.key]);
   const icon = new URL('icons/icon-192.png', reg.scope).href;
   const badge = new URL('icons/badge-96.png', reg.scope).href;
   for (const r of due) {
@@ -156,9 +158,10 @@ async function deviceId() {
 }
 // Send the server the times it should wake this phone (the next 3 weeks). Only the times and
 // an anonymous address for this phone are sent. Skipped when nothing changed.
-async function pushSync(reg, S, force) {
+const pushApi = (path) => self.PUSH.url.replace(/\/+$/, '') + path;
+async function pushSync(reg, S, force, again) {
   if (!pushReady() || !reg || !reg.pushManager) return 'off';
-  const sub = await reg.pushManager.getSubscription();
+  let sub = await reg.pushManager.getSubscription();
   if (!sub) return 'nosub';
   const now = Date.now();
   const times = [...new Set(reminders(S, now, 21).map((r) => r.at).filter((t) => t > now))];
@@ -167,9 +170,25 @@ async function pushSync(reg, S, force) {
   times.sort((a, b) => a - b);
   const body = JSON.stringify({ device: await deviceId(), endpoint: sub.endpoint, times: times.slice(0, 300) });
   const last = (await dbGet('meta', 'synced')) || {};
-  if (!force && last.body === body && now - last.at < 20 * 3600e3) return 'same';
-  const r = await fetch(self.PUSH.url.replace(/\/+$/, '') + '/sync', { method: 'POST', headers: { 'content-type': 'text/plain' }, body });
+  // Re-sent at least every 6 hours: that's also how the phone learns its push address stopped working.
+  if (!force && last.body === body && now - last.at < 6 * 3600e3) return 'same';
+  const r = await fetch(pushApi('/sync'), { method: 'POST', headers: { 'content-type': 'text/plain' }, body });
   if (!r.ok) throw new Error('Reminder server answered ' + r.status);
+  const res = await r.json().catch(() => ({}));
+  if (Array.isArray(res.log)) await dbPut('meta', 'pushlog', { at: now, log: res.log });
+  if (res.dead && !again) {
+    // The push service threw this phone's address away: get a new one and send it.
+    await sub.unsubscribe().catch(() => {});
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uDec(self.PUSH.key) });
+    return pushSync(reg, S, true, true);
+  }
   await dbPut('meta', 'synced', { body, at: now });
   return 'ok';
+}
+// Tell the server this phone got its wake-up, so it doesn't send it again.
+async function pushAck(shown) {
+  if (!pushReady()) return;
+  try {
+    await fetch(pushApi('/ack'), { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ device: await deviceId(), shown }) });
+  } catch (e) { /* offline: the server just sends it once more */ }
 }

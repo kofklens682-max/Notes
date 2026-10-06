@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '3.1';
+const APP_BUILD = '3.2';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 // Press and slide: the tab bar, the segmented controls, the Habits week and a habit's Repeat days.
 bindTabSlide($('#tabs'), (t) => goTab(t));
@@ -87,7 +87,9 @@ document.addEventListener('visibilitychange', async () => {
   if (swReg) swReg.update().catch(() => {});
   checkDueNow(15 * 60e3);
   planLocal();
+  connectPush(false); // a change that couldn't reach the reminder server is sent now (skipped if nothing changed)
 });
+window.addEventListener('online', () => connectPush(false));
 window.addEventListener('pagehide', () => { flush(); });
 // A notification's "Done" / "In 10 min" changed the saved data while the app was in the background.
 async function reloadIfChanged() {

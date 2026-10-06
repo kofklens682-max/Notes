@@ -218,6 +218,11 @@ h1, h2, h3, p { margin: 0; }
 .card:has(.row-g), .card:has(.tile) { --inset: 58px; }
 .lbl.danger { color: var(--red); }
 .lbl.tinted { color: var(--tint); font-weight: 500; }
+.row.step { align-items: flex-start; }
+.row.step .lbl { white-space: normal; }
+.row.step .lbl b { display: block; font-weight: 600; }
+.row.step .lbl small { display: block; font-size: 14px; color: var(--text-2); line-height: 1.35; margin-top: 2px; }
+.row.step .tile b { color: #fff; font-size: 15px; }
 .row-input { background: var(--fill); border: 0; border-radius: 8px; padding: 5px 8px; font-size: 16px; color: var(--text); }
 .add-link { display: flex; align-items: center; gap: 8px; color: var(--tint); font-size: 17px; font-weight: 500; padding: 14px 4px 4px; }
 .add-link .gl { width: 24px; height: 24px; }
