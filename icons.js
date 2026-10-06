@@ -9,6 +9,8 @@ window.GLYPHS = {
   plus: '<path d="M12 5.5v13M5.5 12h13"/>',
   minus: '<path d="M6 12h12"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  palette: '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.5-1-2.6 0-.9.7-1.6 1.6-1.6h2.2a3.9 3.9 0 0 0 3.9-3.9c0-4-3.8-7.2-8.5-7.2z"/><circle cx="7.8" cy="11" r="1.2" class="f"/><circle cx="10.2" cy="7.4" r="1.2" class="f"/><circle cx="14.4" cy="7.6" r="1.2" class="f"/>',
+  cards: '<rect x="3.5" y="6.5" width="13" height="14" rx="2.5"/><path d="M8 3.5h10a2.5 2.5 0 0 1 2.5 2.5v10"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
   more: '<circle cx="12" cy="12" r="9"/><circle cx="7.9" cy="12" r="1.15" class="f"/><circle cx="12" cy="12" r="1.15" class="f"/><circle cx="16.1" cy="12" r="1.15" class="f"/>',
   gear: (() => {

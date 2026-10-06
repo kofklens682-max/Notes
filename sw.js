@@ -1,7 +1,7 @@
 // Offline support and reminders. Bump VERSION whenever the app files change: the phone notices
 // the new service worker, downloads the whole new version at once, and the app reloads into it.
 // This site shares its address with the Budget app, so only "notes-" caches are ours.
-const VERSION = 'notes-v30';
+const VERSION = 'notes-v31';
 importScripts('js/config.js', 'js/store.js', 'js/remind.js');
 
 const SHELL = [
@@ -25,6 +25,8 @@ const SHELL = [
   './js/aiwrite.js',
   './fonts/caveat-latin.woff2',
   './js/planner.js',
+  './js/today.js',
+  './js/cards.js',
   './js/groceries.js',
   './js/habits.js',
   './js/notify.js',
@@ -127,10 +129,10 @@ self.addEventListener('message', (e) => {
 });
 self.addEventListener('notificationclick', (e) => {
   const n = e.notification, d = n.data || {};
-  n.close();
+  if (d.kind !== 'note') n.close(); // a note on the lock screen stays there until swiped away
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    if (e.action === 'done' || e.action === 'snooze') {
+    if (e.action === 'done' || e.action === 'snooze' || e.action === 'tomorrow') {
       const open = wins.find((c) => c.visibilityState === 'visible');
       if (open) { open.postMessage({ type: 'act', action: e.action, ...d }); return; }
       await serial(async () => {
@@ -143,13 +145,27 @@ self.addEventListener('notificationclick', (e) => {
       wins.forEach((c) => c.postMessage({ type: 'reload' }));
       return;
     }
-    const q = d.kind === 'task' ? `?task=${d.id}` : d.kind === 'habit' ? `?habit=${d.id}` : '';
+    const q = d.kind === 'task' ? `?task=${d.id}` : d.kind === 'habit' ? `?habit=${d.id}` : d.kind === 'note' ? `?note=${d.id}` : '';
     const w = wins.find((c) => c.url.startsWith(self.registration.scope));
     if (w) {
       await w.focus();
       if (q) w.postMessage({ type: 'open', kind: d.kind, id: d.id });
     } else await self.clients.openWindow(iconUrl('./' + q));
   })());
+});
+// A note shown on the lock screen was swiped away: it isn't shown there any more.
+self.addEventListener('notificationclose', (e) => {
+  const d = e.notification.data || {};
+  if (d.kind !== 'note') return;
+  e.waitUntil(serial(async () => {
+    const S = await dbGet('state', 'S');
+    const n = S && (S.notes || []).find((x) => x.id === d.id);
+    if (!n || !n.notif) return;
+    delete n.notif;
+    S.rev = (S.rev || 0) + 1;
+    await dbPut('state', 'S', S);
+    (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).forEach((c) => c.postMessage({ type: 'reload' }));
+  }));
 });
 self.addEventListener('pushsubscriptionchange', (e) => {
   e.waitUntil((async () => {

@@ -44,7 +44,7 @@ const longDate = (s) => { const d = parseD(s); return `${DOW_LONG[d.getDay()]}, 
 let S = null;
 const defaultSettings = () => ({
   theme: 'auto', allDay: '09:00', voiceLang: 'en-US', lock: null, lastBackup: null,
-  notify: false, noteSort: 'edited', listSort: {}, showDone: {},
+  notify: false, noteSort: 'edited', listSort: {}, showDone: {}, weekAhead: true,
 });
 function blank() {
   return {
@@ -58,6 +58,7 @@ function blank() {
     tasks: [],
     grocery: { items: [], known: {} },
     habits: [],
+    cards: {}, // flashcards practised, per note (see cards.js)
     settings: defaultSettings(),
   };
 }
@@ -79,10 +80,11 @@ function normalize(d) {
   if (!['en-US', 'ru-RU', 'uz-UZ'].includes(set.voiceLang)) set.voiceLang = 'en-US';
   if (!['edited', 'created', 'title'].includes(set.noteSort)) set.noteSort = 'edited';
   for (const k of ['listSort', 'showDone']) if (!set[k] || typeof set[k] !== 'object') set[k] = {};
+  set.weekAhead = set.weekAhead !== false;
   if (set.lock && !(typeof set.lock.salt === 'string' && set.lock.check && typeof set.lock.check.iv === 'string')) set.lock = null;
   const out = {
     v: APP_V, rev: +d.rev || 0,
-    folders: arr(d.folders).filter(okId).map((f) => ({ id: f.id, name: str(f.name, 80) || 'Folder' })),
+    folders: arr(d.folders).filter(okId).map((f) => ({ id: f.id, name: str(f.name, 80) || 'Folder', ...(HEX_RE.test(f.color) ? { color: f.color } : {}) })),
     notes: arr(d.notes).filter(okId),
     lists: arr(d.lists).filter(okId).map((l) => ({ id: l.id, name: str(l.name, 80) || 'List', color: HEX_RE.test(l.color) ? l.color : '#007AFF', g: G[l.g] ? l.g : 'list' })),
     tasks: arr(d.tasks).filter(okId),
@@ -107,7 +109,24 @@ function normalize(d) {
     locked: !!n.locked,
     enc: cleanEnc(n.locked && n.enc),
     edited: +n.edited || Date.now(), created: +n.created || +n.edited || Date.now(),
+    // checklist ticks [done, total] for the card; notif = shown on the lock screen (see remind.js)
+    ...(Array.isArray(n.todo) && n.todo.length === 2 && n.todo.every((x) => Number.isInteger(x) && x >= 0 && x < 1e4) && n.todo[0] <= n.todo[1] ? { todo: n.todo } : {}),
+    ...(n.notif && !n.locked ? { notif: true } : {}),
   }));
+  // Flashcards: { noteId: { key: { w, m, x, b, due } } } — only for notes that still exist.
+  out.cards = {};
+  if (d.cards && typeof d.cards === 'object') {
+    const ids = new Set(out.notes.map((n) => n.id));
+    for (const [nid, set2] of Object.entries(d.cards)) {
+      if (!ids.has(nid) || !set2 || typeof set2 !== 'object') continue;
+      const keep = {};
+      for (const [k, c] of Object.entries(set2).slice(0, 2000)) {
+        if (!c || typeof c !== 'object' || !str(c.w, 200)) continue;
+        keep[str(k, 200)] = { w: str(c.w, 200), m: str(c.m, 500), x: str(c.x, 500), b: clamp(Math.round(+c.b) || 0, 0, 6), due: DATE_RE.test(c.due) ? c.due : todayIso() };
+      }
+      out.cards[nid] = keep;
+    }
+  }
   out.tasks = out.tasks.map((t) => ({
     id: t.id, title: str(t.title, 300), notes: str(t.notes, 5000),
     list: out.lists.some((l) => l.id === t.list) ? t.list : out.lists[0].id,
@@ -364,24 +383,117 @@ function animateChange(root, change) {
 function prewarm() {
   const idle = window.requestIdleCallback || ((f) => setTimeout(f, 300));
   idle(() => {
-    Object.keys(UI.stacks).forEach((t) => {
-      if (t === UI.tab || sheet) return;
-      const st = UI.stacks[t], e = st[st.length - 1];
-      if (!keepable(e) || (kept.get(e) && kept.get(e).isConnected)) return;
-      const el = document.createElement('section');
-      el.className = 'screen held';
-      el.dataset.s = e.s;
-      el.inert = true;
-      el.setAttribute('aria-hidden', 'true');
-      $('#stage').appendChild(el);
-      const was = UI.tab;
-      UI.tab = t; // screens draw for their own tab
-      try { paint(el, e); } finally { UI.tab = was; }
-      void el.offsetHeight; // lay it out now, while nothing else is happening
-      el._e = e;
-      kept.set(e, el);
-    });
+    Object.keys(UI.stacks).forEach((t) => { if (t !== UI.tab && !sheet) keptTop(t); });
   }, { timeout: 2500 });
+}
+// The kept (hidden) screen on top of tab t's stack, built now if there isn't one.
+function keptTop(t) {
+  const st = UI.stacks[t], e = st[st.length - 1];
+  if (!keepable(e)) return null;
+  const k = kept.get(e);
+  if (k && k.isConnected) return k;
+  const el = document.createElement('section');
+  el.className = 'screen held';
+  el.dataset.s = e.s;
+  el.inert = true;
+  el.setAttribute('aria-hidden', 'true');
+  $('#stage').appendChild(el);
+  const was = UI.tab;
+  UI.tab = t; // screens draw for their own tab
+  try { paint(el, e); } finally { UI.tab = was; }
+  void el.offsetHeight; // lay it out now, while nothing else is happening
+  el._e = e;
+  kept.set(e, el);
+  return el;
+}
+
+// ---------- Swiping between the tabs ----------
+// On a tab's first screen, slide a finger sideways anywhere: the screen follows it and the other
+// tab comes in from the side (Notes ← → Planner); the tab bar's highlight moves along. Let go past
+// about a third, or flick, to switch. Rows with their own sideways swipe (reminders, chips…) keep it.
+const TAB_ORDER = ['notes', 'planner'];
+const NO_TAB_SWIPE = 'input, textarea, select, [contenteditable="true"], .fchips, .seg, .week, .days, .hcs, .dl-strip, .no-swipe, table, .nav';
+function bindTabSwipe() {
+  const stage = $('#stage'), tabs = $('#tabs');
+  let st = null, movedAt = 0;
+  const clear = (s) => {
+    [s.el, s.other].forEach((x) => { if (x) { x.style.transition = ''; x.style.transform = ''; x.classList.remove('tab-drag', 'peek'); } });
+    tabs.classList.remove('dragging');
+  };
+  stage.addEventListener('pointerdown', (e) => {
+    if (st || e.button > 0 || sheet || layers.length || UI.stacks[UI.tab].length !== 1 || swOpen) return;
+    const el = curEl();
+    if (!el || !el.contains(e.target) || e.target.closest(NO_TAB_SWIPE)) return;
+    // A reminder row swipes left for its buttons: there, only a swipe to the right changes tab.
+    const sw = e.target.closest('.sw');
+    if (sw && (sw.dataset.swl || e.target.closest('.sw-acts'))) return;
+    st = { id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, pts: [], el, only: sw ? 1 : 0 };
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!st || e.pointerId !== st.id || st.done) return;
+    const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+    if (!st.on) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2 || (st.only && Math.sign(dx) !== st.only) || $('#stage > .screen.push-in, #stage > .screen.pop-in')) { st = null; return; }
+      st.on = true;
+      const i = TAB_ORDER.indexOf(UI.tab);
+      st.i = i;
+      st.dir = i === 0 ? 1 : -1; // which way the other tab lies (1 = to the right)
+      st.to = TAB_ORDER[i + st.dir];
+      st.W = stage.offsetWidth;
+      st.other = keptTop(st.to);
+      if (st.other) { st.other.classList.remove('held'); st.other.classList.add('peek'); }
+      st.el.classList.add('tab-drag');
+      tabs.classList.add('dragging');
+      try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      if (typeof closeSwipe === 'function') closeSwipe();
+    }
+    st.pts.push([e.timeStamp, e.clientX]);
+    if (st.pts.length > 8) st.pts.shift();
+    const toward = -dx * st.dir > 0 && st.other; // moving toward the other tab
+    st.x = toward ? clamp(dx, -st.W, st.W) : dx / 4; // the other way it only gives a little
+    st.el.style.transform = `translate3d(${st.x.toFixed(1)}px,0,0)`;
+    if (st.other) st.other.style.transform = `translate3d(${(st.x + st.dir * (st.W + 24)).toFixed(1)}px,0,0)`;
+    tabs.style.setProperty('--i', (st.i + clamp(-st.x / st.W, -1, 1) * 1).toFixed(3));
+  });
+  const release = (e) => {
+    if (!st || e.pointerId !== st.id || st.done) return;
+    const s = st;
+    if (!s.on) { st = null; return; }
+    s.done = true;
+    movedAt = Date.now();
+    const last = s.pts[s.pts.length - 1] || [0, 0], recent = s.pts.filter((p) => last[0] - p[0] <= 100);
+    const v = recent.length > 1 ? (last[1] - recent[0][1]) / Math.max(1, last[0] - recent[0][0]) : 0;
+    const go = e.type === 'pointerup' && s.other && -s.x * s.dir > 16 && (-s.x * s.dir > s.W * 0.3 || -v * s.dir > 0.25);
+    const to = go ? -s.dir * (s.W + 24) : 0;
+    const ms = reduceMotion() ? 0 : Math.round(clamp(Math.abs(to - s.x) / Math.max(Math.abs(v), 1.3), 160, 320));
+    const ease = `transform ${ms}ms cubic-bezier(.2, .75, .25, 1)`;
+    s.el.style.transition = ease;
+    s.el.style.transform = `translate3d(${to}px,0,0)`;
+    if (s.other) { s.other.style.transition = ease; s.other.style.transform = `translate3d(${to + s.dir * (s.W + 24)}px,0,0)`; }
+    tabs.classList.remove('dragging');
+    tabs.style.setProperty('--i', go ? TAB_ORDER.indexOf(s.to) : s.i);
+    setTimeout(() => {
+      st = null;
+      if (go) {
+        buzz();
+        rememberScroll();
+        hideCur();
+        UI.tab = s.to;
+        show(); // the other tab's kept screen is already in place: no second animation
+        clear(s);
+        if (s.el !== curEl() && !s.el.classList.contains('held') && s.el.isConnected && inStacks(s.el._e)) holdScreen(s.el);
+        syncHistory();
+      } else {
+        clear(s);
+        if (s.other && s.other !== curEl()) holdScreen(s.other);
+      }
+    }, ms + 20);
+  };
+  stage.addEventListener('pointerup', release);
+  stage.addEventListener('pointercancel', release);
+  // the end of a swipe must not also count as a tap
+  stage.addEventListener('click', (e) => { if (Date.now() - movedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
 // Repaint the current screen in place (keeps its scroll position).
 function render() {
@@ -634,98 +746,6 @@ function bindDaysSlide(sel, set, done) {
   document.addEventListener('pointercancel', end);
   document.addEventListener('click', (e) => { if (e.isTrusted && Date.now() - slidAt < 350 && e.target.closest(sel)) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
-// ---------- Swiping between pages ----------
-// Part of a screen (the notes of one folder) that follows the finger sideways: the next or previous
-// page comes in from the side. Let go past about a third of the way, or flick, and it stays;
-// otherwise it springs back. At the ends it only gives a little. dir: 1 = next (finger moves left).
-// o: { has(dir), page(dir) → html, mount(pane, dir), move(p), go(dir, top), rest(), skip(target) }
-// go() gets `top`: how far down the page the neighbour was shown (it was lined up with the top of
-// the screen when the list was scrolled down).
-const PAGE_GAP = 32; // space between two pages while they move
-function bindPager(el, o) {
-  if (!el) return;
-  let st = null, movedAt = 0;
-  const side = (dir) => {
-    if (!o.has(dir)) return null;
-    const p = document.createElement('div');
-    p.className = 'pg-side';
-    p.inert = true;
-    p.setAttribute('aria-hidden', 'true');
-    p.style.transform = `translate3d(${dir * st.W}px, ${st.top}px, 0)`;
-    p.innerHTML = o.page(dir);
-    el.appendChild(p);
-    if (o.mount) o.mount(p, dir);
-    return p;
-  };
-  const follow = (dx) => {
-    const end = (dx > 0 && !st.prev) || (dx < 0 && !st.next);
-    st.x = end ? dx / 3 : clamp(dx, -st.W, st.W);
-    el.style.transform = `translate3d(${st.x.toFixed(1)}px,0,0)`;
-    if (o.move) o.move(-st.x / st.W);
-  };
-  el.addEventListener('pointerdown', (e) => {
-    if ((st && (st.on || st.done)) || e.button > 0 || (o.skip && o.skip(e.target))) return; // one finger at a time
-    st = { id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, x: 0, pts: [] };
-  });
-  el.addEventListener('pointermove', (e) => {
-    if (!st || e.pointerId !== st.id || st.done) return;
-    const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
-    if (!st.on) {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      if (Math.abs(dx) < Math.abs(dy) * 1.2 || !(o.has(1) || o.has(-1))) { st = null; return; } // scrolling up or down
-      st.on = true;
-      el.classList.remove('from-r', 'from-l');
-      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-      st.W = el.offsetWidth + PAGE_GAP;
-      // scrolled down past the top of the pages: the neighbour shows from its top, at the top of the screen
-      const scr = el.closest('.scroll'), nav = scr && scr.parentElement.querySelector('.nav');
-      st.top = scr ? Math.max(0, (nav ? nav.getBoundingClientRect().bottom : scr.getBoundingClientRect().top) + 8 - el.getBoundingClientRect().top) : 0;
-      st.prev = side(-1);
-      st.next = side(1);
-      el.classList.add('paging');
-    }
-    st.pts.push([e.timeStamp, e.clientX]);
-    if (st.pts.length > 8) st.pts.shift();
-    follow(dx);
-  });
-  const release = (e) => {
-    if (!st || e.pointerId !== st.id || st.done) return;
-    const s = st;
-    if (!s.on) { st = null; return; }
-    s.done = true; // a new swipe waits until this one has settled
-    movedAt = Date.now();
-    // How fast the finger was moving at the end (px per ms): a flick turns the page too.
-    const last = s.pts[s.pts.length - 1], recent = s.pts.filter((p) => last[0] - p[0] <= 100);
-    const v = recent.length > 1 ? (last[1] - recent[0][1]) / Math.max(1, last[0] - recent[0][0]) : 0;
-    let dir = 0;
-    if (e.type === 'pointerup') {
-      if (s.next && s.x < -16 && (s.x < -s.W * 0.3 || v < -0.25)) dir = 1;
-      else if (s.prev && s.x > 16 && (s.x > s.W * 0.3 || v > 0.25)) dir = -1;
-    }
-    const to = -dir * s.W;
-    const ms = reduceMotion() ? 0 : Math.round(clamp(Math.abs(to - s.x) / Math.max(Math.abs(v), 1.2), 150, 330));
-    const ease = `transform ${ms}ms cubic-bezier(.2, .75, .25, 1)`;
-    el.classList.add('settling');
-    el.style.transition = ease;
-    el.style.transform = `translate3d(${to}px,0,0)`;
-    if (o.move) o.move(dir, ease);
-    setTimeout(() => {
-      st = null;
-      [s.prev, s.next].forEach((p) => p && p.remove());
-      el.classList.remove('paging', 'settling');
-      el.style.transition = '';
-      el.style.transform = '';
-      if (!el.isConnected) return; // the screen was drawn again meanwhile
-      if (dir) { buzz(); o.go(dir, s.top); return; }
-      if (o.rest) o.rest();
-    }, ms + 30);
-  };
-  el.addEventListener('pointerup', release);
-  el.addEventListener('pointercancel', release);
-  // the end of a swipe must not also count as a tap
-  el.addEventListener('click', (e) => { if (Date.now() - movedAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
-}
-
 function chrome() {
   const e = cur(), sc = SCREENS[e.s];
   document.body.dataset.tab = UI.tab;
@@ -805,6 +825,7 @@ function sheetOff(sh) {
 function openSheet(html, mount, cls = '') {
   if (sheet) {
     sheetOff(sheet.sh);
+    sheet.onClose = null;
     sheet.sh.innerHTML = html;
     sheet.sh.className = 'sheet show ' + cls;
     sheet.sh.classList.remove('swap');
@@ -851,8 +872,9 @@ function refreshSheet(html, mount) {
 function closeSheet() { if (!sheet) return; closeSheetNow(); syncHistory(); }
 function closeSheetNow() {
   if (!sheet) return;
-  const { ov, sh } = sheet;
+  const { ov, sh, onClose } = sheet;
   sheet = null;
+  if (onClose) try { onClose(); } catch (e) { console.error(e); }
   if (document.activeElement && sh.contains(document.activeElement)) document.activeElement.blur();
   sh.classList.remove('dragging');
   sh.style.transform = '';
@@ -1142,7 +1164,7 @@ function themeColor() {
   const e = cur();
   const plain = e && SCREENS[e.s] && SCREENS[e.s].plain;
   const m = $('meta[name=theme-color]');
-  if (m) m.content = isDark() ? '#13120F' : plain ? '#FFFDF9' : '#F5F1E6'; // (the bar above the app matches the page)
+  if (m) m.content = isDark() ? '#000000' : plain ? '#FFFFFF' : '#F2F2F7'; // (the bar above the app matches the page)
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeColor);
 

@@ -73,7 +73,20 @@ function reminders(S, now = Date.now(), days = 14) {
     if (t.snooze && t.snooze > at) at = t.snooze;
     if (at < now - LATE_OK) continue;
     const body = [t.time || '', listName(t.list), firstLine(t.notes)].filter(Boolean).join(' · ');
-    out.push({ key: `t:${t.id}:${at}`, at, kind: 'task', id: t.id, title: t.title || 'Reminder', body });
+    // Android shows two buttons: Done, and "In 10 min" — or "Tomorrow" once it was put off already,
+    // or in the evening.
+    const later = t.snooze || new Date(at).getHours() >= 20 ? 'tomorrow' : 'snooze';
+    out.push({ key: `t:${t.id}:${at}`, at, kind: 'task', id: t.id, title: t.title || 'Reminder', body, later });
+  }
+  // Sunday evening: the week ahead in one line.
+  if (!S.settings || S.settings.weekAhead !== false) {
+    for (let i = 0; i < days; i++) {
+      const date = isoAdd(todayIso(), i);
+      if (dowMon(date) !== 6) continue;
+      const at = atMs(date, '20:00');
+      if (at < now - 3600e3) continue;
+      out.push({ key: `w:${date}`, at, kind: 'week', id: date, title: 'Your week ahead', body: weekSummary(S, date) });
+    }
   }
   const today = todayIso();
   for (const h of S.habits || []) {
@@ -92,12 +105,25 @@ function reminders(S, now = Date.now(), days = 14) {
   return out.sort((a, b) => a.at - b.at);
 }
 
-// What "Done" or "In 10 min" on a notification does to the saved data.
+// "4 reminders · Essay due in 3 days · 2 checklists to finish" for the 7 days after `date`.
+function weekSummary(S, date) {
+  const end = isoAdd(date, 7), parts = [];
+  const tasks = (S.tasks || []).filter((t) => !t.done && t.due && t.due > date && t.due <= end);
+  const dl = tasks.filter((t) => t.deadline).sort((a, b) => (a.due < b.due ? -1 : 1))[0];
+  if (tasks.length) parts.push(`${tasks.length} reminder${tasks.length === 1 ? '' : 's'}`);
+  if (dl) { const n = Math.round((parseD(dl.due) - parseD(date)) / 864e5); parts.push(`${dl.title || 'Deadline'} due in ${n} day${n === 1 ? '' : 's'}`); }
+  const open = (S.notes || []).filter((n) => !n.locked && n.todo && n.todo[1] > n.todo[0] && n.edited > Date.now() - 14 * 864e5).length;
+  if (open) parts.push(`${open} checklist${open === 1 ? '' : 's'} to finish`);
+  return parts.length ? parts.join(' · ') : 'Nothing planned yet — a quiet week';
+}
+// What "Done", "In 10 min" or "Tomorrow" on a notification does to the saved data.
 function applyNotifAction(S, d, action, now = Date.now()) {
   if (d.kind === 'task') {
     const t = (S.tasks || []).find((x) => x.id === d.id);
     if (!t || t.done) return false;
-    if (action === 'done') completeTask(t, now); else t.snooze = now + 10 * 60e3;
+    if (action === 'done') completeTask(t, now);
+    else if (action === 'tomorrow') { t.due = isoAdd(iso(new Date(now)), 1); t.snooze = 0; }
+    else t.snooze = now + 10 * 60e3;
     return true;
   }
   if (d.kind === 'habit') {
@@ -131,7 +157,8 @@ async function showDueNow(reg, lateMs, earlyMs = 30e3) {
     await reg.showNotification(r.title, {
       body: r.body, tag: r.key, icon, badge, timestamp: r.at,
       data: { kind: r.kind, id: r.id, date: r.date || null },
-      actions: r.sleep ? [{ action: 'snooze', title: 'In 10 min' }] : [{ action: 'done', title: 'Done' }, { action: 'snooze', title: 'In 10 min' }],
+      actions: r.kind === 'week' ? [] : r.sleep ? [{ action: 'snooze', title: 'In 10 min' }]
+        : [{ action: 'done', title: 'Done' }, r.later === 'tomorrow' ? { action: 'tomorrow', title: 'Tomorrow' } : { action: 'snooze', title: 'In 10 min' }],
     });
     shown[r.key] = now;
   }

@@ -258,7 +258,7 @@ ACTIONS['task-toggle'] = (el) => {
   if (completeTask(t) === 'next') toast(`Done — next: ${dayName(t.due, true)}`);
   save();
   clearTimeout(tickT);
-  tickT = setTimeout(() => { if (cur().s === 'tasks' || cur().s === 'planner') render(); }, 1100);
+  tickT = setTimeout(() => { if (['tasks', 'planner', 'folders'].includes(cur().s)) render(); }, 1100);
 };
 ACTIONS['task-open'] = (el) => taskSheet(taskOf(el.dataset.id));
 ACTIONS['task-del'] = (el) => deleteTask(el.dataset.id);

@@ -51,6 +51,52 @@ async function connectPush(force) {
 }
 let retryT = 0;
 
+// ---------- A note on the lock screen ----------
+// "Show on Lock Screen" keeps a note as a quiet notification (a shopping list: what's still to buy).
+// It follows the note as you edit it, and goes when swiped away (the service worker notes that).
+async function noteNotifShow(n, info) {
+  if (!n.notif || n.locked || !notifOn()) return;
+  const reg = await swReady();
+  if (!reg) return;
+  info = info || noteInfo(n.html || '');
+  const left = info.todo ? info.todo[1] - info.todo[0] : 0;
+  const title = noteTitle(n) + (info.todo ? (left ? ` · ${left} left` : ' · all done') : '');
+  const body = info.todo ? info.open.slice(0, 12).join(' · ') : info.preview || '';
+  try {
+    await reg.showNotification(title, {
+      body, tag: 'note:' + n.id, silent: true, renotify: false, requireInteraction: true,
+      icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', data: { kind: 'note', id: n.id },
+    });
+  } catch (e) { /* notifications off */ }
+}
+async function noteNotifToggle(n) {
+  if (n.notif) {
+    delete n.notif;
+    save();
+    const reg = await swReady();
+    if (reg) (await reg.getNotifications({ tag: 'note:' + n.id })).forEach((x) => x.close());
+    toast('Removed from the lock screen');
+    return;
+  }
+  if (!notifOn() && !(await enableNotifications())) return;
+  wakeBodies();
+  await bodiesReady;
+  n.notif = true;
+  save();
+  await noteNotifShow(n);
+  toast('On your lock screen — swipe it away to remove it');
+}
+// After the phone restarts its notifications are gone: show the notes again.
+async function noteNotifsRestore() {
+  const ns = S.notes.filter((n) => n.notif && !n.locked);
+  if (!ns.length || !notifOn()) return;
+  const reg = await swReady();
+  if (!reg) return;
+  const open = new Set((await reg.getNotifications()).map((x) => x.tag));
+  await bodiesReady;
+  for (const n of ns) if (!open.has('note:' + n.id)) noteNotifShow(n);
+}
+
 // ---------- Reliable Reminders (Settings) ----------
 // The server keeps a short log: when each reminder was due, when it sent the wake-up, and when
 // this phone answered. That shows whether a late reminder was the phone's fault or the server's.

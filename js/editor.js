@@ -71,11 +71,17 @@ const cleanHtml = (html) => cleanBody(parseBody(html || '')).innerHTML;
 function infoOf(body) {
   // Pictures first (a card shows the first one), then drawings' parts — all kept and locked with the note.
   const blobs = $$('img[data-blob]', body).map((i) => i.getAttribute('data-blob')).concat($$('img[data-vec]', body).map((i) => i.getAttribute('data-vec')));
+  // checklist lines ticked / all (the card shows it); empty lines don't count
+  const items = $$('ul.cl > li', body).filter((li) => li.textContent.trim());
+  const todo = items.length ? [items.filter((li) => li.classList.contains('done')).length, items.length] : null;
+  const open = items.filter((li) => !li.classList.contains('done')).map((li) => li.textContent.replace(/\s+/g, ' ').trim());
   $$('br', body).forEach((b) => b.replaceWith('\n'));
   $$('div, p, h1, h2, h3, li, blockquote, td, th', body).forEach((b) => b.append('\n'));
   const lines = body.textContent.replace(/ /g, ' ').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  return { title: (lines[0] || '').slice(0, 120), preview: lines.slice(1).join(' ').slice(0, 160), text: lines.join('\n'), blobs };
+  return { title: (lines[0] || '').slice(0, 120), preview: lines.slice(1).join(' ').slice(0, 160), text: lines.join('\n'), blobs, todo, open };
 }
+// Keep a note's checklist count up to date (todo is kept in the state, so cards show it at once).
+function setTodo(n, info) { if (info.todo) n.todo = info.todo; else delete n.todo; }
 const noteInfo = (html) => infoOf(parseBody(html));
 // The editor's content, cleaned, plus its title/preview/text — read in one pass.
 function readEditor(ed) {
@@ -310,7 +316,9 @@ async function saveEditor() {
   } else {
     n.html = html; n.preview = info.preview; n.text = info.text;
   }
+  if (n.locked) delete n.todo; else setTodo(n, info);
   save(n);
+  if (n.notif) noteNotifShow(n, info);
   const d = $('.ed-date', me.el);
   if (d) d.innerHTML = `${n.locked ? glyph('lock', 'inl') : ''}${fullDate(n.edited)}`;
 }
@@ -846,11 +854,14 @@ ACTIONS['ed-new'] = async () => {
 ACTIONS['note-menu'] = async (el) => {
   const n = noteOf(cur().id);
   if (!n) return;
+  const words = !n.locked && ED ? cardPairs(readEditor(ED.ed).html).length : 0;
   const v = await menu(el, [
     { id: 'check', label: 'Check Writing', g: 'sparkles', cls: 'ai' },
     { id: 'vocab', label: 'Make Vocabulary', g: 'sparkles', cls: 'ai' },
     { id: 'text', label: 'Photo to Text', g: 'sparkles', cls: 'ai' },
     '-',
+    ...(words ? [{ id: 'cards', label: `Flashcards (${words})`, g: 'cards' }] : []),
+    ...(n.locked ? [] : [{ id: 'notif', label: n.notif ? 'Remove from Lock Screen' : 'Show on Lock Screen', g: 'bell' }]),
     { id: 'pin', label: n.pinned ? 'Unpin Note' : 'Pin Note', g: n.pinned ? 'unpin' : 'pin' },
     { id: 'lock', label: n.locked ? 'Remove Lock' : 'Lock Note', g: n.locked ? 'unlock' : 'lock' },
     { id: 'move', label: 'Move Note', g: 'folderMove' },
@@ -861,6 +872,8 @@ ACTIONS['note-menu'] = async (el) => {
   if (v === 'check') { await saveEditor(); checkWriting(); return; }
   if (v === 'vocab') { makeVocab(); return; }
   if (v === 'text') { ACTIONS['photo-text'](el); return; }
+  if (v === 'cards') { await saveEditor(); practiseNote(n.id); return; }
+  if (v === 'notif') { await saveEditor(); await noteNotifToggle(n); return; }
   if (v === 'pin') { n.pinned = !n.pinned; save(); toast(n.pinned ? 'Pinned' : 'Unpinned'); }
   if (v === 'move') { await saveEditor(); moveSheet(n.id, () => { const b = $('.back span', ED && ED.el); if (b) b.textContent = editorBackLabel(); }); }
   if (v === 'delete') {

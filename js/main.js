@@ -3,10 +3,11 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '3.2';
+const APP_BUILD = '3.3';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 // Press and slide: the tab bar, the segmented controls, the Habits week and a habit's Repeat days.
 bindTabSlide($('#tabs'), (t) => goTab(t));
+bindTabSwipe();
 bindSegSlide();
 bindWeekSlide((b, pos) => { wdFrom = pos; ACTIONS['h-day'](b); });
 bindDaysSlide('.days', (i, on) => { if (HS) HS.days[i] = on ? 1 : 0; }, () => redrawHabit());
@@ -20,6 +21,12 @@ function openLink(p) {
     goTab('planner', true);
     if (cur().s !== 'groceries') push({ s: 'groceries' });
     setTimeout(() => { const i = $('.g-input', curEl()); if (i) i.focus(); }, 350);
+    return;
+  }
+  if (want('note')) {
+    const n = noteOf(want('note'));
+    goTab('notes', true);
+    if (n) ACTIONS['open-note']({ dataset: { id: n.id } });
     return;
   }
   if (want('task')) {
@@ -56,9 +63,26 @@ function openLink(p) {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     checkDueNow(15 * 60e3);
     connectPush(false);
+    noteNotifsRestore().catch(() => {});
+    bodiesReady.then(countTodos).catch(() => {});
   }), 4000);
   if (Acct.signedIn()) setTimeout(() => Acct.sync(), 1500); // newer copy from another phone? unsaved changes? (account.js)
 })();
+
+// Once: the checklist count (✓ 1/4) for notes written before cards showed it.
+function countTodos() {
+  if (S.settings.todoV) return;
+  let changed = false;
+  for (const n of S.notes) {
+    if (n.locked || !n.html || !n.html.includes('cl')) continue;
+    const info = noteInfo(n.html), had = JSON.stringify(n.todo || null);
+    setTodo(n, info);
+    if (JSON.stringify(n.todo || null) !== had) changed = true;
+  }
+  S.settings.todoV = 1;
+  save();
+  if (changed && cur().s === 'folders' && !sheet) render();
+}
 
 // A copy of the Notes screen (first cards) for the next start: index.html draws it at once while the app loads.
 function saveFirst() {
@@ -121,11 +145,11 @@ function registerSW() {
       if (applyNotifAction(S, m, m.action)) {
         save();
         if (!ED && !sheet) render();
-        toast(m.action === 'done' ? 'Marked as done' : 'Reminding you again in 10 minutes');
+        toast(m.action === 'done' ? 'Marked as done' : m.action === 'tomorrow' ? 'Moved to tomorrow' : 'Reminding you again in 10 minutes');
       }
     }
     if (m.type === 'reload') reloadIfChanged();
-    if (m.type === 'open') openLink(new URLSearchParams(m.kind === 'task' ? `task=${m.id}` : m.kind === 'habit' ? `habit=${m.id}` : ''));
+    if (m.type === 'open') openLink(new URLSearchParams(`${m.kind}=${m.id}`));
   });
   navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; }).catch(() => {});
 }

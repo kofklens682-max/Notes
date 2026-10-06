@@ -16,8 +16,9 @@ SCREENS.settings = {
           : notifSupported() && perm !== 'denied' ? `<button class="row" data-act="notif-on">${tile('bell', '#34C759')}<span class="lbl tinted">Turn On Notifications</span></button>` : ''}
         ${notifOn() && pushReady() ? `<button class="row" data-act="rem-check">${tile('shield', '#34C759')}<span class="lbl">Reliable Reminders</span><span class="val">${esc(remSummary())}</span>${glyph('chevR', 'chev')}</button>` : ''}
         <label class="row">${tile('clock', '#007AFF')}<span class="lbl">Default time</span><input class="row-input" type="time" name="allDay" value="${S.settings.allDay}"></label>
+        <label class="row">${tile('calendar', '#5856D6')}<span class="lbl">Week Ahead on Sundays</span>${toggle('weekAhead', S.settings.weekAhead, 'Week ahead on Sundays')}</label>
       </div>
-      <p class="foot">Reminders with a date but no time alert you at the default time. ${perm === 'denied' ? "Notifications are blocked. Open the phone's Settings → Apps → Notes → Notifications and allow them." : pushReady()
+      <p class="foot">Reminders with a date but no time alert you at the default time. On a reminder, Done ticks it; the second button puts it off by 10 minutes — or to tomorrow, if it was put off already or it's evening. ${perm === 'denied' ? "Notifications are blocked. Open the phone's Settings → Apps → Notes → Notifications and allow them." : pushReady()
         ? "Reminders arrive even when the app is closed. Only the times are sent to the reminder server — never what your notes or reminders say. If some arrive late, open Reliable Reminders."
         : "The reminder server isn't set up yet, so reminders appear only while the app is open or was used recently."}</p>
 
@@ -61,6 +62,8 @@ SCREENS.settings = {
     aiLeftCheck(el);
     const t = $('input[name="allDay"]', el);
     t.addEventListener('change', () => { if (t.value) { S.settings.allDay = t.value; save(); } });
+    const wa = $('input[name="weekAhead"]', el);
+    wa.addEventListener('change', () => { S.settings.weekAhead = wa.checked; save(); toast(wa.checked ? 'A summary of the week every Sunday at 20:00' : 'No Sunday summary'); });
     if (navigator.storage && navigator.storage.estimate) {
       navigator.storage.estimate().then((e) => { const u = $('#st-used', el); if (u) u.textContent = `${((e.usage || 0) / 1048576).toFixed(1)} MB`; }).catch(() => {});
     }
