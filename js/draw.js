@@ -6,10 +6,12 @@
      tap it — then the answer is written UNDER the line, in handwriting (the AI helper reads the
      writing; the app works the answer out itself, so it's always right). Two equations with x and y
      under each other are solved together. Σ, d/dx, ∫ and statistics work too (mathsolve.js), and a
-     question written in words goes to the helper (✨ tool on it). Tap an answer, then Steps, to see how.
-   - Tap ✨ next to a drawing (or the ✨ tool, then a drawing): the helper guesses what it is and you
-     pick the right guess (or type it) and a style, like Image Wand on the iPhone. A neat picture in
-     your drawing's shape replaces the sketch; ↻ on it tries again or picks another style.
+     question written in words goes to the helper (✨ tool on it). Two AI readers read each sum; tap an
+     answer, then Steps / Check, to see what was read — the other reading is one tap away, or Fix it by typing.
+   - Tap ✨ next to a drawing (or the ✨ tool, then a drawing): the helper looks at the WHOLE drawing,
+     guesses what it is and you pick the right guess (or type it) and a style. A proper picture of it —
+     painted fresh from a description of the sketch, not just coloured in — replaces the sketch, in its
+     shape; ↻ on it tries again or picks another style. Level lines in a drawing are never taken for "=".
    - The lasso picks up handwriting to move, resize or delete; a tap picks up a picture or answer.
    The drawing is kept in the note as a picture (what the note shows) plus its parts (strokes,
    pictures, answers — for drawing on it again), both stored like photos, locked with the note.
@@ -305,7 +307,7 @@ function openDrawing(data, onDone) {
     </header>
     <div class="dr-stage"><div class="dr-paper"><canvas class="dr-base"></canvas><canvas class="dr-live"></canvas><div class="dr-float"></div></div></div>
     <i class="dr-warm" aria-hidden="true">🌳☁️🥦✨</i>
-    <div class="dr-hint">Hold still at the end of a shape to make it perfect · ✨ solves a sum and makes a drawing neat · the lasso moves writing</div>
+    <div class="dr-hint">Hold still at the end of a shape to make it perfect · ✨ solves a sum and turns a drawing into a picture · the lasso moves writing</div>
     <footer class="dr-tools">
       <button class="dr-tool on" data-dr="pen" aria-label="Pen">${glyph('draw')}</button>
       <button class="dr-tool" data-dr="eraser" aria-label="Eraser">${glyph('eraser')}</button>
@@ -638,15 +640,60 @@ function groupOf(it, pool = DR.items) {
   }
   return group;
 }
-const isFlat = (it) => { if (it.t !== 's') return false; const b = bboxOf([{ ...it, w: 0 }]); return b.w > 18 && b.w < 420 && b.h < b.w * 0.45; };
-// Two flat strokes one above the other make "=".
-function eqPair(s1, s2) {
+// A short, straight, level stroke (one bar of "=").
+const isFlat = (it) => {
+  if (it.t !== 's' || it.p.length < 4) return false;
+  const b = bboxOf([{ ...it, w: 0 }]);
+  if (!(b.w > 14 && b.w < 260 && b.h < b.w * 0.35)) return false;
+  const P = pairs(it.p), a = P[0], z = P[P.length - 1];
+  return Math.hypot(z[0] - a[0], z[1] - a[1]) > 0.7 * pathLen(P);
+};
+// Two flat strokes one above the other make "=": about the same length, lined up, close together, and nothing
+// drawn between them. (A drawing's level lines — a roof and a floor, a fence, a window — are not "=": Oct 2026,
+// a house was taken for a sum.)
+function eqPair(s1, s2, pool = DR.items) {
   if (!isFlat(s1) || !isFlat(s2)) return null;
   const [a, b] = [s1, s2].map((s) => bboxOf([{ ...s, w: 0 }]));
-  const ov = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), len = Math.max(a.w, b.w);
-  const gap = Math.abs((a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2);
-  if (ov < 0.3 * Math.min(a.w, b.w) || Math.min(a.w, b.w) < 0.35 * len || gap < 5 || gap > 1.3 * len) return null;
+  const ov = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), len = Math.max(a.w, b.w), short = Math.min(a.w, b.w);
+  const ya = (a.y0 + a.y1) / 2, yb = (b.y0 + b.y1) / 2, gap = Math.abs(ya - yb);
+  if (short < 0.55 * len || ov < 0.6 * short || gap < Math.max(5, 0.12 * len) || gap > 0.85 * len) return null;
+  // nothing between the bars (in the middle of the space between them: the next digit may touch its ends)
+  const x0 = Math.max(a.x0, b.x0) + 0.15 * ov, x1 = Math.min(a.x1, b.x1) - 0.15 * ov, top = Math.min(ya, yb) + 0.2 * gap, bot = Math.max(ya, yb) - 0.2 * gap;
+  for (const o of pool) {
+    if (o === s1 || o === s2 || o.t !== 's') continue;
+    for (let i = 0; i < o.p.length; i += 2) if (o.p[i] > x0 && o.p[i] < x1 && o.p[i + 1] > top && o.p[i + 1] < bot) return null;
+  }
   return { ids: [s1.id, s2.id], box: { x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) }, len };
+}
+// A line of handwriting is a row of marks of about the same size; a drawing has big strokes among small ones.
+// (The letter height is the middle height of the marks that aren't dots or level bars: ÷, −, = and fraction bars.)
+function looksWritten(line) {
+  if (line.length < 3) return false;
+  const bs = line.map((s) => bboxOf([{ ...s, w: 0 }])), hs = bs.map((b) => b.h).filter((h) => h >= 12).sort((x, y) => x - y);
+  const m = hs.length ? Math.max(14, hs[Math.floor(hs.length / 2)]) : 30, box = bboxOf(line);
+  return box.h <= 3.6 * m + 30 && bs.every((b) => b.h <= 3.2 * m + 40 && b.w <= 4 * m + 60);
+}
+// A sum or an equation: writing with an "=" in it.
+const isSumLine = (line) => looksWritten(line) && lineHasEquals(line);
+// The whole drawing a stroke belongs to: the strokes touching it, then everything near that, step by step (a
+// sun's rays, a tree beside a house, the ground under them) — the reach grows with the drawing. Sums that have
+// an answer stay out. (Oct 2026: "it focuses only on one side, whereas I have the full picture".)
+function sceneOf(it) {
+  const answered = new Set();
+  DR.items.forEach((a) => { if (a.t === 'a') ansLine(a).forEach((id) => answered.add(id)); });
+  const pool = DR.items.filter((x) => x.t === 's' && (x === it || !answered.has(x.id)));
+  const boxes = new Map(pool.map((s) => [s, bboxOf([s])]));
+  const scene = groupOf(it, pool);
+  for (let changed = true; changed;) {
+    changed = false;
+    const gb = bboxOf(scene), m = Math.max(40, 0.2 * Math.max(gb.w, gb.h));
+    for (const s of pool) {
+      if (scene.includes(s)) continue;
+      const b = boxes.get(s);
+      if (scene.some((g) => { const c = boxes.get(g); return boxesMeet({ x0: c.x0 - m, y0: c.y0 - m, x1: c.x1 + m, y1: c.y1 + m }, b); })) { scene.push(s); changed = true; }
+    }
+  }
+  return scene;
 }
 // Everything written on the same line as this stroke (close together, left to right).
 function lineOf(it) {
@@ -686,7 +733,7 @@ function afterStroke(it) {
   DR.items.forEach((a) => { if (a.t === 'a' && !a.stale && ansLine(a).some((id) => ids.has(id))) { a.stale = true; pale = true; } });
   if (pale) redraw();
   // A sum or an equation: ✨ at the end of its line. Nothing is worked out until it's tapped.
-  if (line.length >= 3 && lineHasEquals(line)) { DR.timers.chip = setTimeout(() => mathChip(line.map((x) => x.id)), 450); return; }
+  if (isSumLine(line)) { DR.timers.chip = setTimeout(() => mathChip(line.map((x) => x.id)), 450); return; }
   DR.timers.chip = setTimeout(() => showChip(it), 1300);
 }
 // How wide a line of handwriting is.
@@ -723,19 +770,25 @@ function answerBelow(res, lineItems, extra = {}) {
   const { replaces, lineH: _, ...rest } = extra;
   return { t: 'a', id: nid(), s: lines.join('\n'), x, y, w: m.w, h: m.h, size: m.size, lh: m.lh, c, line: lineItems.map((s) => s.id), ...rest };
 }
-// Read a picture of maths (a second reader tries when the first can't be worked out).
+// Read a picture of maths. The helper has two readers look at it and settles any difference between them; the
+// other reading comes back too ("alts"), and is used when the chosen one can't be worked out. A drawing stays a
+// drawing: its "not maths" is never overruled (a second opinion once found √6 in a house).
 async function readMath(items, solve = solveQuestion) {
   const img = await cropPng(items);
-  let r = await aiCall('/read', { img, hint: 'math' }, 15000);
+  let r = await aiCall('/read', { img, hint: 'math' }, 20000);
   let res = r.kind === 'math' ? solve(r.expression) : null;
-  // (an equation with two letters isn't misread — it's waiting for its partner equation)
-  const pair = r.kind === 'math' && /=/.test(r.expression) && unknownsIn(r.expression).length === 2;
-  if (!res && DR && !pair) {
-    const r2 = await aiCall('/read', { img, hint: 'math', alt: true }, 15000).catch(() => ({ kind: 'unknown' }));
-    const res2 = r2.kind === 'math' ? solve(r2.expression) : null;
-    if (res2 || (r.kind !== 'math' && r2.kind === 'math')) { r = r2; res = res2; }
+  const alts = r.kind === 'math' && Array.isArray(r.alts) ? r.alts.filter((e) => typeof e === 'string' && e.trim()) : [];
+  if (!res && alts.length) {
+    const i = alts.findIndex((e) => solve(e));
+    if (i >= 0) { const was = r.expression; r = { ...r, expression: alts[i], alts: [was].concat(alts.filter((_, k) => k !== i)) }; res = solve(r.expression); }
   }
   return { r, res };
+}
+// Calculator syntax as a person writes it: sqrt(16)*3^2 → √16 × 3².
+function prettyMath(e) {
+  return String(e || '').replace(/sqrt\(([^()]*)\)/g, (_, a) => (/^[\w.]+$/.test(a) ? '√' + a : '√(' + a + ')'))
+    .replace(/\^(\d+)/g, (_, d) => supNum(d)).replace(/<=/g, '≤').replace(/>=/g, '≥').replace(/\*/g, ' × ').replace(/(?<=[\d)])\/(?=[\d(])/g, ' ÷ ')
+    .replace(/([=<>≤≥+])/g, ' $1 ').replace(/(?<=[\d)x ])-(?=[\d(x ])/g, ' − ').replace(/\s+/g, ' ').trim();
 }
 // Put an answer on the paper: the old answer for the same sum fades out as the new one is written.
 function putAnswer(a, isSame) {
@@ -787,6 +840,8 @@ async function solveLine(ids) {
     // a question in words: the AI helper works it out (and the app checks it)
     if (!out && r.kind === 'text' && r.text) out = await solveWords(r.text, d);
     if (DR !== d) return;
+    // not a sum after all: a drawing — it becomes a picture instead
+    if (!out && (r.kind === 'drawing' || r.kind === 'object')) { const s = DR.items.find((x) => line.includes(x)); if (s) makeNeat(sceneOf(s)); return; }
     if (!out) {
       toast(r.kind === 'math' ? (/[=<>≤≥]/.test(r.expression) ? "Couldn't solve that one — check it's written clearly" : 'Nothing to work out there — add “=” to get an answer') : "That doesn't look like a sum — try writing it a little bigger");
       return;
@@ -794,7 +849,10 @@ async function solveLine(ids) {
     // (two equations: the answer goes under the lower one, sized like one line of writing)
     const allIds = items.map((x) => x.id);
     const same = (x) => ansLine(x).some((id) => allIds.includes(id));
-    putAnswer(answerBelow(out, items, { read: r.expression || r.text, steps: out.steps && out.steps.length ? out.steps : undefined, replaces: same, lineH: bboxOf(line).h }), same);
+    const unsure = r.kind === 'math' && r.sure === false && items === line;
+    putAnswer(answerBelow(out, items, { read: r.expression || r.text, rk: r.kind, alts: unsure && r.alts && r.alts.length ? r.alts.slice(0, 2) : undefined, steps: out.steps && out.steps.length ? out.steps : undefined, replaces: same, lineH: bboxOf(line).h }), same);
+    // the two readers saw it differently: say so, so it gets checked
+    if (unsure) toast(`Read as ${prettyMath(r.expression)} — tap the answer to check`);
   } catch (e) {
     if (DR === d) aiFail(e, "Couldn't work it out just now — try again", 'Working out sums needs the internet');
   } finally {
@@ -825,7 +883,7 @@ function partnerLine(line) {
     .sort((a, b) => Math.min(Math.abs(a.b.y0 - lb.y1), Math.abs(lb.y0 - a.b.y1)) - Math.min(Math.abs(b.b.y0 - lb.y1), Math.abs(lb.y0 - b.b.y1)));
   for (const { s } of cands) {
     const other = lineOf(s);
-    if (other.length >= 3 && lineHasEquals(other) && !other.some((x) => have.has(x.id))) return other;
+    if (isSumLine(other) && !other.some((x) => have.has(x.id))) return other;
   }
   return null;
 }
@@ -856,7 +914,7 @@ function chipEl(ids, kind, left, top) {
   chip.dataset.dr = 'chip';
   chip.dataset.kind = kind;
   chip._ids = ids;
-  chip.setAttribute('aria-label', kind === 'math' ? 'Work it out' : 'Make this drawing neat');
+  chip.setAttribute('aria-label', kind === 'math' ? 'Work it out' : 'Turn this drawing into a picture');
   chip.innerHTML = glyph('sparkles');
   chip.style.left = `${left}px`;
   chip.style.top = `${top}px`;
@@ -874,7 +932,7 @@ function mathChip(ids) {
 }
 function showChip(it) {
   if (!DR || !DR.items.includes(it)) return;
-  const g = groupOf(it);
+  const g = sceneOf(it); // the whole drawing, not just the part this stroke touches
   const b = bboxOf(g);
   if (g.length < 2 && b.w < 90 && b.h < 90) return; // a dot or a tiny mark
   const s = DR.scale;
@@ -885,7 +943,7 @@ function hideChip() {
   $$('.dr-chip', DR.wrap).forEach((c) => { c.classList.add('out'); c.dataset.dr = ''; setTimeout(() => c.remove(), 180); });
   clearTimeout(DR.timers.chipHide);
 }
-// The ✨ tool, then a tap: on a sum → its answer; on a drawing → make it neat; on a neat picture → ↻.
+// The ✨ tool, then a tap: on a sum → its answer; on a drawing → a picture of it; on a picture → ↻.
 function magicAt(q) {
   const hit = itemAt(q);
   if (hit && (hit.t === 'i' || hit.t === 'e') && hit.from) { repick(hit); return; }
@@ -893,8 +951,8 @@ function magicAt(q) {
   const near = DR.items.filter((x) => x.t === 's').map((x) => ({ x, d: Math.min(...pairs(x.p).map((p) => Math.hypot(p[0] - q[0], p[1] - q[1]))) })).sort((a, b) => a.d - b.d)[0];
   if (!near || near.d > 60) { toast('Tap right on a sum or a drawing'); return; }
   const line = lineOf(near.x);
-  if (line.length >= 3 && lineHasEquals(line)) solveLine(line.map((x) => x.id));
-  else makeNeat(groupOf(near.x));
+  if (isSumLine(line)) solveLine(line.map((x) => x.id));
+  else makeNeat(sceneOf(near.x));
 }
 
 // ---------- ✨ Neat drawings ----------
@@ -931,7 +989,7 @@ async function makeNeat(group) {
       d.busy.delete(key);
       if (!out || DR !== d) return;
       const ids = group.map((x) => x.id), same = (x) => ansLine(x).some((id) => ids.includes(id));
-      putAnswer(answerBelow(out, group, { read: read.text, steps: out.steps, replaces: same }), same);
+      putAnswer(answerBelow(out, group, { read: read.text, rk: 'text', steps: out.steps, replaces: same }), same);
       return;
     }
     off();
@@ -971,7 +1029,7 @@ const pickHtml = (title, gs) => `
     ${gs.length ? `<div class="dr-pick-gs">${gs.map((g, i) => `<button class="dr-g" data-dr="pick" data-i="${i}" style="--i:${i}"><span class="dr-g-e">${esc(g.emoji || '✨')}</span><span class="dr-g-n">${esc(cap(g.name))}</span></button>`).join('')}</div>` : ''}
     <form class="dr-pick-own"><input type="text" maxlength="40" placeholder="${gs.length ? 'Something else? Type it' : 'Type what it is'}" enterkeyhint="go" autocomplete="off" aria-label="What it is"><button type="submit" aria-label="Draw it">${glyph('chevR')}</button></form>
     <div class="seg dr-style">${segButtons('dr-style', DRAW_STYLES, drawStyle())}</div>
-    <div class="dr-best"><span class="t">✦ Best quality<small>Nicer, but uses as much as 40 normal ones</small></span>${toggle('dr-best', false, 'Best quality')}</div>`;
+    <div class="dr-best"><span class="t">✦ Best quality<small>Nicer, but uses as much as 50 normal ones</small></span>${toggle('dr-best', false, 'Best quality')}</div>`;
 // "What did you draw?" — three guesses, a box to type your own, and the style.
 function openPick(o) {
   const d = DR;
@@ -1035,8 +1093,10 @@ async function choose(o, g) {
   const from = o.item ? o.item.from : o.group.map(({ fade, ...s }) => ({ ...s }));
   const guesses = [{ name, emoji: g.emoji || '' }].concat(o.guesses.filter((x) => x.name !== name)).slice(0, 4);
   hint(`${cap(name)} — drawing it${best ? ' (best quality)' : ''}…`);
+  // The picture is painted fresh in the sketch's shape (wide sketch → wide picture), from what the helper sees in it.
+  const fb = bboxOf(from), aspect = Math.round(((fb.w + 48) / (fb.h + 48)) * 100) / 100;
   try {
-    const r = await aiCall('/redraw', { img: await cropPng(from, true), name, style, best, seed: Math.floor(Math.random() * 2e9) }, 90000); // (the drawing model is sometimes busy)
+    const r = await aiCall('/redraw', { img: await cropPng(from, true), name, style, best, aspect, seed: Math.floor(Math.random() * 2e9) }, 120000); // (the drawing model is sometimes busy)
     if (DR !== d) return;
     const target = o.item ? DR.items.find((x) => x.id === o.item.id) : null;
     if (o.item ? !target : !o.group.every((s) => DR.items.includes(s))) return; // changed meanwhile
@@ -1044,9 +1104,10 @@ async function choose(o, g) {
     if (DR !== d) return;
     if (target) Object.assign(it, { x: target.x, y: target.y, w: target.w, h: target.h });
     else {
-      // The picture is square around the sketch (with the same margin as the crop the helper saw).
-      const b = bboxOf(o.group), side = Math.max(b.w, b.h) + 48;
-      Object.assign(it, { x: (b.x0 + b.x1) / 2 - side / 2, y: (b.y0 + b.y1) / 2 - side / 2, w: side, h: side });
+      // The picture takes the sketch's place (with the same margin as the crop the helper saw), in its own shape.
+      const b = bboxOf(o.group), bw = b.w + 48, bh = b.h + 48, pa = r.w > 0 && r.h > 0 ? r.w / r.h : 1;
+      const w = Math.min(bw, bh * pa), h = w / pa;
+      Object.assign(it, { x: (b.x0 + b.x1) / 2 - w / 2, y: (b.y0 + b.y1) / 2 - h / 2, w, h });
     }
     await new Promise((ok) => { const im = new Image(); im.onload = im.onerror = ok; im.src = it.src; imgCache.set(it.id, im); });
     if (DR !== d) return;
@@ -1176,9 +1237,11 @@ function selFrame() {
   Object.assign(f.style, { left: `${b.x0 * s - pad}px`, top: `${b.y0 * s - pad}px`, width: `${b.w * s + pad * 2}px`, height: `${b.h * s + pad * 2}px` });
   const one = its.length === 1 && (its[0].t === 'i' || its[0].t === 'e') && its[0].from;
   $('.dr-sel-re', f).hidden = !one;
-  // a worked-out answer: "Steps" shows how
-  const ans = its.length === 1 && its[0].t === 'a' && Array.isArray(its[0].steps) && its[0].steps.length ? its[0] : null;
-  $('.dr-sel-st', f).hidden = !ans;
+  // a worked-out answer: "Steps" shows how (and what was read, to check it); with no steps it's "Check"
+  const ans = its.length === 1 && its[0].t === 'a' && ((Array.isArray(its[0].steps) && its[0].steps.length) || its[0].read) ? its[0] : null;
+  const pill = $('.dr-sel-st', f);
+  pill.hidden = !ans;
+  if (ans) pill.textContent = ans.steps && ans.steps.length ? 'Steps' : 'Check';
   if (DR.stepsFor && (!ans || DR.stepsFor !== ans.id)) stepsCard(null);
   else if (DR.stepsFor) stepsCard(ans, true);
 }
@@ -1194,11 +1257,15 @@ function stepsCard(it, move) {
   const f = $('.dr-sel:not(.out)', DR.wrap);
   if (!f) return;
   let c = old;
+  if (c && c._for !== it.id) { c.remove(); c = null; }
   if (!c) {
     c = document.createElement('div');
     c.className = 'dr-steps';
-    c.innerHTML = `<ol>${it.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`;
+    c._for = it.id;
+    c.innerHTML = stepsHtml(it);
     c.addEventListener('pointerdown', (e) => e.stopPropagation());
+    c.addEventListener('click', (e) => stepsClick(e, c));
+    c.addEventListener('submit', (e) => { e.preventDefault(); const v = $('input', c).value.trim(); if (v) fixAnswer(c._for, v); });
     $('.dr-float', DR.wrap).appendChild(c);
   }
   DR.stepsFor = it.id;
@@ -1206,6 +1273,52 @@ function stepsCard(it, move) {
   c.style.left = `${Math.max(8, Math.min(left, fw - c.offsetWidth - 8))}px`;
   c.style.top = `${top}px`;
   if (!move) buzz(4);
+}
+// What the card shows: what the helper read (the sum, so a misread is easy to spot), the other reading when its
+// two readers differed (one tap swaps to it), Fix (type the sum yourself — worked out here, no AI), then the steps.
+const fixable = (it) => it.rk === 'math' || (!it.rk && typeof looksLikeMath === 'function' && looksLikeMath(it.read || ''));
+function stepsHtml(it) {
+  let h = '';
+  if (it.read) {
+    const math = fixable(it);
+    h += `<div class="dr-read"><span class="l">Read as</span><b>${esc(math ? prettyMath(it.read) : it.read)}</b>${math ? '<button class="dr-fix">Fix</button>' : ''}</div>`;
+    if (math) h += (it.alts || []).map((e) => `<button class="dr-alt" data-e="${esc(e)}">Or is it <b>${esc(prettyMath(e))}</b>?</button>`).join('');
+  }
+  if (it.steps && it.steps.length) h += `<ol>${it.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`;
+  return h;
+}
+function stepsClick(e, c) {
+  const alt = e.target.closest('.dr-alt'), fix = e.target.closest('.dr-fix');
+  if (alt) { fixAnswer(c._for, alt.dataset.e); return; }
+  if (!fix || !DR) return;
+  const it = DR.items.find((x) => x.id === c._for);
+  const row = $('.dr-read', c);
+  if (!it || !row) return;
+  const f = document.createElement('form');
+  f.className = 'dr-fixf';
+  f.innerHTML = '<input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="The sum"><button type="submit">Solve</button>';
+  $('input', f).value = prettyMath(it.read);
+  row.replaceWith(f);
+  $$('.dr-alt', c).forEach((b) => b.remove());
+  const inp = $('input', f);
+  inp.focus();
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+  buzz(4);
+}
+// Work the answer out again from a corrected sum (here, exactly — no AI), in place of the old one.
+function fixAnswer(id, expr) {
+  if (!DR) return;
+  const a = DR.items.find((x) => x.id === id && x.t === 'a');
+  const line = a ? DR.items.filter((x) => ansLine(a).includes(x.id) && x.t === 's') : [];
+  if (!a || !line.length) return;
+  const res = solveQuestion(expr);
+  if (!res) { toast("Can't work that out — check the sum"); return; }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  const ids = line.map((x) => x.id), same = (x) => ansLine(x).some((k) => ids.includes(k));
+  const n = answerBelow(res, line, { read: expr, rk: 'math', steps: res.steps && res.steps.length ? res.steps : undefined, replaces: same, lineH: bboxOf(line).h });
+  stepsCard(null);
+  putAnswer(n, same);
+  selectIds([n.id]);
 }
 const moveItem = (o, dx, dy) => (o.t === 's' ? { ...o, p: o.p.map((v, i) => v + (i % 2 ? dy : dx)) } : { ...o, x: o.x + dx, y: o.y + dy });
 function scaleItem(o, x0, y0, k) {
