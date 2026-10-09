@@ -155,33 +155,42 @@ function perfectShape(p) {
 // ---------- The AI helper ----------
 async function aiCall(path, body, ms) {
   if (!navigator.onLine) throw new Error('offline');
-  if (Date.now() < aiRestUntil) throw new Error('quota');
+  if (path !== '/left' && Date.now() < aiRestUntil) throw new Error('quota');
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
   try {
     const r = await fetch(AI_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
     const j = await r.json();
-    if (j && typeof j.left === 'number') aiLeftSet(j.left);
-    if (j.error === 'quota') { aiRestUntil = nextUtcMidnight(); quotaToast(); const e = new Error('quota'); e.shown = true; throw e; }
+    if (j && typeof j.left === 'number') aiLeftSet(j.left, j.next);
+    if (j.error === 'quota') { aiRestUntil = Date.now() + AI_REST; quotaToast(); const e = new Error('quota'); e.shown = true; throw e; }
     if (!r.ok) throw new Error(j.error || 'ai');
     return j;
   } finally { clearTimeout(t); }
 }
-// How much of today's free allowance is left (the helper says so with every answer), kept for the day.
+// How much of the free allowance is left (the helper says so with every answer), and when more comes
+// back (next). It's a rolling 24 hours — what's used comes back a day later, not at a set time — so a
+// reading is only trusted for an hour.
 // A normal picture uses about 31, a best-quality one about 1,410, a question in words or a writing check about 100.
 const AI_DAILY = 10000, AI_COST = { pic: 31.4, best: 1411, q: 100, write: 100 };
-const utcDay = () => new Date().toISOString().slice(0, 10);
-let AI_LEFT = (() => { try { const v = JSON.parse(localStorage.getItem('ai-left') || 'null'); return v && v.day === utcDay() ? v : null; } catch (e) { return null; } })();
-function aiLeftSet(left) {
-  AI_LEFT = { left: Math.max(0, Math.round(left)), day: utcDay(), at: Date.now() };
+const aiFresh = (v) => !!v && typeof v.at === 'number' && Date.now() - v.at < 3600e3;
+let AI_LEFT = (() => { try { const v = JSON.parse(localStorage.getItem('ai-left') || 'null'); return aiFresh(v) ? v : null; } catch (e) { return null; } })();
+function aiLeftSet(left, next) {
+  AI_LEFT = { left: Math.max(0, Math.round(left)), next: next || null, at: Date.now() };
+  if (AI_LEFT.left > 0) aiRestUntil = 0;
   try { localStorage.setItem('ai-left', JSON.stringify(AI_LEFT)); } catch (e) { /* private mode */ }
 }
-const aiLeftNow = () => (AI_LEFT && AI_LEFT.day === utcDay() ? AI_LEFT.left : null);
-// The helper runs on a free plan with a daily allowance; when it's used up it comes back at
-// midnight UTC (5:00 in Tashkent) — until then the app says so instead of trying.
+const aiLeftNow = () => (aiFresh(AI_LEFT) ? AI_LEFT.left : null);
+// When it's used up the app waits 5 minutes before trying again (a refused try costs nothing), and the
+// helper itself keeps checking with Cloudflare, so it works again as soon as it can.
+const AI_REST = 5 * 60e3;
 let aiRestUntil = 0;
-const nextUtcMidnight = () => { const d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
-const quotaToast = () => toast(`The AI helper has done enough for today — it's back at ${hm(nextUtcMidnight())}`);
+// "it should be back by about 19:40" when the helper can tell, else a plain "within a day".
+function aiBackText() {
+  const n = AI_LEFT && AI_LEFT.next;
+  if (!(n > Date.now())) return 'it comes back within a day, and the app keeps checking';
+  return `it should be back by about ${hm(n)}${new Date(n).toDateString() !== new Date().toDateString() ? ' tomorrow' : ''}`;
+}
+const quotaToast = () => toast(`The AI's free allowance is used up for now — ${aiBackText()}`);
 // What to say when the helper couldn't be used.
 function aiFail(e, busy, offline, again) {
   if (e && e.message === 'quota') { if (!e.shown) quotaToast(); return; }

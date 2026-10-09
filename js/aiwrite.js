@@ -252,7 +252,7 @@ ACTIONS['cw-go'] = async () => {
   } catch (e) {
     if (CW !== me) { if (!(e && e.message === 'quota')) aiFail(e, "Couldn't check the writing just now", 'Checking writing needs the internet'); return; }
     me.state = 'error';
-    me.err = e && e.message === 'quota' ? `Today's AI allowance is used up — it's back at ${hm(nextUtcMidnight())}.` : !navigator.onLine ? 'Checking writing needs the internet.' : "Couldn't check it just now — please try again in a moment.";
+    me.err = e && e.message === 'quota' ? `The AI's free allowance is used up for now — ${aiBackText()}.` : !navigator.onLine ? 'Checking writing needs the internet.' : "Couldn't check it just now — please try again in a moment.";
     cwView();
   }
 };
@@ -386,7 +386,7 @@ async function photoToText(file) {
     if (forCheck && CW) { CW.state = 'idle'; CW.note = 'Read from the photo and added to the note. Compare it with the paper: fix words read wrongly, and put back any spelling mistakes the reader corrected (it sometimes does) — then tap Check.'; cwRead(); cwView(); }
     else { glideTo(blocks[0], 60); toast('Text added — you can edit it'); }
   } catch (e) {
-    if (forCheck && CW && ED === me) { CW.state = 'error'; CW.err = e && e.message === 'quota' ? `Today's AI allowance is used up — it's back at ${hm(nextUtcMidnight())}.` : "Couldn't read that photo — please try again."; cwView(); }
+    if (forCheck && CW && ED === me) { CW.state = 'error'; CW.err = e && e.message === 'quota' ? `The AI's free allowance is used up for now — ${aiBackText()}.` : "Couldn't read that photo — please try again."; cwView(); }
     else aiFail(e, "Couldn't read that photo", 'Reading a photo needs the internet');
   } finally { AIP.busy = false; }
 }

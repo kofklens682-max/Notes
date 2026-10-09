@@ -39,7 +39,7 @@ SCREENS.settings = {
 
       <h2 class="sec">AI Helper</h2>
       <div class="card ai-left" id="ai-left">${aiLeftHtml(aiLeftNow())}</div>
-      <p class="foot">Pictures, reading handwriting and photos, questions in words, writing checks and vocabulary use a free daily allowance. It fills up again every day at ${hm(nextUtcMidnight())}. Sums and formulas don't use it.</p>
+      <p class="foot">Pictures, reading handwriting and photos, questions in words, writing checks and vocabulary use a free allowance of 10,000 a day. What's used comes back 24 hours later, bit by bit — not at a set time. Sums and formulas don't use it.</p>
 
       <h2 class="sec">Backup</h2>
       <div class="card">
@@ -197,16 +197,17 @@ let aiUses = null;
 function aiUsesText(uses) {
   if (!uses) return '';
   const parts = Object.entries(uses).filter(([k, u]) => u && u.n > 0 && AI_KIND_NAMES[k]).sort((a, b) => b[1].cost - a[1].cost).map(([k, u]) => `${u.n} ${AI_KIND_NAMES[k][u.n === 1 ? 0 : 1]}`);
-  return parts.length ? `Used today: ${parts.join(' · ')}.` : 'Nothing used yet today.';
+  return parts.length ? `Used in the last 24 hours: ${parts.join(' · ')}.` : 'Nothing used in the last 24 hours.';
 }
 function aiLeftHtml(v) {
-  if (v === null || v === undefined) return `<div class="ai-top"><b>Left today</b><span class="val">${navigator.onLine ? 'Checking…' : 'Needs the internet to check'}</span></div><div class="ai-bar"><i style="width:0"></i></div><div class="ai-sub">&nbsp;</div>`;
+  if (v === null || v === undefined) return `<div class="ai-top"><b>Left now</b><span class="val">${navigator.onLine ? 'Checking…' : 'Needs the internet to check'}</span></div><div class="ai-bar"><i style="width:0"></i></div><div class="ai-sub">&nbsp;</div>`;
   const n = (x) => Math.floor(x).toLocaleString('en-US');
   const pics = Math.floor(v / AI_COST.pic), checks = Math.floor(v / AI_COST.write), qs = Math.floor(v / AI_COST.q);
-  const enough = v < AI_COST.pic ? `Used up for today — it's back at ${hm(nextUtcMidnight())}.`
+  const enough = v < AI_COST.pic ? `Used up for now — ${aiBackText()}.`
     : `Enough for about ${n(pics)} picture${pics === 1 ? '' : 's'}, ${n(checks)} writing check${checks === 1 ? '' : 's'} or ${n(qs)} question${qs === 1 ? '' : 's'} in words.`;
-  const used = aiUsesText(aiUses);
-  return `<div class="ai-top"><b>Left today</b><span class="val">${v <= 0 ? 'none' : `${n(v)} of ${n(AI_DAILY)}`}</span></div>
+  // (used up by something the helper didn't count: "nothing used" next to "used up" would only confuse)
+  const used = v < AI_COST.pic && !(aiUses && Object.keys(aiUses).length) ? '' : aiUsesText(aiUses);
+  return `<div class="ai-top"><b>Left now</b><span class="val">${v <= 0 ? 'none' : `${n(v)} of ${n(AI_DAILY)}`}</span></div>
     <div class="ai-bar"><i style="width:${Math.max(0, Math.min(100, (v / AI_DAILY) * 100)).toFixed(2)}%"></i></div>${used ? `<div class="ai-sub ai-used">${used}</div>` : ''}<div class="ai-sub">${enough}</div>`;
 }
 // Ask the helper (no AI is used for this) and let the bar glide to the new amount.
