@@ -12,6 +12,8 @@
      guesses what it is and you pick the right guess (or type it) and a style. A proper picture of it —
      painted fresh from a description of the sketch, not just coloured in — replaces the sketch, in its
      shape; ↻ on it tries again or picks another style. Level lines in a drawing are never taken for "=".
+     Famous characters, brands and logos work too, and a name WRITTEN by hand ("Spider-Man") can become a
+     picture of it. People, animals and characters never get faces (the owner's rule — the helper checks).
    - The lasso picks up handwriting to move, resize or delete; a tap picks up a picture or answer.
    The drawing is kept in the note as a picture (what the note shows) plus its parts (strokes,
    pictures, answers — for drawing on it again), both stored like photos, locked with the note.
@@ -170,8 +172,9 @@ async function aiCall(path, body, ms) {
 // How much of the free allowance is left (the helper says so with every answer), and when more comes
 // back (next). It's a rolling 24 hours — what's used comes back a day later, not at a set time — so a
 // reading is only trusted for an hour.
-// A normal picture uses about 31, a best-quality one about 1,410, a question in words or a writing check about 100.
-const AI_DAILY = 10000, AI_COST = { pic: 31.4, best: 1411, q: 100, write: 100 };
+// A normal picture uses about 38 (with the helper's look for faces), a best-quality one about 1,410, a question in
+// words or a writing check about 100.
+const AI_DAILY = 10000, AI_COST = { pic: 38, best: 1411, q: 100, write: 100 };
 const aiFresh = (v) => !!v && typeof v.at === 'number' && Date.now() - v.at < 3600e3;
 let AI_LEFT = (() => { try { const v = JSON.parse(localStorage.getItem('ai-left') || 'null'); return aiFresh(v) ? v : null; } catch (e) { return null; } })();
 function aiLeftSet(left, next) {
@@ -850,7 +853,7 @@ async function solveLine(ids) {
     if (!out && r.kind === 'text' && r.text) out = await solveWords(r.text, d);
     if (DR !== d) return;
     // not a sum after all: a drawing — it becomes a picture instead
-    if (!out && (r.kind === 'drawing' || r.kind === 'object')) { const s = DR.items.find((x) => line.includes(x)); if (s) makeNeat(sceneOf(s)); return; }
+    if (!out && (r.kind === 'drawing' || r.kind === 'object')) { const s = DR.items.find((x) => line.includes(x)); if (s) makeNeat(sceneOf(s), true); return; }
     if (!out) {
       toast(r.kind === 'math' ? (/[=<>≤≥]/.test(r.expression) ? "Couldn't solve that one — check it's written clearly" : 'Nothing to work out there — add “=” to get an answer') : "That doesn't look like a sum — try writing it a little bigger");
       return;
@@ -966,7 +969,8 @@ function magicAt(q) {
 
 // ---------- ✨ Neat drawings ----------
 // The helper guesses what the drawing is; you pick (or type) what it really is and a style.
-async function makeNeat(group) {
+// (picture: it's known to be a drawing — the readers of the sum said so — so maths isn't even asked about)
+async function makeNeat(group, picture = false) {
   if (!DR || !group.length) return;
   const d = DR, key = group.map((x) => x.id).join();
   if (d.busy.has(key)) return;
@@ -974,8 +978,12 @@ async function makeNeat(group) {
   const b = bboxOf(group);
   const off = glow(b);
   let read;
+  const look = (hint) => cropPng(group, true).then((img) => aiCall('/read', { img, hint }, 20000));
   try {
-    read = await aiCall('/read', { img: await cropPng(group, true), hint: 'object' }, 20000);
+    read = await look(picture ? 'picture' : 'object');
+    // "Maths" without an "=" to work out is a drawing that only looks like digits or signs — a logo, a pattern
+    // (Oct 2026: a drawn OpenAI logo got a maths answer). Sums are worked out from the ✨ at the end of their line.
+    if (read.kind === 'math' && !isSumLine(lineOf(group[0]))) read = await look('picture');
   } catch (e) {
     off();
     d.busy.delete(key);
@@ -1001,9 +1009,9 @@ async function makeNeat(group) {
       putAnswer(answerBelow(out, group, { read: read.text, rk: 'text', steps: out.steps, replaces: same }), same);
       return;
     }
-    off();
-    d.busy.delete(key);
-    toast(`That looks like writing: “${read.text}”`);
+    // A name written by hand ("Spider-Man", "OpenAI logo"): a picture of it, if that's what's wanted.
+    const name = read.text.replace(/\s+/g, ' ').trim().slice(0, 40).toLowerCase();
+    openPick({ group, guesses: [{ name, emoji: '✍️', written: true }], off, key, written: name });
     return;
   }
   openPick({ group, guesses: read.kind === 'object' ? read.guesses || [] : [], off, key });
@@ -1016,7 +1024,7 @@ function repick(it) {
   DR.busy.add(key);
   const had = (it.guesses || []).find((g) => g.name === it.name);
   const guesses = [{ name: it.name, emoji: (had && had.emoji) || it.ch || '' }].concat((it.guesses || []).filter((g) => g.name !== it.name));
-  openPick({ item: it, guesses, off: glow(bboxOf([it])), key });
+  openPick({ item: it, guesses, off: glow(bboxOf([it])), key, written: it.written ? it.name : undefined });
 }
 // Build a hidden guesses card once, in a quiet moment after the paper opens: the first real one then
 // appears without a stutter (fonts, emoji and the text box are ready).
@@ -1048,7 +1056,7 @@ function openPick(o) {
   const gs = o.guesses.slice(0, 3);
   const el = document.createElement('div');
   el.className = 'dr-pick';
-  el.innerHTML = pickHtml(o.item ? 'Draw it again' : gs.length ? 'What did you draw?' : "What is it? I couldn't tell", gs);
+  el.innerHTML = pickHtml(o.item ? 'Draw it again' : o.written ? 'Make a picture of it?' : gs.length ? 'What did you draw?' : "What is it? I couldn't tell", gs);
   // Out of the way of the drawing: at the bottom, or at the top when the drawing is low on the page.
   const b = o.item ? bboxOf([o.item]) : bboxOf(o.group);
   el.classList.toggle('top', (b.y0 + b.y1) / 2 > d.h * 0.55);
@@ -1101,15 +1109,19 @@ async function choose(o, g) {
   const style = drawStyle();
   const from = o.item ? o.item.from : o.group.map(({ fade, ...s }) => ({ ...s }));
   const guesses = [{ name, emoji: g.emoji || '' }].concat(o.guesses.filter((x) => x.name !== name)).slice(0, 4);
+  // (the "sketch" was the name written by hand: the helper draws the thing itself, not the handwriting's shape)
+  const written = !!(o.written || (o.item && o.item.written));
   hint(`${cap(name)} — drawing it${best ? ' (best quality)' : ''}…`);
   // The picture is painted fresh in the sketch's shape (wide sketch → wide picture), from what the helper sees in it.
-  const fb = bboxOf(from), aspect = Math.round(((fb.w + 48) / (fb.h + 48)) * 100) / 100;
+  const fb = bboxOf(from), aspect = written ? 1 : Math.round(((fb.w + 48) / (fb.h + 48)) * 100) / 100;
   try {
-    const r = await aiCall('/redraw', { img: await cropPng(from, true), name, style, best, aspect, seed: Math.floor(Math.random() * 2e9) }, 120000); // (the drawing model is sometimes busy)
+    // (the helper may paint it up to three times — a face that slipped in is painted again — and the drawing
+    // model is sometimes busy)
+    const r = await aiCall('/redraw', { img: await cropPng(from, true), name, style, best, aspect, written, seed: Math.floor(Math.random() * 2e9) }, 170000);
     if (DR !== d) return;
     const target = o.item ? DR.items.find((x) => x.id === o.item.id) : null;
     if (o.item ? !target : !o.group.every((s) => DR.items.includes(s))) return; // changed meanwhile
-    const it = { t: 'i', id: nid(), src: await whiten(r.img), name, style, guesses, from };
+    const it = { t: 'i', id: nid(), src: await whiten(r.img), name, style, guesses, from, ...(written ? { written: true } : {}) };
     if (DR !== d) return;
     if (target) Object.assign(it, { x: target.x, y: target.y, w: target.w, h: target.h });
     else {
@@ -1124,7 +1136,12 @@ async function choose(o, g) {
     selectIds([it.id]);
     buzz(12);
   } catch (e) {
-    if (DR === d) aiFail(e, "Couldn't draw it just now", 'Making drawings neat needs the internet', () => { if (DR === d && !d.pick) { d.busy.add(o.key); d.pick = o; o.off = glow(o.item ? bboxOf([o.item]) : bboxOf(o.group)); choose(o, g); } });
+    const again = () => { if (DR === d && !d.pick) { d.busy.add(o.key); d.pick = o; o.off = glow(o.item ? bboxOf([o.item]) : bboxOf(o.group)); choose(o, g); } };
+    // Both picture models refuse some protected characters and logos (their makers' copyright rules).
+    if (DR === d && e.message === 'flagged') toast(`The picture helper isn't allowed to draw “${name}” — it's protected by its owner. Try another name`);
+    // Faces are never drawn (see the helper); this one kept getting one.
+    else if (DR === d && e.message === 'face') toast("Couldn't draw it without a face this time", { label: 'Try again', run: again });
+    else if (DR === d) aiFail(e, "Couldn't draw it just now", 'Making drawings neat needs the internet', again);
   } finally {
     o.off();
     d.busy.delete(o.key);

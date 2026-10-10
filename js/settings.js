@@ -192,7 +192,7 @@ ACTIONS.erase = async () => {
 // ---------- AI Helper: how much is left today ----------
 // Exact numbers (a normal picture uses only about 31 of the 10,000, so rounding would hide it), and what
 // used the allowance today.
-const AI_KIND_NAMES = { pic: ['picture', 'pictures'], best: ['best-quality picture', 'best-quality pictures'], read: ['drawing read', 'drawings read'], question: ['question in words', 'questions in words'], write: ['writing check', 'writing checks'], vocab: ['vocabulary list', 'vocabulary lists'], ocr: ['photo to text', 'photos to text'] };
+const AI_KIND_NAMES = { pic: ['picture', 'pictures'], best: ['best-quality picture', 'best-quality pictures'], read: ['drawing read', 'drawings read'], question: ['question in words', 'questions in words'], write: ['writing check', 'writing checks'], vocab: ['vocabulary list', 'vocabulary lists'], ocr: ['photo to text', 'photos to text'], receipt: ['Budget receipt read', 'Budget receipts read'] };
 let aiUses = null;
 function aiUsesText(uses) {
   if (!uses) return '';
