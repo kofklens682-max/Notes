@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Repair</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #F2F2F7; color: #1C1C1E; font: 17px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .box { max-width: 340px; margin: 24px; padding: 26px 24px; background: #fff; border-radius: 24px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+  h1 { margin: 0 0 8px; font-size: 24px; }
+  p { margin: 8px 0; color: #3C3C43; }
+  a.btn { display: inline-block; margin-top: 14px; padding: 13px 26px; border-radius: 16px; background: #34C759; color: #fff; font-weight: 600; text-decoration: none; }
+  @media (prefers-color-scheme: dark) { body { background: #000; color: #fff; } .box { background: #1C1C1E; } p { color: #ebebf5; } }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Repairing…</h1>
+  <p id="msg">Clearing the saved copy of the app's files. Your data is NOT touched.</p>
+  <a class="btn" id="go" href="./" hidden>Open the app</a>
+</div>
+<script>
+(async function () {
+  var msg = document.getElementById('msg'), go = document.getElementById('go'), n = 0, c = 0;
+  try { var regs = await navigator.serviceWorker.getRegistrations(); for (var r of regs) { if (await r.unregister()) n++; } } catch (e) { /* no service worker */ }
+  try { var keys = await caches.keys(); for (var k of keys) { if (await caches.delete(k)) c++; } } catch (e) { /* no cache storage */ }
+  document.querySelector('h1').textContent = 'Done';
+  msg.textContent = 'Removed ' + n + ' old helper and ' + c + ' saved file set(s). Your notes, money and groups are still there. Opening the app…';
+  go.hidden = false;
+  setTimeout(function () { location.replace('./?fresh=' + Date.now()); }, 2500);
+})();
+</script>
+</body>
+</html>
