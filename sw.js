@@ -1,7 +1,7 @@
 // Offline support and reminders. Bump VERSION whenever the app files change: the phone notices
 // the new service worker, downloads the whole new version at once, and the app reloads into it.
 // This site shares its address with the Budget app, so only "notes-" caches are ours.
-const VERSION = 'notes-v34';
+const VERSION = 'notes-v35';
 importScripts('js/config.js', 'js/store.js', 'js/remind.js');
 
 const SHELL = [
@@ -67,6 +67,8 @@ self.addEventListener('fetch', (e) => {
   if (LOCAL || req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
+  const scopeP = new URL(self.registration.scope).pathname; // only the app page itself comes from the saved copy: other pages (the repair page reset.html) always come from the network
+  if (req.mode === 'navigate' && url.pathname !== scopeP && url.pathname !== scopeP + 'index.html') return;
   e.respondWith(
     caches.open(VERSION).then(async (cache) => {
       const key = req.mode === 'navigate' ? './index.html' : req;

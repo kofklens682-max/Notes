@@ -74,5 +74,17 @@
       if (document.querySelector('.screen.snap')) { requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 60); } else go();
     })();
   </script>
+  <script>
+    // Self-repair: if nothing was drawn after 6 seconds (a broken saved copy of the app files), clear that copy once and reload. Your data is not touched.
+    setTimeout(function () {
+      var r = document.getElementById("stage"); if (r && r.children.length) return;
+      try { if (sessionStorage.getItem("selfheal")) return; sessionStorage.setItem("selfheal", "1"); } catch (e) { return; }
+      (async function () {
+        try { var reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.unregister(); } catch (e) { /* none */ }
+        try { var ks = await caches.keys(); for (var k of ks) if (k.indexOf("notes-") === 0 && k !== "teacher-media") await caches.delete(k); } catch (e) { /* none */ }
+        location.replace(location.pathname + "?fresh=" + Date.now());
+      })();
+    }, 6000);
+  </script>
 </body>
 </html>
