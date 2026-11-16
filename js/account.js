@@ -1,5 +1,5 @@
 'use strict';
-/* One account for Budget and Notes: an online copy that comes back on a new phone.
+/* One account for Budget, Notes and Teacher (16 Nov: Teacher joined; daily copies): an online copy that comes back on a new phone.
    THE SAME FILE is in both apps (Budget/js/account.js and Notes/js/account.js) — change both.
    Both apps live on the same web address, so signing in in one signs in the other too.
 
@@ -113,7 +113,7 @@
   const dev = () => { let d = lsGet(K_DEV); if (!d) { d = hex(crypto.getRandomValues(new Uint8Array(8))); lsSet(K_DEV, d); } return d; };
 
   // ---------- Signing in and out ----------
-  const APPS = ['budget', 'notes'];
+  const APPS = ['budget', 'notes', 'teacher'];
   const forgetSync = () => APPS.forEach((k) => lsSet('acct-sync-' + k, null));
   function checkUser(u) { if (!USER_RE.test(u)) throw Object.assign(new Error(MSG.name), { code: 'name' }); }
   function checkPw(pw) { if (String(pw || '').length < 8) throw Object.assign(new Error('The password needs at least 8 characters.'), { code: 'short' }); }
@@ -274,12 +274,38 @@
           await takeOnline({ at: e.data.at }, null, 'newer');
         }
       }
+      await daily(meta).catch(() => {}); // one copy a day, kept a week (never stops the normal saving)
       setStatus('ok');
     } catch (e) {
       if (e.code === 'signedout' || e.code === 'nouser') { lsSet(K_ACCT, null); forgetSync(); setStatus('idle'); if (app.onSignedOut) app.onSignedOut(); return; }
       setStatus(e.code === 'offline' ? 'offline' : 'error', e.message);
       if (getSt().dirty) retryT = setTimeout(() => sync(), e.code === 'offline' ? 30000 : 120000);
     }
+  }
+  /* 16 Nov (user): daily copies. The first time the app syncs on a day, the copy it has then (= how the day started) is also
+     kept in that weekday's slot (teacher@0 = Sunday … teacher@6 = Saturday). A week later the slot is overwritten, so there
+     are always the last 7 days, and nothing has to be cleaned up. Settings shows them; any of them can be brought back. */
+  const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+  async function daily(meta) {
+    if (!app || app.daily === false || app.isEmpty()) return;
+    const slot = app.key + '@' + new Date().getDay(), m = meta.objs[slot];
+    if (m && sameDay(m.at, Date.now())) return;
+    const at = Date.now();
+    await api('PUT', `/obj?key=${encodeURIComponent(slot)}&at=${at}&dev=${dev()}&base=0&force=1`, { raw: await pack(await app.collect()) });
+  }
+  async function days() {
+    if (!app) return [];
+    const meta = await api('GET', '/meta'), out = [];
+    for (let d = 0; d < 7; d++) { const m = meta.objs[app.key + '@' + d]; if (m) out.push({ slot: d, at: m.at, size: m.size }); }
+    return out.sort((a, b) => b.at - a.at);
+  }
+  // Bring back one daily copy: it becomes the newest copy (and is sent online at once); what was on the phone is kept by app.apply.
+  async function restoreDay(slot) {
+    const obj = await download(app.key + '@' + slot);
+    quietN++;
+    try { await app.apply(obj, 'day'); } finally { quietN--; }
+    const s = getSt(); s.dirty = Date.now(); putSt(s);
+    return sync();
   }
   function use(adapter) {
     app = adapter;
@@ -289,7 +315,7 @@
     window.addEventListener('storage', (e) => { if (e.key === K_ACCT) { dkCache = null; if (lsGet(K_ACCT)) sync(); else setStatus('idle'); } });
   }
   window.Acct = {
-    use, changed, sync, signUp, signIn, recover, changePassword, signOut,
+    use, changed, sync, days, restoreDay, signUp, signIn, recover, changePassword, signOut,
     user: () => (lsGet(K_ACCT) || {}).user || null,
     signedIn: () => !!lsGet(K_ACCT),
     status: () => ({ ...ST, dirty: !!(app && getSt().dirty) }),
