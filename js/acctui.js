@@ -17,11 +17,11 @@ Acct.use({
     delete st.rev;
     return { v: 1, state: st };
   },
-  isEmpty: () => !S.notes.length && !S.tasks.length && !S.habits.length && !S.grocery.items.length,
+  isEmpty: () => !S.notes.length && !S.tasks.length && !S.habits.length && !S.grocery.items.length && !(S.goals || []).length && !(S.trash || []).length,
   summary: (o) => notesSummary((o && o.state) || {}),
   localSummary: () => notesSummary(S),
   // Photos and drawings go up one by one (once each), locked like everything else.
-  blobIds: () => [...new Set(S.notes.flatMap((n) => n.blobs))],
+  blobIds: () => [...new Set([...S.notes, ...(S.trash || [])].flatMap((n) => n.blobs || []))],
   blobIdsOf: (o) => [...new Set(((o && o.state && o.state.notes) || []).flatMap((n) => (Array.isArray(n.blobs) ? n.blobs : [])))],
   async readBlob(id) {
     const rec = await dbGet('blobs', id);

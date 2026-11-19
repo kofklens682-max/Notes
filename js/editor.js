@@ -92,13 +92,10 @@ function readEditor(ed) {
 }
 
 // ---------- Screen ----------
-function editorBackLabel() {
-  const st = UI.stacks.notes, prev = st[st.length - 2];
-  return prev && prev.s === 'folders' && prev.folder && prev.folder !== 'all' ? folderName(prev.folder) : 'Notes';
-}
+function editorBackLabel() { return backLabel('Notes'); }
 function fullDate(ms) {
   const d = new Date(ms);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} at ${hm(ms)}`;
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} at ${hm(ms)}`;
 }
 const fmtBtn = (act, v, inner, label) => `<button data-act="${act}" data-v="${v}" aria-label="${label}">${inner}</button>`;
 // A toolbar button: a colour tile with its name underneath (each tool has its own colour, --t-…).
@@ -254,6 +251,7 @@ function mountEditor(el, e) {
     if (ED !== me) return;
     ed.innerHTML = cleanHtml(html) || '<div><br></div>';
     prepareEd();
+    if (typeof nxMoveTitle === 'function') nxMoveTitle(me);
     histNow();
     if (e.fresh) {
       delete e.fresh;
@@ -864,14 +862,14 @@ ACTIONS['note-menu'] = async (el) => {
   if (!n) return;
   const words = !n.locked && ED ? cardPairs(readEditor(ED.ed).html).length : 0;
   const v = await menu(el, [
-    { id: 'check', label: 'Check Writing', g: 'sparkles', cls: 'ai' },
+    { id: 'check', label: 'Check writing', g: 'sparkles', cls: 'ai' },
     '-',
-    ...(n.locked ? [] : [{ id: 'notif', label: n.notif ? 'Remove from Lock Screen' : 'Show on Lock Screen', g: 'bell' }]),
-    { id: 'pin', label: n.pinned ? 'Unpin Note' : 'Pin Note', g: n.pinned ? 'unpin' : 'pin' },
-    { id: 'lock', label: n.locked ? 'Remove Lock' : 'Lock Note', g: n.locked ? 'unlock' : 'lock' },
-    { id: 'move', label: 'Move Note', g: 'folderMove' },
+    ...(n.locked ? [] : [{ id: 'notif', label: n.notif ? 'Remove from lock screen' : 'Show on lock screen', g: 'bell' }]),
+    { id: 'pin', label: n.pinned ? 'Unpin note' : 'Pin note', g: n.pinned ? 'unpin' : 'pin' },
+    { id: 'lock', label: n.locked ? 'Remove lock' : 'Lock note', g: n.locked ? 'unlock' : 'lock' },
+    { id: 'move', label: 'Move note', g: 'folderMove' },
     '-',
-    { id: 'delete', label: 'Delete Note', g: 'trash', danger: true },
+    { id: 'delete', label: 'Delete note', g: 'trash', danger: true },
   ]);
   if (!v || !ED) return;
   if (v === 'check') { await saveEditor(); checkWriting(); return; }
@@ -911,8 +909,8 @@ function refreshDate(n) {
 // ---------- Photos ----------
 ACTIONS['ed-photo'] = async (el) => {
   const v = await menu(el, [
-    { id: 'take', label: 'Take Photo', g: 'camera' },
-    { id: 'pick', label: 'Choose from Gallery', g: 'image' },
+    { id: 'take', label: 'Take photo', g: 'camera' },
+    { id: 'pick', label: 'Choose from gallery', g: 'image' },
   ]);
   if (v) $(v === 'take' ? '#take-photo' : '#pick-photo').click();
 };
@@ -1000,7 +998,7 @@ function openViewer(img) {
     if (b.dataset.v === 'close') close();
     if (b.dataset.v === 'del') {
       close();
-      const ok = await ask({ title: 'Delete this photo?', ok: 'Delete Photo', destructive: true });
+      const ok = await ask({ title: 'Delete this photo?', ok: 'Delete photo', destructive: true });
       if (ok && ED) { img.closest('.ph').remove(); queueSave(); }
     }
   });

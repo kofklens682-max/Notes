@@ -36,9 +36,9 @@ function dayName(s, long) {
   const d = parseD(s);
   if (n > 1 && n < 7) return DOW_LONG[d.getDay()];
   const y = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : '';
-  return long ? `${DOW_LONG[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}${y}` : `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}${y}`;
+  return long ? `${DOW_LONG[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}${y ? ',' + y : ''}` : `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}${y ? ',' + y : ''}`;
 }
-const longDate = (s) => { const d = parseD(s); return `${DOW_LONG[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+const longDate = (s) => { const d = parseD(s); return `${DOW_LONG[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`; };
 
 // ---------- State ----------
 let S = null;
@@ -244,8 +244,21 @@ const UI = { tab: 'today', stacks: { today: [{ s: 'planner' }], notes: [{ s: 'nx
 const cur = () => { const st = UI.stacks[UI.tab]; return st[st.length - 1]; };
 const curEl = () => $('#stage > .screen.cur');
 
+// The Back button names the screen you came from (20 Nov: four tabs, so it is not always the same).
+const BACK_NAMES = { planner: 'Today', nxfolders: 'Folders', goals: 'Goals', search: 'Search', habits: 'Habits', settings: 'Settings', trash: 'Recently Deleted', tasks: 'Reminders', lists: 'Lists' };
+function backLabel(fb) {
+  const st = UI.stacks[UI.tab] || [], p = st[st.length - 2];
+  if (!p) return fb;
+  let n = BACK_NAMES[p.s];
+  if (p.s === 'folders') n = folderName(p.folder);
+  if (p.s === 'goal') n = ((S.goals || []).find((g) => g.id === p.id) || {}).name;
+  if (p.s === 'habit') n = ((S.habits || []).find((h) => h.id === p.id) || {}).name;
+  n = n || fb;
+  return n && n.length > 16 ? 'Back' : n;
+}
 // Standard screen: nav bar (back, small title, buttons) + scrolling content with a large title.
 function page({ title = '', back = '', right = '', body = '', big = true, sub = '', after = '' }) {
+  if (back) back = backLabel(back);
   return `<header class="nav">
       <div class="nav-l">${back ? `<button class="back" data-act="back" aria-label="Back to ${esc(back)}">${glyph('chevL')}<span>${esc(back)}</span></button>` : ''}</div>
       <div class="nav-t">${esc(title)}</div>
@@ -1014,7 +1027,7 @@ function ask({ title, msg, ok = 'OK', destructive = false, cancel = 'Cancel', mo
     });
   });
 }
-// iOS alert with a text field ("New Folder"). Resolves to the text, or null.
+// iOS alert with a text field ("New folder"). Resolves to the text, or null.
 function askText({ title, msg = '', value = '', placeholder = '', ok = 'Save' }) {
   return new Promise((resolve) => {
     const wrap = document.createElement('div');

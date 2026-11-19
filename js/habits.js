@@ -158,7 +158,7 @@ ACTIONS['h-edit-cur'] = () => habitSheet(habitOf(cur().id));
 async function deleteHabit(id) {
   const h = habitOf(id);
   if (!h) return false;
-  const ok = await ask({ title: `Delete “${h.name}”?`, msg: 'Its history and streak will be lost.', ok: 'Delete Habit', destructive: true });
+  const ok = await ask({ title: `Delete “${h.name}”?`, msg: 'Its history and streak will be lost.', ok: 'Delete habit', destructive: true });
   if (!ok) { render(); return false; }
   S.habits = S.habits.filter((x) => x.id !== id);
   save();
@@ -194,7 +194,7 @@ const habitInfo = (h, goal) => `<div class="card">
     <div class="row static">${glyph('bell', 'row-g')}<span class="lbl">Reminder</span><span class="val">${h.remind || 'Off'}</span></div>
     <div class="row static">${glyph('calendar', 'row-g')}<span class="lbl">Started</span><span class="val">${dayName(h.start, true)}</span></div>
   </div>
-  <button class="danger-btn" data-act="h-del-cur">Delete Habit</button>`;
+  <button class="danger-btn" data-act="h-del-cur">Delete habit</button>`;
 SCREENS.habit = {
   tint: (e) => (habitOf(e.id) || {}).c,
   mount(el) { bindCharts(el); },
@@ -268,7 +268,7 @@ function sleepStats(h, dates) {
   const spread = Math.round(Math.sqrt(avg(beds.map((b) => (b - mean) ** 2))));
   return { n: ts.length, bed: bedClock(mean), wake: clockOf(avg(ts.map((t) => toMin(t.wake)))), dur: avg(ts.map(sleepMins)), spread };
 }
-const shortDay = (d) => { const x = parseD(d); return `${x.getDate()} ${MON[x.getMonth()]}`; };
+const shortDay = (d) => { const x = parseD(d); return `${MON[x.getMonth()]} ${x.getDate()}`; };
 // One line graph: a single series of times of day, later times higher up.
 function timeChart(title, color, dates, vals, fmt) {
   const W = 320, H = 128, L = 40, R = 8, T = 8, B = 20;
@@ -407,7 +407,7 @@ function habitSheet(h, preset = {}) {
 function habitSheetHtml() {
   const d = HS.days.join('');
   const preset = (v, l) => `<button class="chip ${d === v ? 'on' : ''}" data-act="hs-days" data-v="${v}">${l}</button>`;
-  return `${sheetHead(HS.isNew ? 'New Habit' : 'Edit Habit', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="hs-save" ${HS.name.trim() && HS.days.some(Boolean) ? '' : 'disabled'}>${HS.isNew ? 'Add' : 'Done'}</button>`)}
+  return `${sheetHead(HS.isNew ? 'New habit' : 'Edit habit', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="hs-save" ${HS.name.trim() && HS.days.some(Boolean) ? '' : 'disabled'}>${HS.isNew ? 'Add' : 'Done'}</button>`)}
     <div class="sheet-body" style="--tint:${HS.c}">
       <div class="card list-hero"><span class="hero-ic sq" style="--c:${HS.c}">${glyph(HS.g)}</span><input class="hero-name" value="${esc(HS.name)}" placeholder="Habit name" maxlength="50" autocapitalize="sentences" enterkeyhint="done" style="color:${HS.c}"></div>
       <div class="card pad">${swatches('hs-color', HS.c)}</div>
@@ -425,7 +425,7 @@ function habitSheetHtml() {
         ${HS.remind ? `<div class="frow sub"><input type="time" name="hsTime" value="${HS.remind}"></div>` : ''}
       </div>
       ${HS.remind ? notifHint('') : ''}
-      ${HS.isNew ? '' : '<button class="danger-btn" data-act="hs-del">Delete Habit</button>'}
+      ${HS.isNew ? '' : '<button class="danger-btn" data-act="hs-del">Delete habit</button>'}
     </div>`;
 }
 function mountHabitSheet(sh) {

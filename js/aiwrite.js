@@ -84,7 +84,7 @@ function checkWriting() {
   openSheet(cwSheetHtml(), cwMount, 'tall cw-sheet');
 }
 function cwSheetHtml() {
-  return `${sheetHead('Check Writing', '<button data-act="close-sheet">Done</button>', '')}
+  return `${sheetHead('Check writing', '<button data-act="close-sheet">Done</button>', '')}
     <div class="sheet-body">
       <div class="seg cw-seg">${segButtons('cw-task', CW_TASKS, CW.task)}</div>
       <div class="cw-main">${cwMainHtml()}</div>
@@ -354,7 +354,7 @@ ACTIONS['cw-why'] = (el) => {
 // word that was read wrongly before it's marked.
 ACTIONS['cw-photo'] = async (el) => {
   if (!CW || CW.state === 'busy') return;
-  const v = await menu(el, [{ id: 'take', label: 'Take Photo', g: 'camera' }, { id: 'pick', label: 'Choose from Gallery', g: 'image' }]);
+  const v = await menu(el, [{ id: 'take', label: 'Take photo', g: 'camera' }, { id: 'pick', label: 'Choose from gallery', g: 'image' }]);
   if (v) { AIP.forCheck = true; $(v === 'take' ? '#ocr-take' : '#ocr-pick').click(); }
 };
 
@@ -415,7 +415,7 @@ function textBlocks(text) {
 }
 ACTIONS['photo-text'] = async (el) => {
   if (!needNet('Reading a photo')) return;
-  const v = await menu(el, [{ id: 'take', label: 'Take Photo', g: 'camera' }, { id: 'pick', label: 'Choose from Gallery', g: 'image' }]);
+  const v = await menu(el, [{ id: 'take', label: 'Take photo', g: 'camera' }, { id: 'pick', label: 'Choose from gallery', g: 'image' }]);
   if (v) { AIP.forCheck = false; $(v === 'take' ? '#ocr-take' : '#ocr-pick').click(); }
 };
 document.addEventListener('change', (e) => {

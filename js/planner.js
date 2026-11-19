@@ -45,7 +45,7 @@ function taskRow(t, showList) {
   const inner = `<div class="task${t.done ? ' is-done' : ''}" style="--c:${L.color}">
       <button class="chk" data-act="task-toggle" data-id="${t.id}" aria-label="${t.done ? 'Mark as not done' : 'Complete'}"></button>
       <button class="t-main" data-act="task-open" data-id="${t.id}">
-        <span class="t-title">${t.prio ? `<b class="prio">${'!'.repeat(t.prio)}</b>` : ''}${esc(t.title || 'New Reminder')}</span>
+        <span class="t-title">${t.prio ? `<b class="prio">${'!'.repeat(t.prio)}</b>` : ''}${esc(t.title || 'New reminder')}</span>
         ${t.notes ? `<span class="t-notes">${esc(firstLine(t.notes))}</span>` : ''}
         ${meta.length ? `<span class="t-meta">${meta.join('')}</span>` : ''}
       </button>
@@ -54,7 +54,7 @@ function taskRow(t, showList) {
 }
 const addRow = (list, due = '') => {
   const L = listOf(list) || S.lists[0];
-  return `<div class="task add-row" style="--c:${L.color}"><span class="chk plus">${glyph('plus')}</span><input class="add-input" data-list="${L.id}" data-due="${due}" placeholder="New Reminder" enterkeyhint="done" autocapitalize="sentences" aria-label="New reminder in ${esc(L.name)}"></div>`;
+  return `<div class="task add-row" style="--c:${L.color}"><span class="chk plus">${glyph('plus')}</span><input class="add-input" data-list="${L.id}" data-due="${due}" placeholder="New reminder" enterkeyhint="done" autocapitalize="sentences" aria-label="New reminder in ${esc(L.name)}"></div>`;
 };
 const taskCard = (rows, extra = '') => `<div class="card tasks">${rows}${extra}</div>`;
 const tsec = (title, cls = '', right = '') => `<h2 class="sec ${cls}">${esc(title)}${right}</h2>`;
@@ -169,7 +169,7 @@ SCREENS.lists = {
       `<button class="row" data-act="open-list" data-id="${l.id}">${tile(l.g || 'list', l.color, 'round')}<span class="lbl">${esc(l.name)}</span><span class="val">${S.tasks.filter((t) => t.list === l.id && !t.done).length}</span>${glyph('chevR', 'chev')}</button>`,
       { right: swBtn('list-edit', l.id, 'Info', 'info', 'var(--gray)') + (S.lists.length > 1 ? swBtn('list-del', l.id, 'Delete', 'trash', 'var(--red)') : '') },
     )).join('');
-    return page({ title: 'My Lists', back: 'Today', body: `<div class="card">${lists}</div><button class="add-link" data-act="new-list">${glyph('plus')}Add List</button>` });
+    return page({ title: 'My lists', back: 'Today', body: `<div class="card">${lists}</div><button class="add-link" data-act="new-list">${glyph('plus')}Add List</button>` });
   },
   fab: () => ({ g: 'plus', act: 'new-task', label: 'New reminder' }),
 };
@@ -188,7 +188,7 @@ SCREENS.tasks = {
   mount(el) { bindAddRows(el); },
   fab: (e) => (e.smart === 'done' ? null : { g: 'plus', act: 'new-task', label: 'New reminder' }),
 };
-// Type in "New Reminder" and press Enter to add; the field stays ready for the next one.
+// Type in "New reminder" and press Enter to add; the field stays ready for the next one.
 function bindAddRows(el) {
   $$('.add-input', el).forEach((input) => {
     const add = () => {
@@ -215,12 +215,12 @@ ACTIONS['tasks-menu'] = async (el) => {
     const key = 'list:' + e.list, k = sortKey(key);
     items.push({ id: 'done', label: S.settings.showDone[key] ? 'Hide Completed' : 'Show Completed', g: 'checkCircle' }, '-');
     [['due', 'Due Date'], ['prio', 'Priority'], ['title', 'Title'], ['created', 'Date Created']].forEach(([v, l]) => items.push({ id: 'sort:' + v, label: `Sort by ${l}`, check: k === v }));
-    items.push('-', { id: 'info', label: 'List Info', g: 'info' });
-    if (S.lists.length > 1) items.push({ id: 'delete', label: 'Delete List', g: 'trash', danger: true });
+    items.push('-', { id: 'info', label: 'List info', g: 'info' });
+    if (S.lists.length > 1) items.push({ id: 'delete', label: 'Delete list', g: 'trash', danger: true });
   } else if (e.smart === 'done') {
     items.push({ id: 'clear', label: 'Delete All Completed', g: 'trash', danger: true });
   } else {
-    items.push({ id: 'new', label: 'New Reminder', g: 'plus' }, { id: 'newlist', label: 'New List', g: 'list' });
+    items.push({ id: 'new', label: 'New reminder', g: 'plus' }, { id: 'newlist', label: 'New list', g: 'list' });
   }
   const v = await menu(el, items);
   if (!v) return;
@@ -298,7 +298,7 @@ function taskSheetHtml() {
   const mon = (() => { let x = isoAdd(today, 1); while (dowMon(x) !== 0) x = isoAdd(x, 1); return x; })();
   const chips = [['Today', today], ['Tomorrow', isoAdd(today, 1)], ['Weekend', sat], ['Next week', mon]]
     .map(([l, v]) => `<button class="chip ${d.due === v ? 'on' : ''}" data-act="task-quick" data-v="${v}">${l}</button>`).join('');
-  return `${sheetHead(isNew ? 'New Reminder' : 'Details', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="task-save" ${d.title.trim() ? '' : 'disabled'}>${isNew ? 'Add' : 'Done'}</button>`)}
+  return `${sheetHead(isNew ? 'New reminder' : 'Details', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="task-save" ${d.title.trim() ? '' : 'disabled'}>${isNew ? 'Add' : 'Done'}</button>`)}
   <div class="sheet-body" style="--tint:${L.color}">
     <div class="card form">
       <input class="f-title" name="title" placeholder="Title" value="${esc(d.title)}" autocapitalize="sentences" enterkeyhint="done" maxlength="200">
@@ -320,9 +320,9 @@ function taskSheetHtml() {
     <h2 class="sec">Subtasks</h2>
     <div class="card form subs">
       ${d.subs.map((s) => `<div class="frow subrow"><button class="chk ${s.done ? 'on' : ''}" data-act="sub-toggle" data-id="${s.id}" aria-label="Done"></button><input name="sub" data-sid="${s.id}" value="${esc(s.title)}" placeholder="Subtask" enterkeyhint="next"><button class="xbtn" data-act="sub-del" data-id="${s.id}" aria-label="Remove">${glyph('x')}</button></div>`).join('')}
-      <button class="frow add-sub" data-act="sub-add">${glyph('plus')}<span>Add Subtask</span></button>
+      <button class="frow add-sub" data-act="sub-add">${glyph('plus')}<span>Add subtask</span></button>
     </div>
-    ${isNew ? '' : '<button class="danger-btn" data-act="task-del-sheet">Delete Reminder</button>'}
+    ${isNew ? '' : '<button class="danger-btn" data-act="task-del-sheet">Delete reminder</button>'}
   </div>`;
 }
 function mountTaskSheet(sh) {
@@ -390,7 +390,7 @@ function listSheet(l) {
   openSheet(listSheetHtml(), (sh) => { mountListSheet(sh); if (LS.isNew) $('.hero-name', sh).focus(); });
 }
 function listSheetHtml() {
-  return `${sheetHead(LS.isNew ? 'New List' : 'List Info', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="list-save" ${LS.name.trim() ? '' : 'disabled'}>Done</button>`)}
+  return `${sheetHead(LS.isNew ? 'New list' : 'List info', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="list-save" ${LS.name.trim() ? '' : 'disabled'}>Done</button>`)}
     <div class="sheet-body">
       <div class="card list-hero"><span class="hero-ic" style="--c:${LS.color}">${glyph(LS.g)}</span><input class="hero-name" value="${esc(LS.name)}" placeholder="List Name" maxlength="40" autocapitalize="words" enterkeyhint="done" style="color:${LS.color}"></div>
       <div class="card pad">${swatches('ls-color', LS.color)}</div>
@@ -420,7 +420,7 @@ async function deleteList(id) {
   const L = listOf(id);
   if (!L || S.lists.length < 2) return false;
   const n = S.tasks.filter((t) => t.list === id).length;
-  const ok = await ask({ title: `Delete “${L.name}”?`, msg: n ? `This will delete all ${plural(n, 'reminder')} in this list.` : '', ok: 'Delete List', destructive: true });
+  const ok = await ask({ title: `Delete “${L.name}”?`, msg: n ? `This will delete all ${plural(n, 'reminder')} in this list.` : '', ok: 'Delete list', destructive: true });
   if (!ok) { render(); return false; }
   S.tasks = S.tasks.filter((t) => t.list !== id);
   S.lists = S.lists.filter((l) => l.id !== id);

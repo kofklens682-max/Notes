@@ -192,7 +192,7 @@ ACTIONS['g-menu'] = async (el) => {
   ]);
   if (v === 'uncheck') { S.grocery.items.forEach((i) => { i.done = false; }); save(); render(); }
   if (v === 'clear') ACTIONS['g-clear']();
-  if (v === 'all' && S.grocery.items.length && (await ask({ title: `Delete all ${plural(S.grocery.items.length, 'item')}?`, ok: 'Delete All', destructive: true }))) {
+  if (v === 'all' && S.grocery.items.length && (await ask({ title: `Delete all ${plural(S.grocery.items.length, 'item')}?`, ok: 'Delete all', destructive: true }))) {
     S.grocery.items = [];
     save();
     render();

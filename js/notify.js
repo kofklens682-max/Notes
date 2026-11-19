@@ -52,7 +52,7 @@ async function connectPush(force) {
 let retryT = 0;
 
 // ---------- A note on the lock screen ----------
-// "Show on Lock Screen" keeps a note as a quiet notification (a shopping list: what's still to buy).
+// "Show on lock screen" keeps a note as a quiet notification (a shopping list: what's still to buy).
 // It follows the note as you edit it, and goes when swiped away (the service worker notes that).
 async function noteNotifShow(n, info) {
   if (!n.notif || n.locked || !notifOn()) return;
@@ -143,7 +143,7 @@ SCREENS.remcheck = {
       <h2 class="sec">On a Xiaomi / Redmi Phone</h2>
       <div class="card">${PHONE_STEPS.map(([t, d], i) => `<div class="row static step"><span class="tile" style="--c:#007AFF"><b>${i + 1}</b></span><span class="lbl"><b>${esc(t)}</b><small>${esc(d)}</small></span></div>`).join('')}</div>
       <p class="foot">Steps 1–3 are in the phone's Settings → Apps → Manage apps. Afterwards, tap Test with the Screen Off and lock the phone.</p>`;
-    return page({ title: 'Reliable Reminders', back: 'Settings', body });
+    return page({ title: 'Reliable reminders', back: 'Settings', body });
   },
   mount(el, e) {
     if (e.fetched) return; // once per visit: the redraw below mounts again

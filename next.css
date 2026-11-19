@@ -141,3 +141,11 @@ mark { background: #FFE38A; border-radius: 3px; color: #000; }
 
 /* ----- Settings ----- */
 .row .lbl small { display: block; color: var(--text-2); font-weight: 400; font-size: 13px; margin-top: 1px; }
+
+/* ----- Goal steps you can edit ----- */
+.nx-stitle { font-size: 17px; padding: 2px 0; }
+.task.is-done .nx-stitle { color: var(--text-2); }
+.nx-shint { margin: -4px 4px 10px; }
+
+/* ----- the + button really goes away on screens without it (a later rule kept it visible) ----- */
+#fab.hide { transform: scale(.3) !important; opacity: 0 !important; pointer-events: none !important; }

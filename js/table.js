@@ -1,5 +1,5 @@
 'use strict';
-/* Tables in notes. The table button opens "New Table": ready-made layouts (Vocabulary, Homework…),
+/* Tables in notes. The table button opens "New table": ready-made layouts (Vocabulary, Homework…),
    size and settings with a live preview. In a table you tap a cell and type; Enter goes to the next
    cell (and makes a new row at the end); Enter on an empty last row leaves the table. With the
    cursor in a table the table button opens the panel for rows, columns and settings.
@@ -203,7 +203,7 @@ function syncTableSheet() {
 const tbStepper = (act, v, min, max) => `<div class="stepper"><button data-act="${act}" data-v="-1" ${v <= min ? 'disabled' : ''} aria-label="Fewer">${glyph('minus')}</button><b>${v}</b><button data-act="${act}" data-v="1" ${v >= max ? 'disabled' : ''} aria-label="More">${glyph('plus')}</button></div>`;
 const tbOption = (k, label, g, c, on) => `<div class="frow">${tile(g, c)}<span class="lbl">${label}</span>${toggle('tb-' + k, on, label)}</div>`;
 function tableSheetHtml() {
-  return `${sheetHead('New Table', '<button data-act="close-sheet">Cancel</button>', '<button class="strong" data-act="tbs-add">Add</button>')}
+  return `${sheetHead('New table', '<button data-act="close-sheet">Cancel</button>', '<button class="strong" data-act="tbs-add">Add</button>')}
     <div class="sheet-body${TB.eis ? ' tb-fixed' : ''}">
       <div class="tb-tpls">${TABLE_TPLS.map((tp) => `<button class="tb-tpl ${TB.tpl === tp.id ? 'on' : ''}" data-act="tbs-tpl" data-v="${tp.id}" style="--c:${tp.c}">
         <span class="tb-tpl-ic">${glyph(tp.g)}</span><b>${tp.name}</b><small>${tp.desc || (tp.id === 'blank' ? 'Empty grid' : tp.heads.join(' · '))}</small></button>`).join('')}</div>

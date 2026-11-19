@@ -14,7 +14,7 @@ SCREENS.settings = {
         <div class="row static">${tile('bell', '#FF3B30')}<span class="lbl">Reminders</span><span class="val">${status}</span></div>
         ${notifOn() ? `<button class="row" data-act="notif-test">${tile('sparkles', '#FF9500')}<span class="lbl">Send a Test Notification</span></button>`
           : notifSupported() && perm !== 'denied' ? `<button class="row" data-act="notif-on">${tile('bell', '#34C759')}<span class="lbl tinted">Turn On Notifications</span></button>` : ''}
-        ${notifOn() && pushReady() ? `<button class="row" data-act="rem-check">${tile('shield', '#34C759')}<span class="lbl">Reliable Reminders</span><span class="val">${esc(remSummary())}</span>${glyph('chevR', 'chev')}</button>` : ''}
+        ${notifOn() && pushReady() ? `<button class="row" data-act="rem-check">${tile('shield', '#34C759')}<span class="lbl">Reliable reminders</span><span class="val">${esc(remSummary())}</span>${glyph('chevR', 'chev')}</button>` : ''}
         <label class="row">${tile('clock', '#007AFF')}<span class="lbl">Default time</span><input class="row-input" type="time" name="allDay" value="${S.settings.allDay}"></label>
         <label class="row">${tile('calendar', '#5856D6')}<span class="lbl">Week Ahead on Sundays</span>${toggle('weekAhead', S.settings.weekAhead, 'Week ahead on Sundays')}</label>
       </div>
@@ -51,7 +51,7 @@ SCREENS.settings = {
         <div class="row static">${tile('shield', '#34C759')}<span class="lbl">Safe from clean-up</span><span class="val" id="st-keep">…</span></div>
       </div>
 
-      <button class="danger-btn" data-act="erase">Erase Everything</button>
+      <button class="danger-btn" data-act="erase">Erase everything</button>
       <div class="about">Notes &amp; Planner · version ${APP_BUILD}</div>`;
     return page({ title: 'Settings', back: UI.tab === 'notes' ? 'Notes' : 'Today', body });
   },
@@ -170,7 +170,7 @@ function resetScreens() {
   syncHistory();
 }
 ACTIONS.erase = async () => {
-  const ok = await ask({ title: 'Erase everything?', msg: 'All notes, photos, reminders, groceries and habits on this phone will be deleted. This cannot be undone.', ok: 'Erase Everything', destructive: true });
+  const ok = await ask({ title: 'Erase everything?', msg: 'All notes, photos, reminders, groceries and habits on this phone will be deleted. This cannot be undone.', ok: 'Erase everything', destructive: true });
   if (!ok) return;
   const sure = await ask({ title: 'Are you sure?', msg: S.settings.lastBackup ? '' : "You haven't saved a backup.", ok: 'Yes, Erase', destructive: true });
   if (!sure) return;

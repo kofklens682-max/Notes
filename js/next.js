@@ -58,6 +58,7 @@ function parseWords(s) {
   if (tm) {
     h = +tm[1]; m = tm[2] ? +tm[2] : 0; const ap = (tm[3] || '').toLowerCase();
     if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0;
+    if (!ap && !tm[2] && h >= 1 && h <= 7) h += 12; // "at 6" means the evening
     if (h > 23 || m > 59) { h = null; m = 0; } else t = t.replace(tm[0], ' ');
   }
   let due = null, time = null;
@@ -73,7 +74,7 @@ const cap1 = (s) => { s = s.replace(/\s+/g, ' ').trim(); return s ? s[0].toUpper
 const whenText = (p) => (p.due ? `${dayName(p.due, true)}${p.time ? ', ' + p.time : ''}` : '');
 
 function wordsSheet(pre = '') {
-  openSheet(`${sheetHead('New Reminder', '<button data-act="close-sheet">Cancel</button>', '<button class="strong" data-act="nx-radd" disabled>Add</button>')}
+  openSheet(`${sheetHead('New reminder', '<button data-act="close-sheet">Cancel</button>', '<button class="strong" data-act="nx-radd" disabled>Add</button>')}
     <div class="sheet-body">
       <div class="card pad"><input class="nx-words" placeholder="Call mom tomorrow 6pm" value="${esc(pre)}" maxlength="200" autocapitalize="sentences" enterkeyhint="done" autocomplete="off"></div>
       <div class="nx-ideas">${['Call mom tomorrow 6pm', 'Plan lessons every Sunday 20:00', 'Stretch in 2 hours'].map((x) => `<button class="chip" data-act="nx-ridea" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>
@@ -85,7 +86,7 @@ function wordsSheet(pre = '') {
       const p = parseWords(inp.value);
       add.disabled = !p.title;
       out.innerHTML = inp.value.trim()
-        ? `<div class="nx-pr">${glyph('check', 'inl')}<b>${esc(p.title || '…')}</b></div><div class="nx-pr">${glyph('clock', 'inl')}${p.due ? esc(whenText(p)) : '<span class="nx-none">No time found: it shows as Anytime</span>'}</div>${p.repeat ? `<div class="nx-pr">${glyph('repeat', 'inl')}${REPEATS[p.repeat]}</div>` : ''}`
+        ? `<div class="nx-pr">${glyph('check', 'inl')}<b>${esc(p.title || '…')}</b></div><div class="nx-pr">${glyph('clock', 'inl')}${p.due ? esc(whenText(p)) : '<span class="nx-none">No time found: it goes on the day without a time</span>'}</div>${p.repeat ? `<div class="nx-pr">${glyph('repeat', 'inl')}${REPEATS[p.repeat]}</div>` : ''}`
         : '<div class="nx-none">Write it the way you say it. I find the time and the repeat.</div>';
     };
     sh._upd = upd;
@@ -99,12 +100,13 @@ ACTIONS['nx-ridea'] = (el) => { const i = $('.nx-words'); if (i) { i.value = el.
 ACTIONS['nx-radd'] = () => {
   const p = parseWords($('.nx-words').value);
   if (!p.title) return;
+  if (!p.due) p.due = (cur().s === 'planner' && cur().day) || todayIso(); // no date said: the day you are looking at
   const t = makeTask({ title: p.title, due: p.due, time: p.time, repeat: p.repeat });
   S.tasks.push(t);
   save();
   closeSheet();
   buzz(12);
-  toast(p.due ? 'Reminder set: ' + whenText(p) : 'Added to Today');
+  toast('Reminder set: ' + whenText(p));
   if (['planner', 'tasks'].includes(cur().s)) setTimeout(render, 250);
 };
 ACTIONS['nx-rmore'] = () => { const p = parseWords(($('.nx-words') || {}).value || ''); closeSheet(); setTimeout(() => taskSheet(null, { title: p.title, due: p.due, time: p.time, repeat: p.repeat }), 380); };
@@ -128,7 +130,7 @@ SCREENS.planner = {
     const today = todayIso(), sel = e.day || today, isToday = sel === today;
     const late = isToday ? S.tasks.filter((t) => !t.done && isOverdue(t)) : [];
     const list = (isToday ? S.tasks.filter((t) => !t.done && t.due && t.due <= today) : S.tasks.filter((t) => !t.done && t.due === sel)).sort(SORTS.due);
-    const undated = isToday ? S.tasks.filter((t) => !t.done && !t.due && !t.notes && false) : [];
+    const undated = isToday ? S.tasks.filter((t) => !t.done && !t.due) : [];
     const rows = list.concat(undated);
     const nx = isToday ? nxNextUp() : null;
     const hs = S.habits.filter((h) => habitOn(h, sel) && sel <= today);
@@ -138,9 +140,10 @@ SCREENS.planner = {
     if (nx) {
       const od = isOverdue(nx);
       body += `<div class="nx-next"><div class="nx-lbl">${glyph('bell', 'inl')}${od ? 'Overdue' : 'Next up'} · ${esc(dueText(nx) || 'Today')}</div>
-        <div class="nx-ttl">${esc(nx.title || 'New Reminder')}</div>
+        <div class="nx-ttl">${esc(nx.title || 'New reminder')}</div>
         <div class="nx-acts"><button class="main" data-act="nx-done" data-id="${nx.id}">Done</button><button data-act="nx-snooze" data-id="${nx.id}">Snooze</button></div></div>`;
     }
+    if (isToday) body += deadlineStrip(today);
     if (late.length) body += `<div class="nx-roll"><span>${plural(late.length, 'task')} not finished</span><button data-act="nx-roll">Move to tomorrow</button></div>`;
     body += tsec('Tasks', '', `<button class="sec-btn" data-act="nx-addrem">Add</button>`);
     body += rows.length
@@ -156,10 +159,9 @@ SCREENS.planner = {
     const hr = new Date().getHours(), gr = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
     return page({ title: 'Today', right: navBtn('nx-voice', 'mic', 'Voice note') + navBtn('settings', 'gear', 'Settings'), body, sub: `${gr} · ${longDate(sel)}` });
   },
-  sig: () => '',
+  mount(el) { $$('.nx-gcard', el).forEach((c) => { const g = goalOf(c.dataset.id); if (g) setTimeout(() => nxFill(c, [g]), 40); }); },
   fab: () => ({ g: 'plus', act: 'new-note', label: 'New note' }),
 };
-SCREENS.planner.sig = null; delete SCREENS.planner.sig;
 ACTIONS['nx-day'] = (el) => { const e = cur(); e.day = el.dataset.v === todayIso() ? null : el.dataset.v; e.all = false; render(); };
 ACTIONS['nx-more'] = () => { const e = cur(); e.all = !e.all; render(); };
 ACTIONS['nx-addrem'] = () => wordsSheet();
@@ -175,8 +177,9 @@ ACTIONS['nx-snooze'] = (el) => {
 };
 ACTIONS['nx-snz'] = (el) => {
   const t = taskOf(el.dataset.id), m = +el.dataset.m; if (!t) return;
-  if (m) { t.snooze = Date.now() + m * 60e3; if (!t.time || t.due !== todayIso()) { t.due = todayIso(); } } else { t.due = isoAdd(todayIso(), 1); t.time = t.time || S.settings.allDay; t.snooze = 0; }
-  save(); closeSheet(); toast(m ? 'Snoozed' : 'Moved to tomorrow'); setTimeout(render, 300);
+  if (m) { const d = new Date(Math.max(Date.now(), t.due && t.time ? dueAt(t) : 0) + m * 60e3); t.due = iso(d); t.time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; } else { t.due = isoAdd(todayIso(), 1); t.time = t.time || S.settings.allDay; }
+  t.snooze = 0;
+  save(); closeSheet(); toast(m ? 'Snoozed to ' + t.time : 'Moved to tomorrow'); setTimeout(render, 300);
 };
 ACTIONS['nx-roll'] = () => {
   const late = S.tasks.filter((t) => !t.done && isOverdue(t)); if (!late.length) return;
@@ -201,13 +204,13 @@ SCREENS.goals = {
     body += S.habits.length
       ? `<div class="card">${S.habits.map((h) => habitRow(h, today)).join('')}</div>`
       : `<div class="hint-btn" style="margin-top:0">${glyph('flame')}<span><b>Build a routine</b>Water, reading, sleep: small things every day.</span></div>`;
-    return page({ title: 'Goals', right: gs.length ? `<button class="ntext" data-act="nx-newgoal">New Goal</button>` : navBtn('settings', 'gear', 'Settings'), body });
+    return page({ title: 'Goals', right: gs.length ? `<button class="ntext" data-act="nx-newgoal">New goal</button>` : navBtn('settings', 'gear', 'Settings'), body });
   },
   mount(el) { nxFillSoon(el, S.goals || []); },
   fab: () => ({ g: 'plus', act: 'new-note', label: 'New note' }),
 };
 ACTIONS['nx-newgoal'] = async () => {
-  const name = await askText({ title: 'New Goal', msg: 'What do you want to reach?', placeholder: 'Prepare for the exam', ok: 'Create' });
+  const name = await askText({ title: 'New goal', msg: 'What do you want to reach?', placeholder: 'Prepare for the exam', ok: 'Create' });
   if (!name || !name.trim()) return;
   const g = { id: uid(), name: name.trim(), c: GOAL_COLORS[(S.goals || []).length % GOAL_COLORS.length], due: null, pinned: false, created: Date.now(), steps: [] };
   (S.goals = S.goals || []).push(g);
@@ -222,10 +225,13 @@ ACTIONS['goal-open'] = (el) => {
 function goalBody(g, order) {
   return `<div class="nx-gdetail">${nxRings(order, 'sm', `<b style="color:${g.c}">${goalPct(g)}%</b>`)}<div class="nx-gst"><b style="color:${g.c}">${goalDone(g)} of ${g.steps.length}</b> steps done${g.due ? ' · ' + goalLeft(g) : ''}</div></div>
     ${g.steps.length ? `<div class="card tasks nx-steps">${g.steps.map((s) => stepRow(g, s)).join('')}</div>` : ''}
+    ${g.steps.length ? '<p class="foot nx-shint">Tap a step to change it · swipe left to delete it</p>' : ''}
     <div class="card tasks"><div class="task add-row" style="--c:${g.c}"><span class="chk plus">${glyph('plus')}</span><input class="add-input nx-stepin" placeholder="Add a step" enterkeyhint="done" autocapitalize="sentences" autocomplete="off"></div></div>`;
 }
+// A step: tick it, tap its words to change them, swipe left to delete it.
 function stepRow(g, s) {
-  return `<div class="task${s.done ? ' is-done' : ''}" style="--c:${g.c}" data-sid="${s.id}"><button class="chk" data-act="nx-step" data-g="${g.id}" data-id="${s.id}" aria-label="${s.done ? 'Mark as not done' : 'Complete'}"></button><span class="t-main"><span class="t-title">${esc(s.title)}</span></span></div>`;
+  const inner = `<div class="task${s.done ? ' is-done' : ''}" style="--c:${g.c}" data-sid="${s.id}"><button class="chk" data-act="nx-step" data-g="${g.id}" data-id="${s.id}" aria-label="${s.done ? 'Mark as not done' : 'Complete'}"></button><input class="add-input nx-stitle" data-id="${s.id}" value="${esc(s.title)}" maxlength="200" enterkeyhint="done" autocapitalize="sentences" autocomplete="off" aria-label="Step"></div>`;
+  return swipeRow(inner, { right: swBtn('nx-sdel', s.id, 'Delete', 'trash', 'var(--red)') });
 }
 const goalOrder = (g) => [g, ...(S.goals || []).filter((x) => x !== g)];
 SCREENS.goal = {
@@ -237,6 +243,15 @@ SCREENS.goal = {
   mount(el, e) {
     const g = goalOf(e.id); if (!g) return;
     nxFillSoon(el, goalOrder(g));
+    $$('.nx-stitle', el).forEach((i) => {
+      i.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); i.blur(); } });
+      i.addEventListener('change', () => {
+        const s = g.steps.find((x) => x.id === i.dataset.id); if (!s) return;
+        const v = i.value.trim();
+        if (v) { s.title = v; save(); return; }
+        ACTIONS['nx-sdel']({ dataset: { id: s.id } }); // emptied: the step goes (Undo brings it back)
+      });
+    });
     const inp = $('.nx-stepin', el);
     if (inp) inp.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Enter') return;
@@ -265,13 +280,13 @@ ACTIONS['nx-gmenu'] = async (el) => {
   const g = goalOf(cur().id); if (!g) return;
   const r = await menu(el, [
     { id: 'name', label: 'Rename', g: 'pencil' },
-    { id: 'due', label: g.due ? 'Change Deadline' : 'Set Deadline', g: 'calendar' },
-    { id: 'color', label: 'Change Color', g: 'palette' },
+    { id: 'due', label: g.due ? 'Change deadline' : 'Set deadline', g: 'calendar' },
+    { id: 'color', label: 'Change color', g: 'palette' },
     { id: 'pin', label: g.pinned ? 'Unpin from Today' : 'Pin to Today', g: 'pin' },
     '-',
-    { id: 'del', label: 'Delete Goal', g: 'trash', danger: true },
+    { id: 'del', label: 'Delete goal', g: 'trash', danger: true },
   ]);
-  if (r === 'name') { const n = await askText({ title: 'Rename Goal', value: g.name, ok: 'Save' }); if (n && n.trim()) { g.name = n.trim(); save(); render(); } }
+  if (r === 'name') { const n = await askText({ title: 'Rename goal', value: g.name, ok: 'Save' }); if (n && n.trim()) { g.name = n.trim(); save(); render(); } }
   if (r === 'pin') { g.pinned = !g.pinned; save(); toast(g.pinned ? 'Pinned to Today' : 'Unpinned'); }
   if (r === 'color') {
     openSheet(`${sheetHead('Color', '', '<button data-act="close-sheet">Done</button>')}<div class="sheet-body"><div class="card pad">${swatches('nx-gcol', g.c)}</div></div>`, null, '');
@@ -280,7 +295,7 @@ ACTIONS['nx-gmenu'] = async (el) => {
     openSheet(`${sheetHead('Deadline', '<button data-act="nx-gdue-none">None</button>', '<button class="strong" data-act="nx-gdue-set">Done</button>')}<div class="sheet-body"><div class="card pad"><input type="date" class="nx-date" value="${g.due || isoAdd(todayIso(), 14)}" min="${todayIso()}"></div></div>`, null, '');
   }
   if (r === 'del') {
-    const ok = await ask({ title: `Delete “${g.name}”?`, msg: 'Its steps will be lost.', ok: 'Delete Goal', destructive: true });
+    const ok = await ask({ title: `Delete “${g.name}”?`, msg: 'Its steps will be lost.', ok: 'Delete goal', destructive: true });
     if (!ok) return;
     const i = S.goals.indexOf(g); S.goals.splice(i, 1); save(); pop();
     undoToast('Goal deleted', () => { S.goals.splice(Math.min(i, S.goals.length), 0, g); });
@@ -382,7 +397,7 @@ ACTIONS['nx-voice'] = () => { ACTIONS['new-note'](); setTimeout(() => { const b 
 // ---------- Note emoji (next to the heading) ----------
 const NX_EMOJI = ['📝', '✨', '🌿', '📚', '💡', '🎯', '☕', '🌙', '🌸', '🍎', '✈️', '🎧', '🧠', '📅', '💬', '🤍', '⭐', '🔥', '✅', '🏆', '🗺️', '🎨', '🌍', '🧩', '📖', '🖊️', '📌', '🔖', '🗂️', '🧾', '💼', '🏠', '🛒', '🎓', '🍋', '🍃', '🌷', '🌞', '🌈', '🍀', '🕊️', '🦋', '🐚', '🪴', '🧸', '🎁', '🎬', '🎵', '📷', '🖼️', '🧳', '🏖️', '⛰️', '🚲', '🧘', '💪', '🥗', '🍵', '🍰', '💎', '🔑', '📈', '💰', '⏳', '🔔', '❤️', '🩵', '💛', '💚'];
 ACTIONS['nx-emoji'] = () => {
-  openSheet(`${sheetHead('Note Emoji', '', '<button data-act="close-sheet">Done</button>')}<div class="sheet-body"><div class="nx-emo">${NX_EMOJI.map((x) => `<button data-act="nx-emopick" data-v="${x}">${x}</button>`).join('')}</div><button class="nx-details" data-act="nx-emopick" data-v="">No emoji</button></div>`, null, 'tall');
+  openSheet(`${sheetHead('Note emoji', '', '<button data-act="close-sheet">Done</button>')}<div class="sheet-body"><div class="nx-emo">${NX_EMOJI.map((x) => `<button data-act="nx-emopick" data-v="${x}">${x}</button>`).join('')}</div><button class="nx-details" data-act="nx-emopick" data-v="">No emoji</button></div>`, null, 'tall');
 };
 ACTIONS['nx-emopick'] = (el) => {
   const n = ED && noteOf(ED.id); if (!n) return;
@@ -427,8 +442,8 @@ SCREENS.trash = {
   render() {
     const t = S.trash || [];
     const body = t.length
-      ? `<div class="card">${t.map((n) => `<div class="row nx-tr"><span class="lbl"><b>${esc(noteTitle(n))}</b><small>${esc(n.locked ? 'Locked' : n.preview || 'No more text')}</small><small>${plural(trashLeft(n), 'day')} left</small></span><span class="nx-tact"><button data-act="nx-restore" data-id="${n.id}">Restore</button><button class="red" data-act="nx-purge" data-id="${n.id}">Delete</button></span></div>`).join('')}</div><button class="add-link muted" data-act="nx-purgeall">Delete All</button><p class="foot">Notes are deleted for good after 30 days.</p>`
-      : empty('trash', 'Nothing Here', 'Notes you delete wait here for 30 days, so you can bring them back.');
+      ? `<div class="card">${t.map((n) => `<div class="row nx-tr"><span class="lbl"><b>${esc(noteTitle(n))}</b><small>${esc(n.locked ? 'Locked' : n.preview || 'No more text')}</small><small>${plural(trashLeft(n), 'day')} left</small></span><span class="nx-tact"><button data-act="nx-restore" data-id="${n.id}">Restore</button><button class="red" data-act="nx-purge" data-id="${n.id}">Delete</button></span></div>`).join('')}</div><button class="add-link muted" data-act="nx-purgeall">Delete all</button><p class="foot">Notes are deleted for good after 30 days.</p>`
+      : empty('trash', 'Nothing here', 'Notes you delete wait here for 30 days, so you can bring them back.');
     return page({ title: 'Recently Deleted', back: 'Folders', body });
   },
   fab: null,
@@ -443,16 +458,16 @@ ACTIONS['nx-restore'] = (el) => {
 };
 ACTIONS['nx-purge'] = async (el) => {
   const n = (S.trash || []).find((x) => x.id === el.dataset.id); if (!n) return;
-  if (!(await ask({ title: 'Delete this note for good?', msg: 'It cannot be brought back.', ok: 'Delete Note', destructive: true }))) return;
+  if (!(await ask({ title: 'Delete this note for good?', msg: 'It cannot be brought back.', ok: 'Delete note', destructive: true }))) return;
   S.trash = S.trash.filter((x) => x !== n); save(); render();
 };
 ACTIONS['nx-purgeall'] = async () => {
-  if (!(await ask({ title: 'Delete everything here?', msg: 'These notes cannot be brought back.', ok: 'Delete All', destructive: true }))) return;
+  if (!(await ask({ title: 'Delete everything here?', msg: 'These notes cannot be brought back.', ok: 'Delete all', destructive: true }))) return;
   S.trash = []; save(); render();
 };
 
 // ---------- Settings: one page in sections, like Teacher and Budget ----------
-const NOTES_VERSION = 'Notes 4.0';
+const NOTES_VERSION = 'Notes 4.1';
 SCREENS.settings.render = function () {
   const perm = notifPerm();
   const status = !notifSupported() ? 'Not available' : perm === 'denied' ? 'Blocked' : notifOn() ? (pushReady() ? 'On' : 'On, while open') : 'Off';
@@ -510,3 +525,24 @@ SCREENS.settings.render = function () {
   return page({ title: 'Settings', back, body });
 };
 ACTIONS['nx-sort'] = (el) => { S.settings.noteSort = el.dataset.v; save(); render(); };
+
+ACTIONS['nx-sdel'] = (el) => {
+  const g = goalOf(cur().id); if (!g) return;
+  const i = g.steps.findIndex((x) => x.id === el.dataset.id); if (i < 0) return;
+  const [s] = g.steps.splice(i, 1);
+  save(); buzz(10); repaint(curEl(), cur());
+  undoToast('Step deleted', () => { g.steps.splice(Math.min(i, g.steps.length), 0, s); });
+};
+
+// Old notes began with a big Title line: it moves into the heading field the first time they are opened.
+function nxMoveTitle(me) {
+  const f = me.ed.firstElementChild, hd = $('.nx-head', me.el);
+  if (!f || f.tagName !== 'H1' || !hd || hd.value.trim()) return;
+  const t = f.textContent.replace(/\s+/g, ' ').trim();
+  if (!t) return;
+  hd.value = t;
+  f.remove();
+  if (!me.ed.firstChild) me.ed.innerHTML = '<div><br></div>';
+  me.dirty = true;
+  queueSave();
+}

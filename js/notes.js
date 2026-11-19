@@ -22,7 +22,7 @@ function noteWhen(ms) {
   if (n === -1) return 'Yesterday';
   if (n > -7) return DOW_LONG[new Date(ms).getDay()];
   const x = new Date(ms);
-  return `${pad2(x.getDate())}/${pad2(x.getMonth() + 1)}/${String(x.getFullYear()).slice(2)}`;
+  return `${MON[x.getMonth()]} ${x.getDate()}${x.getFullYear() !== new Date().getFullYear() ? ', ' + x.getFullYear() : ''}`;
 }
 function dateGroup(ms) {
   const n = -daysFromToday(dateOf(ms));
@@ -110,7 +110,7 @@ ACTIONS['qn-voice'] = () => {
 };
 function notesGridHtml(fid, limit = NOTES_PAGE) {
   const list = sortNotes(notesIn(fid));
-  if (!list.length) return empty('note', 'No Notes', fid === 'all' ? 'Tap the pencil button to write one.' : 'Nothing in this folder yet — tap the pencil button to write here.');
+  if (!list.length) return empty('note', 'No notes', fid === 'all' ? 'Tap + to write one.' : 'Nothing in this folder yet. Tap + to write here.');
   return cardsHtml(list, limit, fid) + `<div class="count">${plural(list.length, 'note')} · hold a note to pin, move or delete it</div>`;
 }
 const GREETINGS = [[5, 'Good night'], [12, 'Good morning'], [17, 'Good afternoon'], [22, 'Good evening'], [24, 'Good night']];
@@ -122,7 +122,7 @@ function searchResults(q, fid) {
     return words.every((w) => hay.includes(w));
   };
   const list = sortNotes(notesIn(fid).filter(hit));
-  if (!list.length) return empty('search', 'No Results', `Nothing matches “${esc(q)}”.`);
+  if (!list.length) return empty('search', 'No results', `Nothing matches “${esc(q)}”.`);
   return `<h2 class="sec nsec">${plural(list.length, 'Note')} Found</h2>` + cardsHtml(list, 400, fid, true);
 }
 function folderChips(sel) {
@@ -138,7 +138,7 @@ function backupNudge() {
 const homeResults = (e) => (e.q && e.q.trim() ? searchResults(e.q.trim(), e.folder) : notesGridHtml(e.folder, e.limit));
 SCREENS.folders = {
   render(e) {
-    if (e.folder !== 'all' && !folderOf(e.folder)) e.folder = 'all';
+    if (e.folder !== 'all' && e.folder !== '__locked' && !folderOf(e.folder)) e.folder = 'all';
     return page({
       title: folderName(e.folder), big: folderName(e.folder), back: 'Folders', right: navBtn('notes-menu', 'more', 'Sort and settings'),
       body: `<div class="results">${homeResults(e)}</div>`,
@@ -233,7 +233,7 @@ function pickFolder(el, e, id) {
   }
 }
 ACTIONS['new-folder'] = async () => {
-  const name = await askText({ title: 'New Folder', msg: 'Enter a name for this folder.', placeholder: 'Name', ok: 'Save' });
+  const name = await askText({ title: 'New folder', msg: 'Enter a name for this folder.', placeholder: 'Name', ok: 'Save' });
   if (!name) return;
   if (S.folders.some((f) => f.name.toLowerCase() === name.toLowerCase())) { toast('A folder with that name already exists'); return; }
   const f = { id: uid(), name };
@@ -246,7 +246,7 @@ ACTIONS['new-folder'] = async () => {
 async function renameFolder(id) {
   const f = folderOf(id);
   if (!f) return;
-  const name = await askText({ title: 'Rename Folder', value: f.name, ok: 'Save' });
+  const name = await askText({ title: 'Rename folder', value: f.name, ok: 'Save' });
   if (!name) return;
   f.name = name;
   save();
@@ -256,7 +256,7 @@ async function deleteFolder(id) {
   const f = folderOf(id);
   if (!f || id === 'notes') return false;
   const n = notesIn(id).length;
-  const ok = await ask({ title: `Delete “${f.name}”?`, msg: n ? `Its ${plural(n, 'note')} will move to the Notes folder.` : '', ok: 'Delete Folder', destructive: true });
+  const ok = await ask({ title: `Delete “${f.name}”?`, msg: n ? `Its ${plural(n, 'note')} will move to the Notes folder.` : '', ok: 'Delete folder', destructive: true });
   if (!ok) return false;
   S.notes.forEach((x) => { if (x.folder === id) x.folder = 'notes'; });
   S.folders = S.folders.filter((x) => x.id !== id);
@@ -271,11 +271,11 @@ ACTIONS['notes-menu'] = async (el) => {
   const k = S.settings.noteSort;
   const custom = e.folder !== 'all' && e.folder !== 'notes' && e.folder !== '__locked';
   const items = [
-    { id: 'sort:edited', label: 'Sort by Date Edited', check: k === 'edited' },
-    { id: 'sort:created', label: 'Sort by Date Created', check: k === 'created' },
-    { id: 'sort:title', label: 'Sort by Title', check: k === 'title' },
+    { id: 'sort:edited', label: 'Sort by date edited', check: k === 'edited' },
+    { id: 'sort:created', label: 'Sort by date created', check: k === 'created' },
+    { id: 'sort:title', label: 'Sort by title', check: k === 'title' },
   ];
-  if (custom) items.push('-', { id: 'rename', label: `Rename “${folderName(e.folder)}”`, g: 'pencil' }, { id: 'delete', label: 'Delete Folder', g: 'trash', danger: true });
+  if (custom) items.push('-', { id: 'rename', label: `Rename “${folderName(e.folder)}”`, g: 'pencil' }, { id: 'delete', label: 'Delete folder', g: 'trash', danger: true });
   items.push('-', { id: 'settings', label: 'Settings', g: 'gear' });
   const v = await menu(el, items);
   if (!v) return;
@@ -288,7 +288,7 @@ ACTIONS['notes-menu'] = async (el) => {
 let FC = null;
 function folderColorSheet(id) {
   FC = id;
-  const html = () => `${sheetHead('Folder Colour', '', '<button class="strong" data-act="close-sheet">Done</button>')}
+  const html = () => `${sheetHead('Folder color', '', '<button class="strong" data-act="close-sheet">Done</button>')}
     <div class="sheet-body"><div class="card pad fc-prev"><span class="fchip on-c">${fdot(FC)}${esc(folderName(FC))}</span></div>
     <div class="card pad">${swatches('folder-color', folderColor(FC))}</div></div>`;
   folderColorSheet.html = html;
@@ -309,8 +309,8 @@ const HOLD = {
     if (!n) return;
     const v = await menu(el, [
       { id: 'pin', label: n.pinned ? 'Unpin' : 'Pin', g: n.pinned ? 'unpin' : 'pin' },
-      ...(n.locked ? [] : [{ id: 'notif', label: n.notif ? 'Remove from Lock Screen' : 'Show on Lock Screen', g: 'bell' }]),
-      { id: 'move', label: 'Move to Folder', g: 'folderMove' },
+      ...(n.locked ? [] : [{ id: 'notif', label: n.notif ? 'Remove from lock screen' : 'Show on lock screen', g: 'bell' }]),
+      { id: 'move', label: 'Move to folder', g: 'folderMove' },
       '-',
       { id: 'del', label: 'Delete', g: 'trash', danger: true },
     ]);
@@ -323,7 +323,7 @@ const HOLD = {
     const id = el.dataset.id;
     if (id === 'all') return;
     const items = [{ id: 'color', label: 'Colour', g: 'palette' }];
-    if (id !== 'notes') items.push({ id: 'rename', label: 'Rename Folder', g: 'pencil' }, { id: 'delete', label: 'Delete Folder', g: 'trash', danger: true });
+    if (id !== 'notes') items.push({ id: 'rename', label: 'Rename folder', g: 'pencil' }, { id: 'delete', label: 'Delete folder', g: 'trash', danger: true });
     const v = await menu(el, items);
     if (v === 'color') folderColorSheet(id);
     if (v === 'rename') renameFolder(id);
@@ -403,7 +403,7 @@ ACTIONS['note-del'] = (el) => { deleteNote(el.dataset.id); };
 function moveSheet(id, after) {
   const n = noteOf(id);
   if (!n) return;
-  openSheet(`${sheetHead('Move to Folder', '', '<button data-act="close-sheet">Cancel</button>')}
+  openSheet(`${sheetHead('Move to folder', '', '<button data-act="close-sheet">Cancel</button>')}
     <div class="sheet-body"><div class="card">${S.folders.map((f) => `<button class="row" data-act="note-move-to" data-id="${n.id}" data-v="${f.id}">${glyph('folder', 'row-g')}<span class="lbl">${esc(f.name)}</span>${f.id === n.folder ? glyph('check', 'tick') : ''}</button>`).join('')}</div>
     <button class="add-link" data-act="new-folder-move" data-id="${n.id}">${glyph('folderPlus')}New Folder</button></div>`);
   moveSheet.after = after;
@@ -420,7 +420,7 @@ ACTIONS['note-move-to'] = (el) => {
   toast(`Moved to ${folderName(n.folder)}`);
 };
 ACTIONS['new-folder-move'] = async (el) => {
-  const name = await askText({ title: 'New Folder', msg: 'Enter a name for this folder.', placeholder: 'Name', ok: 'Save' });
+  const name = await askText({ title: 'New folder', msg: 'Enter a name for this folder.', placeholder: 'Name', ok: 'Save' });
   if (!name) return;
   const f = { id: uid(), name };
   S.folders.push(f);
