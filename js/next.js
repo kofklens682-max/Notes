@@ -467,7 +467,7 @@ ACTIONS['nx-purgeall'] = async () => {
 };
 
 // ---------- Settings: one page in sections, like Teacher and Budget ----------
-const NOTES_VERSION = 'Notes 4.1';
+const NOTES_VERSION = 'Notes 4.2';
 SCREENS.settings.render = function () {
   const perm = notifPerm();
   const status = !notifSupported() ? 'Not available' : perm === 'denied' ? 'Blocked' : notifOn() ? (pushReady() ? 'On' : 'On, while open') : 'Off';
@@ -546,3 +546,100 @@ function nxMoveTitle(me) {
   me.dirty = true;
   queueSave();
 }
+
+// ---------- A goal opens as a sheet over the page (21 Nov), not as a page of its own ----------
+let GOALID = null;
+const gsRoot = () => (sheet && sheet.sh) || curEl();
+const nxBehind = () => { if (['goals', 'planner', 'search'].includes(cur().s)) render(); };
+function goalSheetHtml() {
+  const g = goalOf(GOALID); if (!g) return '';
+  return `${sheetHead('', '', '<button class="strong" data-act="close-sheet">Done</button>')}
+  <div class="sheet-body nx-gsheet" style="--tint:${g.c}">
+    <input class="nx-gname" value="${esc(g.name)}" maxlength="120" placeholder="Goal name" autocomplete="off" enterkeyhint="done" autocapitalize="sentences" aria-label="Goal name">
+    ${goalBody(g, goalOrder(g))}
+    <div class="card form">
+      <div class="frow">${tile('calendar', '#FF3B30')}<span class="lbl">Deadline${g.due ? `<small>${esc(dayName(g.due, true))} · ${goalLeft(g)}</small>` : ''}</span>${toggle('gDue', !!g.due, 'Deadline')}</div>
+      ${g.due ? `<div class="frow sub"><input type="date" name="gDate" value="${g.due}" min="${todayIso()}"></div>` : ''}
+      <div class="frow">${tile('pin', '#FF9500')}<span class="lbl">Show on Today</span>${toggle('gPin', !!g.pinned, 'Show on Today')}</div>
+    </div>
+    <div class="card pad">${swatches('nx-gcol', g.c)}</div>
+    <button class="danger-btn" data-act="nx-gdel">Delete goal</button>
+  </div>`;
+}
+function openGoal(id) {
+  GOALID = id;
+  openSheet(goalSheetHtml(), mountGoalSheet, 'tall');
+  if (sheet) sheet.onClose = () => { GOALID = null; nxBehind(); };
+}
+const redrawGoal = () => { if (sheet && GOALID && goalOf(GOALID)) refreshSheet(goalSheetHtml(), mountGoalSheet); };
+function mountGoalSheet(sh) {
+  const g = goalOf(GOALID); if (!g) return;
+  nxFillSoon(sh, goalOrder(g));
+  const nm = $('.nx-gname', sh);
+  nm.addEventListener('keydown', (e) => { if (e.key === 'Enter') nm.blur(); });
+  nm.addEventListener('change', () => { const v = nm.value.trim(); if (v) { g.name = v; save(); } else nm.value = g.name; });
+  $$('.nx-stitle', sh).forEach((i) => {
+    i.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); i.blur(); } });
+    i.addEventListener('change', () => {
+      const s = g.steps.find((x) => x.id === i.dataset.id); if (!s) return;
+      const v = i.value.trim();
+      if (v) { s.title = v; save(); return; }
+      ACTIONS['nx-sdel']({ dataset: { id: s.id } });
+    });
+  });
+  const inp = $('.nx-stepin', sh);
+  if (inp) inp.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const v = inp.value.trim(); if (!v) return;
+    g.steps.push({ id: uid(), title: v, done: false });
+    save(); redrawGoal();
+    setTimeout(() => { const n = sheet && $('.nx-stepin', sheet.sh); if (n) n.focus(); }, 60);
+  });
+  sheetOn(sh, 'change', (e) => {
+    const t = e.target;
+    if (t.name === 'gDue') { g.due = t.checked ? g.due || isoAdd(todayIso(), 14) : null; save(); redrawGoal(); }
+    if (t.name === 'gDate' && t.value) { g.due = t.value; save(); redrawGoal(); }
+    if (t.name === 'gPin') { g.pinned = t.checked; save(); toast(g.pinned ? 'Shown on Today' : 'Not on Today'); }
+  });
+}
+ACTIONS['goal-open'] = (el) => openGoal(el.dataset.id);
+ACTIONS['nx-newgoal'] = async () => {
+  const name = await askText({ title: 'New goal', msg: 'What do you want to reach?', placeholder: 'Prepare for the exam', ok: 'Create' });
+  if (!name || !name.trim()) return;
+  const g = { id: uid(), name: name.trim(), c: GOAL_COLORS[(S.goals || []).length % GOAL_COLORS.length], due: null, pinned: false, created: Date.now(), steps: [] };
+  (S.goals = S.goals || []).push(g);
+  save(); nxBehind();
+  openGoal(g.id);
+  setTimeout(() => { const n = sheet && $('.nx-stepin', sheet.sh); if (n) n.focus(); }, 450);
+};
+ACTIONS['nx-gcol'] = (el) => { const g = goalOf(GOALID); if (!g) return; g.c = el.dataset.v; save(); buzz(6); redrawGoal(); };
+ACTIONS['nx-gdel'] = async () => {
+  const g = goalOf(GOALID); if (!g) return;
+  if (!(await ask({ title: `Delete “${g.name}”?`, msg: 'Its steps will be lost.', ok: 'Delete goal', destructive: true }))) return;
+  const i = S.goals.indexOf(g);
+  closeSheet();
+  S.goals.splice(i, 1); save(); render();
+  undoToast('Goal deleted', () => { S.goals.splice(Math.min(i, S.goals.length), 0, g); });
+};
+ACTIONS['nx-step'] = (el) => {
+  const g = goalOf(el.dataset.g); if (!g) return;
+  const s = g.steps.find((x) => x.id === el.dataset.id); if (!s) return;
+  s.done = !s.done; buzz(s.done ? 12 : 6);
+  const root = gsRoot(), row = el.closest('.task');
+  if (row) row.classList.toggle('is-done', s.done);
+  nxFill(root, goalOrder(g));
+  const st = $('.nx-gst', root), mid = $('.nxr-mid', root);
+  if (st) st.innerHTML = `<b style="color:${g.c}">${goalDone(g)} of ${g.steps.length}</b> steps done${g.due ? ' · ' + goalLeft(g) : ''}`;
+  if (mid) mid.innerHTML = `<b style="color:${g.c}">${goalPct(g)}%</b>`;
+  save();
+  if (goalPct(g) === 100 && s.done) toast('Goal complete 🎉');
+};
+ACTIONS['nx-sdel'] = (el) => {
+  const g = goalOf(GOALID || cur().id); if (!g) return;
+  const i = g.steps.findIndex((x) => x.id === el.dataset.id); if (i < 0) return;
+  const [s] = g.steps.splice(i, 1);
+  save(); buzz(10);
+  if (sheet && GOALID === g.id) redrawGoal(); else repaint(curEl(), cur());
+  undoToast('Step deleted', () => { g.steps.splice(Math.min(i, g.steps.length), 0, s); setTimeout(redrawGoal, 0); });
+};

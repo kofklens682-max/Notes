@@ -149,3 +149,7 @@ mark { background: #FFE38A; border-radius: 3px; color: #000; }
 
 /* ----- the + button really goes away on screens without it (a later rule kept it visible) ----- */
 #fab.hide { transform: scale(.3) !important; opacity: 0 !important; pointer-events: none !important; }
+
+/* ----- Goal sheet ----- */
+.nx-gname { width: 100%; border: 0; outline: 0; background: none; font: inherit; font-size: 26px; font-weight: 700; letter-spacing: -.3px; color: var(--text); padding: 0 4px; margin: 0 0 4px; }
+.nx-gsheet .nxr.sm { width: 180px; height: 180px; margin: 4px auto 0; }

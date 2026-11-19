@@ -1638,8 +1638,8 @@ ACTIONS['dbx-lay'] = (btn) => {
   sizeDrawing($('img', ph));
   const b0 = DBX.el.getBoundingClientRect();
   placeDrawBox();
-  glideTo(ph, r0);
-  glideTo(DBX.el, b0, false); // (the frame glides along with the drawing)
+  drGlideTo(ph, r0);
+  drGlideTo(DBX.el, b0, false); // (the frame glides along with the drawing)
   near.forEach((b) => b.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' }));
   histNow();
   queueSave();
@@ -1654,7 +1654,7 @@ function nearBlocks(ph) {
 }
 // Slide an element from where it was (r0) to where it is now (growing or shrinking from its old
 // size, unless scale is false — then only its place changes, e.g. a frame with a bar on it).
-function glideTo(el, r0, scale = true) {
+function drGlideTo(el, r0, scale = true) {
   if (reduceMotion()) return;
   const r1 = el.getBoundingClientRect();
   if (!r1.width) return;
