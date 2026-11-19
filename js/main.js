@@ -3,7 +3,7 @@
    notification asked for, offline support with quick updates, and closing locked notes after a
    minute in the background. Loaded last. */
 
-const APP_BUILD = '3.6';
+const APP_BUILD = '4.0';
 ACTIONS.tab = (el) => goTab(el.dataset.tab);
 // Press and slide: the tab bar, the segmented controls, the Habits week and a habit's Repeat days.
 bindTabSlide($('#tabs'), (t) => goTab(t));
@@ -16,9 +16,9 @@ bindDaysSlide('.days', (i, on) => { if (HS) HS.days[i] = on ? 1 : 0; }, () => re
 function openLink(p) {
   const want = (k) => p.get(k);
   if (want('new') === 'note') { goTab('notes', true); ACTIONS['new-note'](); return; }
-  if (want('new') === 'task') { goTab('planner', true); taskSheet(null, {}); return; }
+  if (want('new') === 'task') { goTab('today', true); taskSheet(null, {}); return; }
   if (want('open') === 'groceries' || want('add') === 'grocery') {
-    goTab('planner', true);
+    goTab('today', true);
     if (cur().s !== 'groceries') push({ s: 'groceries' });
     setTimeout(() => { const i = $('.g-input', curEl()); if (i) i.focus(); }, 350);
     return;
@@ -31,12 +31,12 @@ function openLink(p) {
   }
   if (want('task')) {
     const t = taskOf(want('task'));
-    goTab('planner', true);
+    goTab('today', true);
     if (t) taskSheet(t);
     return;
   }
   if (want('habit')) {
-    goTab('planner', true);
+    goTab('goals', true);
     if (habitOf(want('habit')) && cur().s !== 'habits') push({ s: 'habits' });
   }
 }
@@ -86,6 +86,7 @@ function countTodos() {
 
 // A copy of the Notes screen (first cards) for the next start: index.html draws it at once while the app loads.
 function saveFirst() {
+  return; // (20 Nov: the saved first screen is gone, the app opens on Today)
   try {
     localStorage.setItem('notes-first', JSON.stringify({ v: 1, theme: document.documentElement.dataset.theme || '', html: SCREENS.folders.render({ s: 'folders', folder: 'all', limit: 12 }), fab: glyph('compose') }));
   } catch (e) { /* not important */ }

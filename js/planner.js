@@ -296,7 +296,7 @@ function taskSheetHtml() {
   const today = todayIso();
   const sat = (() => { let x = today; while (dowMon(x) !== 5) x = isoAdd(x, 1); return x; })();
   const mon = (() => { let x = isoAdd(today, 1); while (dowMon(x) !== 0) x = isoAdd(x, 1); return x; })();
-  const chips = [['Today', today], ['Tomorrow', isoAdd(today, 1)], ['Weekend', sat], ['Next Week', mon]]
+  const chips = [['Today', today], ['Tomorrow', isoAdd(today, 1)], ['Weekend', sat], ['Next week', mon]]
     .map(([l, v]) => `<button class="chip ${d.due === v ? 'on' : ''}" data-act="task-quick" data-v="${v}">${l}</button>`).join('');
   return `${sheetHead(isNew ? 'New Reminder' : 'Details', '<button data-act="close-sheet">Cancel</button>', `<button class="strong" data-act="task-save" ${d.title.trim() ? '' : 'disabled'}>${isNew ? 'Add' : 'Done'}</button>`)}
   <div class="sheet-body" style="--tint:${L.color}">
@@ -309,7 +309,7 @@ function taskSheetHtml() {
       ${d.due ? `<div class="frow">${tile('flag', '#FF9500')}<span class="lbl">Deadline<small>${d.deadline ? 'Counting down on Today' : 'Show a countdown on Today'}</small></span>${toggle('isDeadline', !!d.deadline, 'Deadline')}</div>` : ''}
       ${d.due ? `<div class="frow sub"><input type="date" name="due" value="${d.due}"><div class="chips">${chips}</div></div>` : ''}
       <div class="frow">${tile('clock', '#007AFF')}<span class="lbl">Time${d.time ? `<small>${d.time}</small>` : ''}</span>${toggle('hasTime', !!d.time, 'Time')}</div>
-      ${d.time ? `<div class="frow sub"><input type="time" name="time" value="${d.time}"></div>` : ''}
+      ${d.time ? `<div class="frow sub"><input type="time" name="time" value="${d.time}"><div class="chips">${[['Morning', '09:00'], ['Noon', '12:00'], ['Afternoon', '15:00'], ['Evening', '19:00']].map(([l, v]) => `<button class="chip ${d.time === v ? 'on' : ''}" data-act="task-qtime" data-v="${v}">${l}</button>`).join('')}</div></div>` : ''}
       <label class="frow">${tile('repeat', '#8E8E93')}<span class="lbl">Repeat</span><select name="repeat"><option value="">Never</option>${Object.entries(REPEATS).map(([k, v]) => `<option value="${k}" ${d.repeat === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
     </div>
     ${d.due ? notifHint(d.time ? `You'll be reminded at ${d.time}.` : `You'll be reminded at ${S.settings.allDay} on the day.`) : ''}
@@ -339,7 +339,7 @@ function mountTaskSheet(sh) {
     if (t.name === 'hasDate') { d.due = t.checked ? d.due || todayIso() : null; if (!d.due) { d.time = null; d.repeat = null; d.deadline = false; } redrawTask(); }
     if (t.name === 'isDeadline') { d.deadline = t.checked; redrawTask(); }
     if (t.name === 'hasTime') {
-      if (t.checked) { d.due = d.due || todayIso(); const n = new Date(); d.time = d.time || `${pad2(Math.min(23, n.getHours() + 1))}:00`; } else d.time = null;
+      if (t.checked) { d.due = d.due || todayIso(); d.time = d.time || S.settings.allDay || '09:00'; } else d.time = null;
       redrawTask();
     }
     if (t.name === 'due' && t.value) { d.due = t.value; redrawTask(); }
@@ -352,6 +352,7 @@ function mountTaskSheet(sh) {
 }
 const redrawTask = () => refreshSheet(taskSheetHtml(), mountTaskSheet);
 ACTIONS['task-quick'] = (el) => { TS.d.due = el.dataset.v; redrawTask(); };
+ACTIONS['task-qtime'] = (el) => { TS.d.time = el.dataset.v; redrawTask(); };
 ACTIONS['task-prio'] = (el) => { TS.d.prio = +el.dataset.v; redrawTask(); };
 ACTIONS['sub-add'] = () => {
   const s = { id: uid(), title: '', done: false };

@@ -26,13 +26,13 @@
   --overlay: rgba(0, 0, 0, .3);
   --red: #FF3B30;
   --orange: #FF9500;
-  --yellow: #F0900C;
-  --yellow-t: #D97A00;
+  --yellow: #FFCC00;
+  --yellow-t: #F2B100;
   --green: #34C759;
   --blue: #007AFF;
   --purple: #AF52DE;
   --hl-ink: #17150F;
-  --hn-y: #FFF14A; --hn-g: #8DFAA2; --hn-b: #8FDDFF; --hn-p: #FFA6D4; --hn-v: #E0B6FF;
+  --hn-y: #FFCC00; --hn-g: #34C759; --hn-b: #5AC8FA; --hn-p: #FF6482; --hn-v: #BF5AF2;
   --gray: #8E8E93;
   --tint: var(--blue);
   /* the editor toolbar: height, and one colour tile per tool */
@@ -101,8 +101,7 @@
   --purple: #BF5AF2;
   --hl-ink: #0F0E0A;
 }
-body[data-tab="notes"] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: var(--on-accent); }
-body[data-tab="planner"] { --tint: var(--blue); }
+body[data-tab] { --tint: var(--yellow-t); --ftint: var(--yellow); --fab-ink: #000; }
 
 /* ---------- Base ---------- */
 * { box-sizing: border-box; }
@@ -856,7 +855,7 @@ h1, h2, h3, p { margin: 0; }
   box-shadow: 0 10px 30px rgba(0, 0, 0, .14), 0 1px 3px rgba(0, 0, 0, .06), inset 0 0 0 .5px var(--sep);
 }
 .tab-ind {
-  position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc((100% - 10px) / 2); border-radius: 25px;
+  position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc((100% - 10px) / 4); border-radius: 25px;
   background: color-mix(in srgb, var(--tint) 16%, transparent);
   transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .45s cubic-bezier(.3, 1.25, .45, 1), background .3s;
 }

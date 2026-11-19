@@ -86,18 +86,18 @@ function acctStatusText() {
 function acctSection() {
   if (!Acct.signedIn()) {
     return `<h2 class="sec">Account</h2>
-      <div class="card"><button class="row" data-act="acct-open" data-v="new">${tile('shield', '#34C759')}<span class="lbl">Save Online</span>${glyph('chevR', 'chev')}</button>
-      <button class="row" data-act="acct-open" data-v="signin">${tile('download', '#007AFF')}<span class="lbl">I Have an Account</span>${glyph('chevR', 'chev')}</button></div>
-      <p class="foot">One account for Notes and Budget: everything is saved online by itself, locked with your password. On a new phone, sign in and it all comes back.</p>`;
+      <div class="card"><button class="row" data-act="acct-open" data-v="new">${tile('shield', '#34C759')}<span class="lbl">Save online</span>${glyph('chevR', 'chev')}</button>
+      <button class="row" data-act="acct-open" data-v="signin">${tile('download', '#007AFF')}<span class="lbl">I have an account</span>${glyph('chevR', 'chev')}</button></div>
+      <p class="foot">One account for Teacher, Budget and Notes. Everything is saved online by itself, locked with your password.</p>`;
   }
   return `<h2 class="sec">Account</h2>
     <div class="card">
       <div class="row static">${tile('shield', '#34C759')}<span class="lbl">${esc(Acct.user())}</span><span class="val" id="acct-status">${acctStatusText()}</span></div>
-      <button class="row" data-act="acct-now">${tile('upload', '#007AFF')}<span class="lbl">Save Now</span></button>
-      <button class="row" data-act="acct-open" data-v="password">${tile('lock', '#8E8E93')}<span class="lbl">Change Password</span>${glyph('chevR', 'chev')}</button>
-      <button class="row" data-act="acct-signout">${tile('x', '#FF3B30')}<span class="lbl danger">Sign Out on This Phone</span></button>
+      <button class="row" data-act="acct-now">${tile('upload', '#007AFF')}<span class="lbl">Save now</span></button>
+      <button class="row" data-act="acct-open" data-v="password">${tile('lock', '#8E8E93')}<span class="lbl">Change password</span>${glyph('chevR', 'chev')}</button>
+      <button class="row" data-act="acct-signout">${tile('x', '#FF3B30')}<span class="lbl danger">Sign out on this phone</span></button>
     </div>
-    <p class="foot">Notes and Budget are saved online by themselves a few seconds after every change — with photos and drawings — locked with your password.</p>`;
+    <p class="foot">One account for Teacher, Budget and Notes. Saved online a few seconds after every change.</p>`;
 }
 
 // ---------- The account sheet ----------

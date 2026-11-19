@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Notes & Planner",
   "short_name": "Notes",
-  "description": "Notes, reminders, groceries and habits. Everything stays on this phone.",
+  "description": "Notes, reminders, goals and habits.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -26,12 +26,6 @@
       "short_name": "Reminder",
       "url": "./?new=task",
       "icons": [{ "src": "icons/sc-task.png", "sizes": "96x96", "type": "image/png" }]
-    },
-    {
-      "name": "Add Grocery",
-      "short_name": "Groceries",
-      "url": "./?open=groceries",
-      "icons": [{ "src": "icons/sc-cart.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

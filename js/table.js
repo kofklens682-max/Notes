@@ -34,6 +34,8 @@ const TABLE_TPLS = [
   { id: 'dead', name: 'Deadlines', g: 'flag', c: '#FF6482', heads: ['Module', 'Task', 'Due', 'Done'], ticks: [3], rows: 4 },
   { id: 'ielts', name: 'IELTS Speaking', g: 'star', c: '#64D2FF', heads: ['Student', 'FC', 'LR', 'GRA', 'P', 'Band'], rows: 5, num: 1, zebra: 1, desc: 'Fluency · Vocabulary · Grammar · Pronunciation' },
 ];
+// 20 Nov 2026: only the layouts he keeps, in this order.
+TABLE_TPLS.splice(0, TABLE_TPLS.length, ...['blank', 'vocab', 'eis', 'tchart', 'pros', 'kwl', 'cornell', 'week', 'dead', 'ielts'].map((id) => TABLE_TPLS.find((x) => x.id === id)));
 
 const cellOf = (n) => {
   if (!n || !ED) return null;

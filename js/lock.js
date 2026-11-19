@@ -175,7 +175,7 @@ function fillPhotos(root) {
 }
 // Remove photos no note uses any more (deleted notes, photos removed from a note).
 async function cleanPhotos() {
-  const used = new Set(S.notes.flatMap((n) => n.blobs || []));
+  const used = new Set([...S.notes, ...(S.trash || [])].flatMap((n) => n.blobs || []));
   for (const k of await dbKeys('blobs')) if (!used.has(k)) await dbDel('blobs', k);
 }
 

@@ -32,7 +32,7 @@ function todayHtml() {
       const L = listOf(t.list) || S.lists[0];
       return `<div class="task td-row" style="--c:${L.color}" data-id="${t.id}"><button class="chk" data-act="task-toggle" data-id="${t.id}" aria-label="Complete"></button><button class="t-main" data-act="task-open" data-id="${t.id}"><span class="t-title">${esc(t.title || 'Reminder')}</span></button><span class="td-r">${dueLabel(t)}</span></div>`;
     }).join('');
-    const more = due.length > TODAY_MAX ? `<button class="td-more" data-act="tab" data-tab="planner">${due.length - TODAY_MAX} more in Planner</button>` : '';
+    const more = due.length > TODAY_MAX ? `<button class="td-more" data-act="tab" data-tab="today">${due.length - TODAY_MAX} more in Planner</button>` : '';
     const hab = habits.length ? `<button class="td-line" data-act="td-habits">${glyph('flame', 'td-ic')}<span>${habits.slice(0, 3).map((h) => esc(h.name)).join(' · ')}${habits.length > 3 ? ` +${habits.length - 3}` : ''}</span><span class="td-r">habits</span></button>` : '';
     html += `<div class="td-card"><h3>${glyph('bell', 'inl')}Today</h3><div class="card tasks td-list">${rows}${hab}</div>${more}</div>`;
   }
@@ -54,4 +54,4 @@ const todaySig = () => {
   return S.tasks.filter((t) => !t.done && t.due && (t.due <= today || t.deadline)).map((t) => t.id + t.due + t.time + t.title).join() + '|'
     + S.habits.map((h) => h.id + (habitOn(h, today) && !habitDone(h, today) ? 1 : 0) + h.name).join() + '|' + dueCardCount() + '|' + greeting() + '|' + new Date().getHours();
 };
-ACTIONS['td-habits'] = () => { goTab('planner'); setTimeout(() => { if (UI.tab === 'planner' && cur().s === 'planner') push({ s: 'habits' }); }, 300); };
+ACTIONS['td-habits'] = () => { goTab('goals'); };

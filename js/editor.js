@@ -75,6 +75,7 @@ function infoOf(body) {
   const items = $$('ul.cl > li', body).filter((li) => li.textContent.trim());
   const todo = items.length ? [items.filter((li) => li.classList.contains('done')).length, items.length] : null;
   const open = items.filter((li) => !li.classList.contains('done')).map((li) => li.textContent.replace(/\s+/g, ' ').trim());
+  $$('table.eis tr:first-child, table.eis tr > td:first-child', body).forEach((x) => x.remove()); // (the hidden Eisenhower headings are not the note's words)
   $$('br', body).forEach((b) => b.replaceWith('\n'));
   $$('div, p, h1, h2, h3, li, blockquote, td, th', body).forEach((b) => b.append('\n'));
   const lines = body.textContent.replace(/ /g, ' ').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -108,6 +109,7 @@ SCREENS.note = {
     const n = noteOf(e.id);
     const right = `<span class="undo-btns">${navBtn('ed-undo', 'undo', 'Undo', 'disabled')}${navBtn('ed-redo', 'redo', 'Redo', 'disabled')}</span><button class="ntext done-btn" data-act="ed-done">Done</button>${navBtn('note-menu', 'more', 'More')}`;
     const body = `<div class="ed-date">${n ? `${n.locked ? glyph('lock', 'inl') : ''}${fullDate(n.edited)}` : ''}</div>
+      <div class="nx-hrow"><button class="nx-emob" data-act="nx-emoji" aria-label="Pick an emoji">${n && n.emoji ? esc(n.emoji) : glyph('smile')}</button><input class="nx-head" placeholder="Heading" maxlength="120" value="${n ? esc(n.head || '') : ''}" autocomplete="off" enterkeyhint="next"></div>
       <div class="ed" contenteditable="true" spellcheck="true" autocapitalize="sentences" role="textbox" aria-multiline="true" aria-label="Note"></div>`;
     const after = `
       <div class="voice" hidden><span class="v-dot"></span><span class="v-text">Listening…</span><button class="v-lang" data-act="ed-voice-lang"></button><button class="v-stop" data-act="ed-mic">Stop</button></div>
@@ -138,9 +140,7 @@ SCREENS.note = {
         ${edTool('ed-table', 'table', 'Table', 'Table', 'table')}
         ${edTool('ed-photo', 'camera', 'Photo', 'Add photo', 'photo')}
         ${edTool('ed-draw', 'draw', 'Draw', 'Draw', 'draw')}
-        ${edTool('ed-maths', 'sigma', 'Maths', 'Maths', 'maths')}
         ${edTool('ed-mic', 'mic', 'Voice', 'Voice typing', 'voice')}
-        ${edTool('ed-new', 'compose', 'New', 'New note', 'new')}
       </div>`;
     return page({ title: '', back: editorBackLabel(), right, body, big: false, after });
   },
@@ -157,6 +157,11 @@ SCREENS.note = {
 function mountEditor(el, e) {
   const n = noteOf(e.id);
   const ed = $('.ed', el);
+  const hd = $('.nx-head', el);
+  hd.addEventListener('input', () => { queueSave(); });
+  hd.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); ed.focus(); } });
+  hd.addEventListener('focus', () => el.classList.add('editing'));
+  hd.addEventListener('blur', () => { el.classList.remove('editing'); saveEditor(); });
   ED = { el, ed, id: e.id, range: null, t: 0, dirty: false, wasFocused: false, hist: [], hi: -1, ht: 0 };
   const me = ED;
   // Keep the keyboard open (and the selection) when tapping the toolbars.
@@ -218,9 +223,9 @@ function mountEditor(el, e) {
       return;
     }
     if (ev.inputType === 'insertText' && / $/.test(ev.data || '')) quickList();
-    // An emptied note starts again with a Title.
+    // An emptied note starts again with plain text (20 Nov: the heading has its own field now).
     if (!ed.textContent.trim() && !ed.querySelector('img, hr, li, h1, table')) {
-      ed.innerHTML = '<h1><br></h1>';
+      ed.innerHTML = '<div><br></div>';
       caretAt(ed.firstChild, 0);
       styleLabel();
     }
@@ -247,7 +252,7 @@ function mountEditor(el, e) {
   mqBind(me);
   const load = (html) => {
     if (ED !== me) return;
-    ed.innerHTML = cleanHtml(html) || '<h1><br></h1>';
+    ed.innerHTML = cleanHtml(html) || '<div><br></div>';
     prepareEd();
     histNow();
     if (e.fresh) {
@@ -306,7 +311,10 @@ async function saveEditor() {
   const n = noteOf(me.id);
   if (!n) return;
   const { html, info } = readEditor(me.ed);
-  n.title = info.title;
+  const hdv = (($('.nx-head', me.el) || {}).value || '').trim();
+  n.head = hdv;
+  n.title = (((n.emoji || '') + ' ' + (hdv || info.title)).trim()).slice(0, 120);
+  if (hdv) { info.preview = info.text.split('\n').join(' ').slice(0, 160); info.text = hdv + '\n' + info.text; }
   n.blobs = info.blobs;
   n.edited = Date.now();
   if (n.locked) {
@@ -857,10 +865,7 @@ ACTIONS['note-menu'] = async (el) => {
   const words = !n.locked && ED ? cardPairs(readEditor(ED.ed).html).length : 0;
   const v = await menu(el, [
     { id: 'check', label: 'Check Writing', g: 'sparkles', cls: 'ai' },
-    { id: 'vocab', label: 'Make Vocabulary', g: 'sparkles', cls: 'ai' },
-    { id: 'text', label: 'Photo to Text', g: 'sparkles', cls: 'ai' },
     '-',
-    ...(words ? [{ id: 'cards', label: `Flashcards (${words})`, g: 'cards' }] : []),
     ...(n.locked ? [] : [{ id: 'notif', label: n.notif ? 'Remove from Lock Screen' : 'Show on Lock Screen', g: 'bell' }]),
     { id: 'pin', label: n.pinned ? 'Unpin Note' : 'Pin Note', g: n.pinned ? 'unpin' : 'pin' },
     { id: 'lock', label: n.locked ? 'Remove Lock' : 'Lock Note', g: n.locked ? 'unlock' : 'lock' },
@@ -908,10 +913,8 @@ ACTIONS['ed-photo'] = async (el) => {
   const v = await menu(el, [
     { id: 'take', label: 'Take Photo', g: 'camera' },
     { id: 'pick', label: 'Choose from Gallery', g: 'image' },
-    { id: 'solve', label: 'Solve a Question…', g: 'sparkles' },
   ]);
-  if (v === 'solve' && !navigator.onLine) { toast('Solving a photo needs the internet'); return; }
-  if (v) $(v === 'take' ? '#take-photo' : v === 'pick' ? '#pick-photo' : '#solve-photo').click();
+  if (v) $(v === 'take' ? '#take-photo' : '#pick-photo').click();
 };
 async function shrinkImage(file, max = 1600) {
   let src;

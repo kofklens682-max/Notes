@@ -31,9 +31,6 @@ SCREENS.settings = {
       </div>
       <p class="foot">To lock a note, open it and tap ••• → Lock Note. Locked notes are encrypted with your 4-digit code; if you forget it they can't be recovered. They close again after a minute in the background.</p>
 
-      <h2 class="sec">Appearance</h2>
-      <div class="card pad"><div class="seg">${segButtons('theme', [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']], S.settings.theme)}</div></div>
-
       <h2 class="sec">Voice Typing Language</h2>
       <div class="card pad"><div class="seg">${segButtons('voice-lang', VOICE_LANGS.map(([v, , l]) => [v, esc(l)]), S.settings.voiceLang)}</div></div>
 
@@ -166,7 +163,7 @@ document.addEventListener('change', async (e) => {
 });
 function resetScreens() {
   if (sheet) closeSheetNow();
-  UI.stacks = { notes: [{ s: 'folders', folder: 'all' }], planner: [{ s: 'planner' }] };
+  UI.stacks = { today: [{ s: 'planner' }], notes: [{ s: 'nxfolders' }], goals: [{ s: 'goals' }], search: [{ s: 'search' }] };
   ED = null;
   $('#stage').innerHTML = '';
   show();

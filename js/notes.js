@@ -4,9 +4,9 @@
 
 const folderOf = (id) => S.folders.find((f) => f.id === id);
 const noteOf = (id) => S.notes.find((n) => n.id === id);
-const notesIn = (fid) => S.notes.filter((n) => fid === 'all' || n.folder === fid);
+const notesIn = (fid) => S.notes.filter((n) => fid === 'all' || (fid === '__locked' ? n.locked : n.folder === fid));
 const noteTitle = (n) => n.title || 'New Note';
-const folderName = (fid) => (fid === 'all' ? 'All Notes' : (folderOf(fid) || { name: 'Notes' }).name);
+const folderName = (fid) => (fid === 'all' ? 'All Notes' : fid === '__locked' ? 'Locked' : (folderOf(fid) || { name: 'Notes' }).name);
 
 function sortNotes(list) {
   const k = S.settings.noteSort;
@@ -140,11 +140,11 @@ SCREENS.folders = {
   render(e) {
     if (e.folder !== 'all' && !folderOf(e.folder)) e.folder = 'all';
     return page({
-      title: 'Notes', big: greeting(), sub: longDate(todayIso()), right: navBtn('notes-menu', 'more', 'Sort, folders and settings'),
-      body: `${todayHtml()}${searchField(e.q, 'Search')}${backupNudge()}${quickNoteHtml()}${folderChips(e.folder)}<div class="results">${homeResults(e)}</div>`,
+      title: folderName(e.folder), big: folderName(e.folder), back: 'Folders', right: navBtn('notes-menu', 'more', 'Sort and settings'),
+      body: `<div class="results">${homeResults(e)}</div>`,
     });
   },
-  mount(el, e) { bindSearch(el, e); bindQuickNote(el, e); fillPhotos(el); watchMoreNotes(el, e); },
+  mount(el, e) { fillPhotos(el); watchMoreNotes(el, e); },
   sig: () => S.notes.map((n) => n.id + n.edited + (n.pinned ? 'p' : '') + n.folder + (n.locked ? 'l' : '') + n.blobs.length + (n.notif ? 'b' : '') + (n.todo || '')).join() + '|' + JSON.stringify(S.folders) + '|' + (S.settings.noteSort || '') + '|' + (S.settings.lastBackup || '') + '|' + todaySig(),
   fab: () => ({ g: 'compose', act: 'new-note', label: 'New note' }),
 };
@@ -269,7 +269,7 @@ async function deleteFolder(id) {
 ACTIONS['notes-menu'] = async (el) => {
   const e = cur();
   const k = S.settings.noteSort;
-  const custom = e.folder !== 'all' && e.folder !== 'notes';
+  const custom = e.folder !== 'all' && e.folder !== 'notes' && e.folder !== '__locked';
   const items = [
     { id: 'sort:edited', label: 'Sort by Date Edited', check: k === 'edited' },
     { id: 'sort:created', label: 'Sort by Date Created', check: k === 'created' },
@@ -387,14 +387,19 @@ ACTIONS['note-pin'] = (el) => {
   save();
   render();
 };
-function deleteNote(id) {
+// A deleted note goes to Recently Deleted (30 days), with its text, so it can come back.
+async function deleteNote(id) {
+  if (!bodiesLoaded) { wakeBodies(); await bodiesReady; }
   const i = S.notes.findIndex((x) => x.id === id);
   if (i < 0) return;
   const [n] = S.notes.splice(i, 1);
+  const t = { ...n, deletedAt: Date.now() };
+  (S.trash = S.trash || []).unshift(t);
   save();
-  undoToast('Note deleted', () => { S.notes.splice(Math.min(i, S.notes.length), 0, n); });
+  render();
+  undoToast('Note deleted', () => { S.trash = S.trash.filter((x) => x !== t); S.notes.splice(Math.min(i, S.notes.length), 0, n); save(n); });
 }
-ACTIONS['note-del'] = (el) => { deleteNote(el.dataset.id); render(); };
+ACTIONS['note-del'] = (el) => { deleteNote(el.dataset.id); };
 function moveSheet(id, after) {
   const n = noteOf(id);
   if (!n) return;

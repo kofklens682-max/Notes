@@ -331,8 +331,10 @@ function openDrawing(data, onDone) {
         <div class="dr-pop-inks">${INKS.map(([c, n], i) => `<button class="ink${i ? '' : ' on'}" data-dr="ink" data-v="${c}" style="--c:${c}" aria-label="${n}"></button>`).join('')}</div>
         <div class="dr-pop-sizes">${SIZES.map((s, i) => `<button class="dr-sz${i === 1 ? ' on' : ''}" data-dr="size" data-v="${i}" aria-label="${['Thin', 'Medium', 'Thick'][i]} pen"><i style="--s:${[5, 9, 15][i]}px"></i></button>`).join('')}</div>
       </div>
+      <div class="dr-ersz" hidden><span>Eraser size</span><input class="dr-er" type="range" min="8" max="70" value="22" aria-label="Eraser size"><i class="dr-erdot"></i></div>
     </footer>`;
   document.body.appendChild(wrap);
+  $('.dr-er', wrap).addEventListener('input', (ev) => { if (DR) { DR.er = +ev.target.value; toolUi(); } });
   const stage = $('.dr-stage', wrap), paper = $('.dr-paper', wrap);
   // The page fills the space between the bars; a drawing opened again keeps its own shape.
   const sw = stage.clientWidth - 24, sh = stage.clientHeight - 24;
@@ -342,7 +344,7 @@ function openDrawing(data, onDone) {
     wrap, paper, base, live, w, h, k: 1, scale: 1, onDone,
     bx: base.getContext('2d'), lx: live.getContext('2d'), // (not 'desynchronized': on Android that paints the paper black)
     items: data ? data.items.map((it) => ({ ...it })) : [], hist: [], hi: -1,
-    ink: INKS[0][0], size: 1, tool: 'pen', magic: false, stroke: null, busy: new Set(), timers: {}, glows: [], sel: null,
+    ink: INKS[0][0], size: 1, er: 22, tool: 'pen', magic: false, stroke: null, busy: new Set(), timers: {}, glows: [], sel: null,
   };
   layoutPaper();
   requestAnimationFrame(() => wrap.classList.add('show'));
@@ -535,6 +537,12 @@ function toolUi() {
   const c = $('.dr-color', w);
   c.style.setProperty('--c', DR.ink);
   c.style.setProperty('--s', `${[7, 11, 16][DR.size]}px`);
+  const ers = $('.dr-ersz', w);
+  if (ers) {
+    ers.hidden = DR.tool !== 'eraser' || DR.magic;
+    $('.dr-er', ers).value = DR.er || 22;
+    $('.dr-erdot', ers).style.setProperty('--s', Math.round(Math.min(34, 6 + (DR.er || 22) * 0.4)) + 'px');
+  }
 }
 // The colour & size bubble above the colour button.
 function penPop(open) {
@@ -607,7 +615,7 @@ function holdTimer() {
   }, HOLD_MS);
 }
 function eraseAt(q) {
-  const r = 14 + SIZES[DR.size];
+  const r = DR.er || 22; // the eraser's own size (slider shown while the eraser is on)
   const hit = (it) => {
     if (it.t === 's') { const P = pairs(it.p); if (P.length === 1) return Math.hypot(P[0][0] - q[0], P[0][1] - q[1]) < r + it.w; for (let i = 1; i < P.length; i++) if (segDist(q, P[i - 1], P[i]) < r + it.w / 2) return true; return false; }
     return q[0] >= it.x - r && q[0] <= it.x + it.w + r && q[1] >= it.y - r && q[1] <= it.y + it.h + r;

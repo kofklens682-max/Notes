@@ -19,7 +19,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + 's'}`;
-const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = () => false; // (never switch animations off: Battery Saver made every page open without a slide)
 const buzz = (ms = 10) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* no haptics */ } };
 const glyph = (g, cls = '') => `<svg class="gl ${cls}" viewBox="0 0 24 24" aria-hidden="true">${G[g] || ''}</svg>`;
 const tile = (g, c, cls = '') => `<span class="tile ${cls}" style="--c:${c}">${glyph(g)}</span>`;
@@ -58,6 +58,8 @@ function blank() {
     tasks: [],
     grocery: { items: [], known: {} },
     habits: [],
+    goals: [], // goals with steps (see next.js)
+    trash: [], // Recently Deleted notes, kept 30 days (see next.js)
     cards: {}, // flashcards practised, per note (see cards.js)
     settings: defaultSettings(),
   };
@@ -75,7 +77,7 @@ function normalize(d) {
   const okId = (x) => x && typeof x === 'object' && typeof x.id === 'string' && ID_RE.test(x.id);
   const g = d.grocery && typeof d.grocery === 'object' ? d.grocery : {};
   const set = { ...b.settings, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}) };
-  if (!['auto', 'light', 'dark'].includes(set.theme)) set.theme = 'auto';
+  set.theme = 'light'; // light only (20 Nov 2026)
   if (!TIME_RE.test(set.allDay)) set.allDay = '09:00';
   if (!['en-US', 'ru-RU', 'uz-UZ'].includes(set.voiceLang)) set.voiceLang = 'en-US';
   if (!['edited', 'created', 'title'].includes(set.noteSort)) set.noteSort = 'edited';
@@ -93,6 +95,16 @@ function normalize(d) {
       known: {},
     },
     habits: arr(d.habits).filter(okId),
+    goals: arr(d.goals).filter(okId).map((g) => ({
+      id: g.id, name: str(g.name, 120) || 'Goal', c: HEX_RE.test(g.c) ? g.c : '#FF2D55',
+      due: DATE_RE.test(g.due) ? g.due : null, pinned: !!g.pinned, created: +g.created || Date.now(),
+      steps: arr(g.steps).filter(okId).slice(0, 200).map((s) => ({ id: s.id, title: str(s.title, 200) || 'Step', done: !!s.done })),
+    })),
+    trash: arr(d.trash).filter(okId).filter((n) => Date.now() - (+n.deletedAt || 0) < 30 * 864e5).slice(0, 300).map((n) => ({
+      id: n.id, folder: str(n.folder, 40) || 'notes', html: str(n.html, 5e6), title: str(n.title, 200), preview: str(n.preview, 300), text: str(n.text, 5e6),
+      head: str(n.head, 120), emoji: str(n.emoji, 12), blobs: arr(n.blobs).filter((x) => typeof x === 'string' && ID_RE.test(x)), pinned: !!n.pinned, locked: !!n.locked,
+      enc: cleanEnc(n.locked && n.enc), edited: +n.edited || Date.now(), created: +n.created || Date.now(), deletedAt: +n.deletedAt || Date.now(),
+    })),
     settings: set,
   };
   if (g.known && typeof g.known === 'object') {
@@ -104,6 +116,7 @@ function normalize(d) {
     id: n.id,
     folder: out.folders.some((f) => f.id === n.folder) ? n.folder : 'notes',
     html: str(n.html, 5e6), title: str(n.title, 200), preview: str(n.preview, 300), text: str(n.text, 5e6),
+    head: str(n.head, 120), emoji: str(n.emoji, 12),
     blobs: arr(n.blobs).filter((x) => typeof x === 'string' && ID_RE.test(x)),
     pinned: !!n.pinned,
     locked: !!n.locked,
@@ -227,7 +240,7 @@ async function cleanBodies() {
 // SCREENS[name] = { render(e) → html, mount(el, e), hide(e, el), leave(e), fab(e), tint(e), bar, plain, keep }
 const SCREENS = {};
 const ACTIONS = {}; // data-act → (el, event)
-const UI = { tab: 'notes', stacks: { notes: [{ s: 'folders', folder: 'all' }], planner: [{ s: 'planner' }] } };
+const UI = { tab: 'today', stacks: { today: [{ s: 'planner' }], notes: [{ s: 'nxfolders' }], goals: [{ s: 'goals' }], search: [{ s: 'search' }] } };
 const cur = () => { const st = UI.stacks[UI.tab]; return st[st.length - 1]; };
 const curEl = () => $('#stage > .screen.cur');
 
@@ -411,7 +424,7 @@ function keptTop(t) {
 // On a tab's first screen, slide a finger sideways anywhere: the screen follows it and the other
 // tab comes in from the side (Notes ← → Planner); the tab bar's highlight moves along. Let go past
 // about a third, or flick, to switch. Rows with their own sideways swipe (reminders, chips…) keep it.
-const TAB_ORDER = ['notes', 'planner'];
+const TAB_ORDER = ['today', 'notes', 'goals', 'search'];
 const NO_TAB_SWIPE = 'input, textarea, select, [contenteditable="true"], .fchips, .seg, .week, .days, .hcs, .dl-strip, .no-swipe, table, .nav';
 function bindTabSwipe() {
   const stage = $('#stage'), tabs = $('#tabs');
@@ -438,10 +451,10 @@ function bindTabSwipe() {
       st.on = true;
       const i = TAB_ORDER.indexOf(UI.tab);
       st.i = i;
-      st.dir = i === 0 ? 1 : -1; // which way the other tab lies (1 = to the right)
+      st.dir = dx < 0 ? 1 : -1; // which way the other tab lies (1 = to the right)
       st.to = TAB_ORDER[i + st.dir];
       st.W = stage.offsetWidth;
-      st.other = keptTop(st.to);
+      st.other = st.to ? keptTop(st.to) : null;
       if (st.other) { st.other.classList.remove('held'); st.other.classList.add('peek'); }
       st.el.classList.add('tab-drag');
       tabs.classList.add('dragging');
@@ -540,8 +553,9 @@ function goTab(t, keepStack) {
   }
   rememberScroll();
   hideCur();
+  const prevTab = UI.tab;
   UI.tab = t;
-  show(t === 'planner' ? 'tabr' : 'tabl'); // slides in from the side of its tab
+  show(TAB_ORDER.indexOf(t) > TAB_ORDER.indexOf(prevTab) ? 'tabr' : 'tabl'); // slides in from the side of its tab
   syncHistory();
 }
 
@@ -756,7 +770,7 @@ function chrome() {
     b.classList.toggle('on', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
-  $('#tabs').style.setProperty('--i', UI.tab === 'notes' ? 0 : 1);
+  $('#tabs').style.setProperty('--i', TAB_ORDER.indexOf(UI.tab));
   const tint = sc.tint ? sc.tint(e) : null, tb = $('#tabbar');
   if (tint) { tb.style.setProperty('--ftint', tint); tb.style.setProperty('--fab-ink', '#fff'); } else { tb.style.removeProperty('--ftint'); tb.style.removeProperty('--fab-ink'); }
   const f = bar && sc.fab ? sc.fab(e) : null;
