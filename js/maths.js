@@ -516,7 +516,8 @@ function mqPanel(open) {
   const p = $('.mqp', ED.el);
   if (!p) return;
   p.hidden = !open;
-  $('[data-act="ed-maths"]', ED.el).classList.toggle('on', open);
+  const mb = $('[data-act="ed-maths"]', ED.el); // (20 Nov: the Maths button is gone from the toolbar; this threw and stopped the Aa panel's setup)
+  if (mb) mb.classList.toggle('on', open);
   if (open) {
     const f = $('.fmt', ED.el);
     if (f && !f.hidden) { f.hidden = true; $('[data-act="ed-fmt"]', ED.el).classList.remove('on'); }

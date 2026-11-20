@@ -86,7 +86,7 @@ function normalize(d) {
   if (set.lock && !(typeof set.lock.salt === 'string' && set.lock.check && typeof set.lock.check.iv === 'string')) set.lock = null;
   const out = {
     v: APP_V, rev: +d.rev || 0,
-    folders: arr(d.folders).filter(okId).map((f) => ({ id: f.id, name: str(f.name, 80) || 'Folder', ...(HEX_RE.test(f.color) ? { color: f.color } : {}) })),
+    folders: arr(d.folders).filter(okId).map((f) => ({ id: f.id, name: str(f.name, 80) || 'Folder', ...(HEX_RE.test(f.color) ? { color: f.color } : {}), ...(ID_RE.test(f.parent || '') ? { parent: f.parent } : {}) })),
     notes: arr(d.notes).filter(okId),
     lists: arr(d.lists).filter(okId).map((l) => ({ id: l.id, name: str(l.name, 80) || 'List', color: HEX_RE.test(l.color) ? l.color : '#007AFF', g: G[l.g] ? l.g : 'list' })),
     tasks: arr(d.tasks).filter(okId),
@@ -111,6 +111,10 @@ function normalize(d) {
     for (const [k, v] of Object.entries(g.known)) if (v && typeof v === 'object') out.grocery.known[str(k, 80)] = { name: str(v.name, 80) || k, sec: str(v.sec, 20), n: +v.n || 1, last: +v.last || 0 };
   }
   if (!out.folders.some((f) => f.id === 'notes')) out.folders.unshift(b.folders[0]);
+  // 20 Nov: folders inside folders. A missing parent, the Notes folder, or a loop puts the folder back at the top.
+  { const ids = new Map(out.folders.map((f) => [f.id, f]));
+    out.folders.forEach((f) => { if (f.parent && (f.id === 'notes' || f.parent === f.id || !ids.has(f.parent))) delete f.parent; });
+    out.folders.forEach((f) => { const seen = new Set([f.id]); let p = f.parent; while (p) { if (seen.has(p) || seen.size > 6) { delete f.parent; break; } seen.add(p); p = (ids.get(p) || {}).parent; } }); }
   if (!out.lists.length) out.lists = [b.lists[0]];
   out.notes = out.notes.map((n) => ({
     id: n.id,

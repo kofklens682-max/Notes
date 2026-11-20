@@ -13,13 +13,14 @@ const goalDays = (g) => (g.due ? daysFromToday(g.due) : null);
 const goalLeft = (g) => { const n = goalDays(g); return n == null ? '' : n < 0 ? 'overdue' : n === 0 ? 'due today' : n === 1 ? '1 day left' : n + ' days left'; };
 
 // Apple-Watch style rings: one solid ring per goal (the first goal is the outer ring), on a plain gray track.
-function nxRingsSvg(goals) {
+// (20 Nov: the rings keep the order of the goals list everywhere; an open goal makes the other rings pale, it never moves)
+function nxRingsSvg(goals, focus) {
   return goals.slice(0, 5).map((g, i) => {
     const r = 88 - i * 22, C = 2 * Math.PI * r;
-    return `<circle cx="110" cy="110" r="${r}" class="nxr-bg"/><circle class="nxr-fg" data-g="${g.id}" cx="110" cy="110" r="${r}" stroke="${g.c}" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>`;
+    return `<circle cx="110" cy="110" r="${r}" class="nxr-bg"/><circle class="nxr-fg${focus && focus !== g.id ? ' dim' : ''}" data-g="${g.id}" cx="110" cy="110" r="${r}" stroke="${g.c}" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>`;
   }).join('');
 }
-const nxRings = (goals, cls, mid) => `<div class="nxr ${cls || ''}"><svg viewBox="0 0 220 220" aria-hidden="true">${nxRingsSvg(goals)}</svg><div class="nxr-mid">${mid || ''}</div></div>`;
+const nxRings = (goals, cls, mid, focus) => `<div class="nxr ${cls || ''}"><svg viewBox="0 0 220 220" aria-hidden="true">${nxRingsSvg(goals, focus)}</svg><div class="nxr-mid">${mid || ''}</div></div>`;
 // Fill the rings (after the screen is on the page, so they grow smoothly).
 function nxFill(root, goals) {
   goals.slice(0, 5).forEach((g, i) => {
@@ -223,7 +224,7 @@ ACTIONS['goal-open'] = (el) => {
   push({ s: 'goal', id: el.dataset.id });
 };
 function goalBody(g, order) {
-  return `<div class="nx-gdetail">${nxRings(order, 'sm', `<b style="color:${g.c}">${goalPct(g)}%</b>`)}<div class="nx-gst"><b style="color:${g.c}">${goalDone(g)} of ${g.steps.length}</b> steps done${g.due ? ' · ' + goalLeft(g) : ''}</div></div>
+  return `<div class="nx-gdetail">${nxRings(order, 'sm', `<b style="color:${g.c}">${goalPct(g)}%</b>`, g.id)}<div class="nx-gst"><b style="color:${g.c}">${goalDone(g)} of ${g.steps.length}</b> steps done${g.due ? ' · ' + goalLeft(g) : ''}</div></div>
     ${g.steps.length ? `<div class="card tasks nx-steps">${g.steps.map((s) => stepRow(g, s)).join('')}</div>` : ''}
     ${g.steps.length ? '<p class="foot nx-shint">Tap a step to change it · swipe left to delete it</p>' : ''}
     <div class="card tasks"><div class="task add-row" style="--c:${g.c}"><span class="chk plus">${glyph('plus')}</span><input class="add-input nx-stepin" placeholder="Add a step" enterkeyhint="done" autocapitalize="sentences" autocomplete="off"></div></div>`;
@@ -233,7 +234,7 @@ function stepRow(g, s) {
   const inner = `<div class="task${s.done ? ' is-done' : ''}" style="--c:${g.c}" data-sid="${s.id}"><button class="chk" data-act="nx-step" data-g="${g.id}" data-id="${s.id}" aria-label="${s.done ? 'Mark as not done' : 'Complete'}"></button><input class="add-input nx-stitle" data-id="${s.id}" value="${esc(s.title)}" maxlength="200" enterkeyhint="done" autocapitalize="sentences" autocomplete="off" aria-label="Step"></div>`;
   return swipeRow(inner, { right: swBtn('nx-sdel', s.id, 'Delete', 'trash', 'var(--red)') });
 }
-const goalOrder = (g) => [g, ...(S.goals || []).filter((x) => x !== g)];
+const goalOrder = (g) => { const l = S.goals || [], i = l.indexOf(g); return i < 5 ? l : [...l.slice(0, 4), g]; };
 SCREENS.goal = {
   tint: (e) => (goalOf(e.id) || {}).c,
   render(e) {
@@ -467,7 +468,7 @@ ACTIONS['nx-purgeall'] = async () => {
 };
 
 // ---------- Settings: one page in sections, like Teacher and Budget ----------
-const NOTES_VERSION = 'Notes 4.2';
+const NOTES_VERSION = 'Notes 4.3';
 SCREENS.settings.render = function () {
   const perm = notifPerm();
   const status = !notifSupported() ? 'Not available' : perm === 'denied' ? 'Blocked' : notifOn() ? (pushReady() ? 'On' : 'On, while open') : 'Off';

@@ -153,3 +153,71 @@ mark { background: #FFE38A; border-radius: 3px; color: #000; }
 /* ----- Goal sheet ----- */
 .nx-gname { width: 100%; border: 0; outline: 0; background: none; font: inherit; font-size: 26px; font-weight: 700; letter-spacing: -.3px; color: var(--text); padding: 0 4px; margin: 0 0 4px; }
 .nx-gsheet .nxr.sm { width: 180px; height: 180px; margin: 4px auto 0; }
+
+/* 20 Nov: an open goal keeps the rings in list order; the other goals are pale */
+.nxr .nxr-fg.dim { opacity: .28; }
+
+/* ===== 20 Nov (Notes 4.3, js/n20.js) ===== */
+/* typewriter writing: room under the last line, so it can come up to the middle of the screen */
+html body .screen .ed { padding-bottom: 46vh; }
+/* the old color bar is replaced by the iPhone-style bar */
+html body .hlq { display: none !important; }
+/* the bar for selected words: white, rounded, two rows, above the toolbar (it never moves while you select) */
+.n20-sel {
+  position: absolute; z-index: 8; left: 50%; bottom: calc(var(--edbar) + 10px + env(safe-area-inset-bottom));
+  width: min(352px, calc(100% - 16px)); transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
+  background: rgba(255, 255, 255, .98); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .2), 0 0 0 .5px rgba(0, 0, 0, .12);
+  transition: opacity .16s ease, transform .2s cubic-bezier(.2, .9, .3, 1); will-change: transform, opacity;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.n20-sel.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.n20-r1 { display: flex; border-bottom: .5px solid rgba(60, 60, 67, .22); }
+.n20-r1 button { flex: 1; height: 42px; font-size: 15px; font-weight: 500; color: #000; letter-spacing: -.01em; white-space: nowrap; }
+.n20-r1 button + button { box-shadow: inset .5px 0 0 rgba(60, 60, 67, .22); }
+.n20-r1 button:active, .n20-r2 button:active { background: rgba(0, 0, 0, .08); }
+.n20-r2 { display: flex; align-items: center; padding: 3px 4px; }
+.n20-r2 > button { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; color: #000; flex: none; transition: background-color .15s, color .15s; }
+.n20-r2 > button.on { background: var(--yellow); color: #000; }
+.n20-sep { width: .5px; align-self: stretch; margin: 6px 4px; background: rgba(60, 60, 67, .25); flex: none; }
+.n20-hl { display: flex; align-items: center; flex: 1; justify-content: space-between; min-width: 0; }
+.n20-hl button { width: 30px; height: 38px; display: grid; place-items: center; flex: none; }
+.n20-hl i:not(.hl-none) { min-width: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; }
+.n20-hl i.hl-none { width: 20px; height: 20px; }
+.n20-hl button.on i { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #000; }
+/* spelling: a red wavy line under a wrong word, and the fixes above it */
+::highlight(n20-spell) { text-decoration: underline wavy #FF3B30; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.n20-sp {
+  position: absolute; z-index: 9; display: flex; max-width: calc(100% - 16px); overflow: hidden;
+  background: rgba(255, 255, 255, .98); border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2), 0 0 0 .5px rgba(0, 0, 0, .12);
+  opacity: 0; transform: translateY(4px) scale(.97); transition: opacity .14s, transform .18s cubic-bezier(.2, .9, .3, 1);
+}
+.n20-sp.on { opacity: 1; transform: none; }
+.n20-sp button { height: 40px; padding: 0 14px; font-size: 15px; font-weight: 600; color: #000; white-space: nowrap; }
+.n20-sp button + button { box-shadow: inset .5px 0 0 rgba(60, 60, 67, .22); }
+.n20-sp button.ig { font-weight: 400; color: var(--text-2); }
+.n20-sp button:active { background: rgba(0, 0, 0, .08); }
+/* folders inside folders */
+.n20-ind { flex: none; display: block; height: 1px; }
+.n20-sub { margin-bottom: 6px; }
+.n20-sub .card { margin-bottom: 4px; }
+.n20-newsub { display: flex; align-items: center; gap: 6px; }
+/* hold a note and drag it onto a folder */
+.ncard.n20-lift { transform: scale(1.02); box-shadow: 0 10px 28px rgba(0, 0, 0, .16); transition: transform .18s cubic-bezier(.2, .9, .3, 1.3), box-shadow .18s; position: relative; z-index: 2; }
+.ncard.n20-away { opacity: .35; }
+.n20-ghost { position: fixed; z-index: 60; margin: 0; pointer-events: none; box-shadow: 0 16px 40px rgba(0, 0, 0, .25); transition: opacity .2s; will-change: transform; }
+.n20-ghost.gone { opacity: 0; }
+.n20-dock {
+  position: fixed; z-index: 59; left: 8px; right: 8px; bottom: calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, .98); border-radius: 22px; padding: 10px 0 12px;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, .18), 0 0 0 .5px rgba(0, 0, 0, .1);
+  transform: translateY(120%); transition: transform .28s cubic-bezier(.2, .9, .3, 1); will-change: transform;
+}
+.n20-dock.on { transform: none; }
+.n20-dock-t { font-size: 13px; font-weight: 600; color: var(--text-2); text-align: center; margin-bottom: 8px; }
+.n20-dock-l { display: flex; gap: 8px; overflow-x: auto; padding: 0 12px; scrollbar-width: none; }
+.n20-dock-l::-webkit-scrollbar { display: none; }
+.n20-dt { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 84px; padding: 10px 4px; border-radius: 16px; background: var(--fill); transition: background-color .15s, transform .15s; }
+.n20-dt span:last-child { font-size: 12.5px; font-weight: 600; text-align: center; line-height: 1.2; color: var(--text); overflow-wrap: anywhere; }
+.n20-dt.hot { background: var(--yellow); transform: scale(1.06); }
+.n20-dock-e { padding: 8px 12px; color: var(--text-2); font-size: 14px; }
