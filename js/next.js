@@ -468,7 +468,7 @@ ACTIONS['nx-purgeall'] = async () => {
 };
 
 // ---------- Settings: one page in sections, like Teacher and Budget ----------
-const NOTES_VERSION = 'Notes 4.3';
+const NOTES_VERSION = 'Notes 4.4';
 SCREENS.settings.render = function () {
   const perm = notifPerm();
   const status = !notifSupported() ? 'Not available' : perm === 'denied' ? 'Blocked' : notifOn() ? (pushReady() ? 'On' : 'On, while open') : 'Off';

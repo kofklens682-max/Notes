@@ -221,3 +221,19 @@ html body .hlq { display: none !important; }
 .n20-dt span:last-child { font-size: 12.5px; font-weight: 600; text-align: center; line-height: 1.2; color: var(--text); overflow-wrap: anywhere; }
 .n20-dt.hot { background: var(--yellow); transform: scale(1.06); }
 .n20-dock-e { padding: 8px 12px; color: var(--text-2); font-size: 14px; }
+
+/* 21 Nov 2026 (user): the Goals card grew taller with every long goal name. Now the card is always the ring's height;
+   each goal is one tidy row (dot, name up to 2 lines, percent on the right). More goals than fit scroll inside the card. */
+.nx-gsplit { height: 174px; box-sizing: border-box; overflow: hidden; }
+.nx-gsplit .nx-gr { height: 142px; overflow-y: auto; justify-content: flex-start; gap: 9px; scrollbar-width: none; overscroll-behavior: contain; }
+.nx-gsplit .nx-gr::-webkit-scrollbar { display: none; }
+.nx-gsplit .nx-gr > :first-child { margin-top: auto; }
+.nx-gsplit .nx-gr > :last-child { margin-bottom: auto; }
+.nx-gsplit .nx-gi { align-items: center; flex: none; }
+.nx-gsplit .nx-gi .dot { margin-top: 0; }
+.nx-gsplit .nx-gi .gt2 { flex-direction: row; align-items: center; gap: 8px; flex: 1; }
+.nx-gsplit .nx-gi .gn { order: 0; flex: 1; min-width: 0; margin: 0; font-size: 13.5px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.nx-gsplit .nx-gi .gp { order: 1; flex: none; font-size: 15px; font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
+/* dark mode: goal names were dark gray on black (hard-coded #3C3C43) and the ring tracks stayed light gray */
+.nx-gsplit .nx-gi .gn { color: var(--text); opacity: .85; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nxr .nxr-bg { stroke: #2C2C2E; } }
