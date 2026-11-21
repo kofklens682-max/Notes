@@ -14,19 +14,24 @@ const goalLeft = (g) => { const n = goalDays(g); return n == null ? '' : n < 0 ?
 
 // Apple-Watch style rings: one solid ring per goal (the first goal is the outer ring), on a plain gray track.
 // (20 Nov: the rings keep the order of the goals list everywhere; an open goal makes the other rings pale, it never moves)
+// 21 Nov: up to 6 rings. 1-3 goals = thick rings (as before); 4-6 = thinner rings packed closer, like the Watch.
+const NXR_MAX = 6;
+const nxRingGeo = (i, n) => (n <= 3 ? { r: 88 - i * 22, w: 19 } : { r: 92 - i * 15, w: 12.5 });
 function nxRingsSvg(goals, focus) {
-  return goals.slice(0, 5).map((g, i) => {
-    const r = 88 - i * 22, C = 2 * Math.PI * r;
-    return `<circle cx="110" cy="110" r="${r}" class="nxr-bg"/><circle class="nxr-fg${focus && focus !== g.id ? ' dim' : ''}" data-g="${g.id}" cx="110" cy="110" r="${r}" stroke="${g.c}" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>`;
+  const n = Math.min(goals.length, NXR_MAX);
+  return goals.slice(0, NXR_MAX).map((g, i) => {
+    const { r, w } = nxRingGeo(i, n), C = 2 * Math.PI * r, sw = n > 3 ? ` style="stroke-width:${w}px"` : '';
+    return `<circle cx="110" cy="110" r="${r}" class="nxr-bg"${sw}/><circle class="nxr-fg${focus && focus !== g.id ? ' dim' : ''}" data-g="${g.id}" cx="110" cy="110" r="${r}" stroke="${g.c}" stroke-dasharray="${C}" stroke-dashoffset="${C}"${sw}/>`;
   }).join('');
 }
-const nxRings = (goals, cls, mid, focus) => `<div class="nxr ${cls || ''}"><svg viewBox="0 0 220 220" aria-hidden="true">${nxRingsSvg(goals, focus)}</svg><div class="nxr-mid">${mid || ''}</div></div>`;
+const nxRings = (goals, cls, mid, focus) => `<div class="nxr ${cls || ''}${Math.min(goals.length, NXR_MAX) > 3 ? ' many' : ''}"><svg viewBox="0 0 220 220" aria-hidden="true">${nxRingsSvg(goals, focus)}</svg><div class="nxr-mid">${mid || ''}</div></div>`;
 // Fill the rings (after the screen is on the page, so they grow smoothly).
 function nxFill(root, goals) {
-  goals.slice(0, 5).forEach((g, i) => {
+  const n = Math.min(goals.length, NXR_MAX);
+  goals.slice(0, NXR_MAX).forEach((g, i) => {
     const c = root.querySelector(`.nxr-fg[data-g="${g.id}"]`);
     if (!c) return;
-    const r = 88 - i * 22, C = 2 * Math.PI * r;
+    const { r } = nxRingGeo(i, n), C = 2 * Math.PI * r;
     c.style.strokeDashoffset = C * (1 - Math.max(goalPct(g), 1.5) / 100);
   });
 }
@@ -191,15 +196,28 @@ ACTIONS['nx-roll'] = () => {
 };
 
 // ---------- Goals ----------
+// 21 Nov (Apple Watch summary look): 1-3 goals = name in its color + big percent + "2 of 4";
+// 4-6 goals = two columns (first 3 next to the rings, the rest to the right), one word + percent each.
 function goalRows() {
-  return (S.goals || []).map((g) => `<button class="nx-gi" data-act="goal-open" data-id="${g.id}"><i class="dot" style="background:${g.c}"></i><span class="gt2"><span class="gp" style="color:${g.c}">${goalPct(g)}%</span><span class="gn">${esc(g.name)}</span></span></button>`).join('');
+  const gs = S.goals || [], many = gs.length > 3;
+  return gs.map((g) => {
+    const word = many ? (g.name.trim().split(" ").filter(Boolean)[0] || g.name) : g.name;
+    return `<button class="nx-gi" data-act="goal-open" data-id="${g.id}" style="--c:${g.c}" aria-label="${esc(g.name)}"><span class="gn">${esc(word)}</span><span class="gv"><b class="gp" data-pct="${goalPct(g)}">0</b><small>%</small>${many ? '' : `<i>${goalDone(g)} of ${g.steps.length}</i>`}</span></button>`;
+  }).join('');
+}
+// The percent counts up together with the ring (same .8 s, same easing).
+function nxCountUp(root) {
+  const els = [...root.querySelectorAll('.gp[data-pct]')]; if (!els.length) return;
+  const t0 = performance.now(), D = 800, ease = (x) => 1 - Math.pow(1 - x, 3);
+  const step = (t) => { const k = ease(Math.min(1, (t - t0) / D)); els.forEach((e) => { e.textContent = Math.round(+e.dataset.pct * k); }); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
 }
 SCREENS.goals = {
   render() {
     const gs = S.goals || [], today = todayIso();
     const avg = gs.length ? Math.round(gs.reduce((a, g) => a + goalPct(g), 0) / gs.length) : 0;
     let body = gs.length
-      ? `<div class="nx-gsplit"><div class="nx-gl">${nxRings(gs, 'md', `<b>${avg}%</b>`)}</div><div class="nx-gr">${goalRows()}</div></div>`
+      ? `<div class="nx-gsplit${gs.length > 3 ? ' many' : ''}"><div class="nx-gl">${nxRings(gs, 'md', gs.length > 3 ? '' : `<b>${avg}%</b>`)}</div><div class="nx-gr">${goalRows()}</div></div>`
       : `<div class="card nx-empty">${glyph('target')}<b>No goals yet</b><span>A goal is a few steps. Tick them off and the ring fills.</span><button class="nx-pill" data-act="nx-newgoal">New goal</button></div>`;
     body += tsec('Habits', '', `<button class="sec-btn" data-act="h-new">New habit</button>`);
     body += S.habits.length
@@ -207,7 +225,7 @@ SCREENS.goals = {
       : `<div class="hint-btn" style="margin-top:0">${glyph('flame')}<span><b>Build a routine</b>Water, reading, sleep: small things every day.</span></div>`;
     return page({ title: 'Goals', right: gs.length ? `<button class="ntext" data-act="nx-newgoal">New goal</button>` : navBtn('settings', 'gear', 'Settings'), body });
   },
-  mount(el) { nxFillSoon(el, S.goals || []); },
+  mount(el) { nxFillSoon(el, S.goals || []); setTimeout(() => nxCountUp(el), 40); },
   fab: () => ({ g: 'plus', act: 'new-note', label: 'New note' }),
 };
 ACTIONS['nx-newgoal'] = async () => {
@@ -468,7 +486,7 @@ ACTIONS['nx-purgeall'] = async () => {
 };
 
 // ---------- Settings: one page in sections, like Teacher and Budget ----------
-const NOTES_VERSION = 'Notes 4.4';
+const NOTES_VERSION = 'Notes 4.5';
 SCREENS.settings.render = function () {
   const perm = notifPerm();
   const status = !notifSupported() ? 'Not available' : perm === 'denied' ? 'Blocked' : notifOn() ? (pushReady() ? 'On' : 'On, while open') : 'Off';

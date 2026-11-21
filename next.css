@@ -222,18 +222,25 @@ html body .hlq { display: none !important; }
 .n20-dt.hot { background: var(--yellow); transform: scale(1.06); }
 .n20-dock-e { padding: 8px 12px; color: var(--text-2); font-size: 14px; }
 
-/* 21 Nov 2026 (user): the Goals card grew taller with every long goal name. Now the card is always the ring's height;
-   each goal is one tidy row (dot, name up to 2 lines, percent on the right). More goals than fit scroll inside the card. */
-.nx-gsplit { height: 174px; box-sizing: border-box; overflow: hidden; }
-.nx-gsplit .nx-gr { height: 142px; overflow-y: auto; justify-content: flex-start; gap: 9px; scrollbar-width: none; overscroll-behavior: contain; }
+/* 21 Nov 2026 (user): the Goals card, Apple Watch summary style. Always the ring's height, never grows.
+   1-3 goals: name in the goal's color, big percent, "2 of 4" in gray.
+   4-6 goals: two columns of 3 (the first 3 next to the rings), one word + percent each; thinner rings, no middle number. */
+.nx-gsplit { height: 174px; box-sizing: border-box; overflow: hidden; gap: 16px; }
+.nx-gsplit .nx-gr { height: 142px; display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, minmax(0, 1fr)); grid-auto-columns: minmax(0, 1fr); gap: 0 12px; align-items: center; overflow-x: auto; scrollbar-width: none; overscroll-behavior: contain; animation: nxGrIn .5s cubic-bezier(.25, .8, .3, 1) both; }
 .nx-gsplit .nx-gr::-webkit-scrollbar { display: none; }
-.nx-gsplit .nx-gr > :first-child { margin-top: auto; }
-.nx-gsplit .nx-gr > :last-child { margin-bottom: auto; }
-.nx-gsplit .nx-gi { align-items: center; flex: none; }
-.nx-gsplit .nx-gi .dot { margin-top: 0; }
-.nx-gsplit .nx-gi .gt2 { flex-direction: row; align-items: center; gap: 8px; flex: 1; }
-.nx-gsplit .nx-gi .gn { order: 0; flex: 1; min-width: 0; margin: 0; font-size: 13.5px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.nx-gsplit .nx-gi .gp { order: 1; flex: none; font-size: 15px; font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
-/* dark mode: goal names were dark gray on black (hard-coded #3C3C43) and the ring tracks stayed light gray */
-.nx-gsplit .nx-gi .gn { color: var(--text); opacity: .85; }
+.nx-gsplit:not(.many) .nx-gr { grid-template-rows: none; grid-auto-flow: row; grid-auto-rows: max-content; align-content: center; gap: 7px; }
+@keyframes nxGrIn { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: none; } }
+.nx-gsplit .nx-gi { display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0; width: 100%; text-align: left; border-radius: 10px; transition: opacity .2s; -webkit-tap-highlight-color: transparent; }
+.nx-gsplit .nx-gi:active { opacity: .55; }
+.nx-gsplit .nx-gi .gn { max-width: 100%; font-size: 13px; font-weight: 600; letter-spacing: -.1px; line-height: 1.2; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 1; margin: 0; }
+.nx-gsplit .nx-gi .gv { display: flex; align-items: baseline; gap: 1px; white-space: nowrap; line-height: 1.05; color: var(--c); }
+.nx-gsplit .nx-gi .gp { font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -.6px; font-variant-numeric: tabular-nums; color: inherit; min-width: 0; text-align: left; }
+.nx-gsplit .nx-gi .gv small { font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; font-size: 15px; font-weight: 700; }
+.nx-gsplit .nx-gi .gv i { font-style: normal; font-size: 12.5px; font-weight: 500; color: var(--text-2); margin-left: 7px; letter-spacing: 0; }
+.nx-gsplit.many .nx-gi .gn { font-size: 12px; }
+.nx-gsplit.many .nx-gi .gp { font-size: 19px; letter-spacing: -.4px; }
+.nx-gsplit.many .nx-gi .gv small { font-size: 12.5px; }
+/* 4-6 rings leave no room in the middle: no number there (the goal pop-up says "2 of 4 steps done" right under it) */
+.nxr.many .nxr-mid { display: none; }
+/* dark mode ring track (names now use the goal colors) */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nxr .nxr-bg { stroke: #2C2C2E; } }
