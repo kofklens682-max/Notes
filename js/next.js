@@ -504,6 +504,8 @@ SCREENS.settings.render = function () {
     </div>
     <p class="foot">${pushReady() ? 'Reminders arrive even when the app is closed. Only the times are sent, never what you wrote.' : 'Reminders appear while the app is open or was used recently.'}</p>
 
+    <h2 class="sec">Appearance</h2>
+    <div class="card pad"><div class="seg">${segButtons('theme', [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Automatic']], S.settings.theme)}</div></div>
     <h2 class="sec">Notes</h2>
     <div class="card pad"><div class="seg">${segButtons('nx-sort', [['edited', 'Edited'], ['created', 'Created'], ['title', 'Title']], S.settings.noteSort)}</div></div>
     <p class="foot">How the notes in a folder are sorted.</p>

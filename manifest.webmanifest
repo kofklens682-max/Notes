@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Notes & Planner",
   "short_name": "Notes",
-  "description": "Notes, reminders, goals and habits.",
+  "description": "Notes, goals and habits.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -20,12 +20,6 @@
       "short_name": "New note",
       "url": "./?new=note",
       "icons": [{ "src": "icons/sc-note.png", "sizes": "96x96", "type": "image/png" }]
-    },
-    {
-      "name": "New Reminder",
-      "short_name": "Reminder",
-      "url": "./?new=task",
-      "icons": [{ "src": "icons/sc-task.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

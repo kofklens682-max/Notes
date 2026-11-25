@@ -244,3 +244,135 @@ html body .hlq { display: none !important; }
 .nxr.many .nxr-mid { display: none; }
 /* dark mode ring track (names now use the goal colors) */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nxr .nxr-bg { stroke: #2C2C2E; } }
+/* 22 Nov 2026: Light / Dark / Automatic is back (Settings > Appearance). Dark versions of the new parts that had none. */
+:root[data-theme="dark"] .nx-roll{background:#3A1D1B !important;color:#FF8A80 !important}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .nx-roll{background:#3A1D1B !important;color:#FF8A80 !important}}
+/* the yellow Next up card looks the same in dark (as on the iPhone): its buttons keep their light-mode colors */
+html.dk .nx-next .nx-acts button{background:rgba(255,255,255,.55) !important;color:#000 !important}
+html.dk .nx-next .nx-acts button.main{background:#000 !important;color:#fff !important}
+
+/* ===== 25 Nov (Notes 5.0, js/n25.js) ===== */
+/* two tabs, stretched across the bottom next to the + button (his wish 25 Nov) */
+html body .tab-ind { width: calc((100% - 10px) / 2); }
+/* Notes page: Recent */
+.n25-recent { --inset: 16px; }
+.n25-nr { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 11px 16px; text-align: left; background: var(--card); -webkit-touch-callout: none; }
+.n25-nr:active { background: var(--fill-2); }
+.n25-emo { font-size: 22px; line-height: 1.2; flex: none; }
+.n25-nt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.n25-nt b { font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.n25-nt small { font-size: 14px; color: var(--text-2); line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.n25-nt small .gl.inl { width: 13px; height: 13px; margin-right: 3px; vertical-align: -1px; }
+.n25-when { color: var(--text); opacity: .55; margin-right: 8px; font-weight: 500; }
+.n25-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 20px; text-align: center; color: var(--text-2); font-size: 15px; }
+.n25-empty .gl { width: 34px; height: 34px; color: var(--text-3); margin-bottom: 4px; }
+.n25-empty b { color: var(--text); font-size: 18px; }
+.n25-newf .lbl { color: var(--yellow-t); font-weight: 500; }
+html body .n25-wrap { white-space: normal; }
+.n25-wrap small { display: block; font-size: 13px; color: var(--text-2); line-height: 1.35; margin-top: 2px; }
+/* Goals | Habits switch */
+html body .card.n25-seg { padding: 0; background: none; margin-bottom: 4px; }
+.n25-gbody.n25-in-r { animation: n25-in-r .32s cubic-bezier(.2, .9, .3, 1); }
+.n25-gbody.n25-in-l { animation: n25-in-l .32s cubic-bezier(.2, .9, .3, 1); }
+@keyframes n25-in-r { from { opacity: 0; transform: translateX(24px); } }
+@keyframes n25-in-l { from { opacity: 0; transform: translateX(-24px); } }
+/* goal cards */
+/* all goals in one rounded box, a row each (his wish 25 Nov) */
+html body .card.n25-glist { margin-top: 14px; --inset: 76px; }
+.n25-gc { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 16px; background: var(--card); text-align: left; }
+.n25-gc:active { background: var(--fill-2); }
+.n25-gc .chev { width: 15px; height: 15px; color: var(--text-3); stroke-width: 2.6; flex: none; }
+.n25-gr { position: relative; flex: none; width: 46px; height: 46px; display: grid; place-items: center; }
+.n25-gr svg { position: absolute; inset: 0; }
+.n25-gr i { font-style: normal; font-size: 12px; font-weight: 700; color: var(--c); letter-spacing: -.02em; }
+.n25-gr i .gl { width: 18px; height: 18px; stroke-width: 3; }
+.n25-gt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.n25-gt b { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.n25-gt small { font-size: 14px; color: var(--text-2); }
+.n25-gt small.late { color: var(--red); }
+.n25-gc.all .n25-gt b { color: var(--text-2); }
+.n25-ring .n25-rbg { fill: none; stroke: color-mix(in srgb, var(--c, #8E8E93) 18%, transparent); }
+.n25-ring .n25-rfg { fill: none; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.25, .9, .3, 1); }
+/* goal sheet: one ring */
+.n25-gdet { position: relative; width: 132px; height: 132px; margin: 6px auto 10px; display: grid; place-items: center; }
+.n25-gdet svg { position: absolute; inset: 0; }
+.n25-gdet .n25-rbg { stroke: color-mix(in srgb, var(--tint) 18%, transparent); }
+.n25-gmid { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.n25-gmid b { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+.n25-gmid span { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.n25-gdue { text-align: center; font-size: 14px; color: var(--text-2); margin: -2px 0 12px; }
+.n25-gdue.late { color: var(--red); }
+.n25-gdue .gl.inl { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+/* habit rows */
+.n25-hcard { --inset: 60px; }
+.n25-hr { display: flex; align-items: center; gap: 0; background: var(--card); }
+.n25-tk { position: relative; flex: none; width: 30px; height: 30px; margin: 0 14px 0 16px; border-radius: 50%; border: 2px solid var(--text-3); display: grid; place-items: center; color: #fff; transition: background-color .2s, border-color .2s, transform .25s cubic-bezier(.3, 1.6, .5, 1); }
+.n25-tk:active { transform: scale(.88); }
+.n25-tk.on { background: var(--c); border-color: var(--c); }
+.n25-tk .gl { width: 17px; height: 17px; stroke-width: 3; }
+.n25-tk:not(.on) .gl { color: var(--c); stroke-width: 2.2; }
+.n25-tk:has(svg.ring) { border-color: transparent; }
+.n25-tk svg.ring { position: absolute; inset: -2px; width: 30px; height: 30px; }
+.n25-tk svg.ring .ring-fg { stroke: var(--c); }
+.n25-tk small { font-size: 12px; font-weight: 700; color: var(--c); }
+.n25-hm { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 58px; padding: 9px 16px 9px 0; text-align: left; }
+.n25-hm:active { opacity: .6; }
+.n25-hm .chev { width: 15px; height: 15px; color: var(--text-3); stroke-width: 2.6; flex: none; }
+.n25-ht { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.n25-ht b { font-size: 17px; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
+.n25-ht small { font-size: 14px; color: var(--text-2); }
+.n25-hr.is-done .n25-ht b { color: var(--text-2); }
+.n25-fl { display: flex; align-items: center; gap: 2px; font-size: 15px; font-weight: 700; color: #FF9500; flex: none; }
+.n25-fl .gl { width: 17px; height: 17px; fill: #FF9500; stroke: #FF9500; }
+/* habit sheet */
+.n25-htoday { display: flex; align-items: center; gap: 4px; padding: 14px 16px 14px 0; }
+.n25-htoday > span { display: flex; flex-direction: column; gap: 2px; padding-left: 16px; }
+.n25-htoday > span b { font-size: 17px; font-weight: 600; }
+.n25-htoday > span small { font-size: 14px; color: var(--text-2); }
+.n25-tk.big { width: 52px; height: 52px; margin: 0 0 0 16px; border-width: 2.5px; }
+.n25-tk.big + span { padding-left: 14px; }
+.n25-tk.big .gl { width: 26px; height: 26px; }
+.n25-tk.big svg.ring { width: 52px; height: 52px; }
+.n25-tk.big small { font-size: 17px; }
+.n25-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.n25-stats > div { background: var(--card); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.n25-stats b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; display: flex; align-items: center; gap: 3px; }
+.n25-stats b .gl { width: 20px; height: 20px; fill: currentColor; }
+.n25-stats span { font-size: 13px; color: var(--text-2); }
+/* month calendar */
+.n25-calh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.n25-calh b { font-size: 17px; font-weight: 600; }
+.n25-calh button { width: 36px; height: 36px; display: grid; place-items: center; color: var(--c); border-radius: 50%; }
+.n25-calh button:disabled { color: var(--text-3); }
+.n25-calh .gl { width: 18px; height: 18px; stroke-width: 2.6; }
+.n25-calw, .n25-calg { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px 0; text-align: center; }
+.n25-calw span { font-size: 12px; font-weight: 600; color: var(--text-2); padding-bottom: 4px; }
+.n25-calg > i { display: block; }
+.n25-calg button { justify-self: center; width: 38px; height: 38px; border-radius: 50%; font-size: 15px; font-weight: 500; color: var(--text); transition: background-color .2s, color .2s, transform .2s cubic-bezier(.3, 1.5, .5, 1); }
+.n25-calg button:active { transform: scale(.88); }
+.n25-calg button.done { background: var(--c); color: #fff; font-weight: 700; }
+.n25-calg button.part { background: color-mix(in srgb, var(--c) 30%, transparent); }
+.n25-calg button.off:not(.done) { color: var(--text-3); }
+.n25-calg button.fut { color: var(--text-3); }
+.n25-calg button.now:not(.done) { box-shadow: inset 0 0 0 2px var(--c); color: var(--c); font-weight: 700; }
+/* the bar for selected words: above the words, pops out of them */
+html body .n20-sel.n25-pos { bottom: auto; transform: translate3d(0, 6px, 0) scale(.86); transform-origin: var(--ox, 50%) 100%; transition: opacity .18s ease, transform .3s cubic-bezier(.25, 1.35, .45, 1); }
+html body .n20-sel.n25-pos.below { transform-origin: var(--ox, 50%) 0; transform: translate3d(0, -6px, 0) scale(.86); }
+html body .n20-sel.n25-pos.on { transform: none; }
+html body .n20-sel.n25-pos.on.n25-hid { opacity: 0; transform: scale(.94); pointer-events: none; }
+/* our selection handles */
+.n25-hs { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 0; transition: opacity .15s; }
+.n25-hs.on { opacity: 1; }
+.n25-h { position: absolute; left: 0; top: 0; width: 2px; margin-left: -1px; background: var(--yellow-t); border-radius: 1px; pointer-events: none; will-change: transform; }
+.n25-h b { position: absolute; left: 50%; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--yellow-t); }
+.n25-h.s b { top: -10px; }
+.n25-h.e b { bottom: -10px; }
+.n25-h::after { content: ""; position: absolute; left: -20px; right: -20px; top: -24px; bottom: -24px; }
+.n25-hs.on .n25-h { pointer-events: auto; touch-action: none; }
+.n25-h.out { opacity: 0; pointer-events: none !important; }
+.n25-h.drag b { transform: scale(1.35); }
+.n25-h b { transition: transform .15s; }
+/* 25 Nov fixes after the self-check */
+html body .row .lbl.n25-wrap { white-space: normal; overflow: visible; text-overflow: clip; }
+html body .card.n25-htoday > *::before { display: none; }
+html body .ed ::selection, html body .ed::selection { background: color-mix(in srgb, var(--yellow) 42%, transparent); }

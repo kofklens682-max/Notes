@@ -77,7 +77,9 @@ function normalize(d) {
   const okId = (x) => x && typeof x === 'object' && typeof x.id === 'string' && ID_RE.test(x.id);
   const g = d.grocery && typeof d.grocery === 'object' ? d.grocery : {};
   const set = { ...b.settings, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}) };
-  set.theme = 'light'; // light only (20 Nov 2026)
+  // 22 Nov 2026 (user): Light / Dark / Automatic, Automatic first (it was forced light since 20 Nov: everyone starts on Automatic once)
+  if (!set.themeV2) { set.theme = 'auto'; set.themeV2 = 1; }
+  if (!['light', 'dark', 'auto'].includes(set.theme)) set.theme = 'auto';
   if (!TIME_RE.test(set.allDay)) set.allDay = '09:00';
   if (!['en-US', 'ru-RU', 'uz-UZ'].includes(set.voiceLang)) set.voiceLang = 'en-US';
   if (!['edited', 'created', 'title'].includes(set.noteSort)) set.noteSort = 'edited';
@@ -1194,6 +1196,7 @@ function applyTheme() {
 function themeColor() {
   const e = cur();
   const plain = e && SCREENS[e.s] && SCREENS[e.s].plain;
+  document.documentElement.classList.toggle('dk', isDark()); // 22 Nov: dark.css (made by Apps/next/make-dark.js from next.css) hangs on this
   const m = $('meta[name=theme-color]');
   if (m) m.content = isDark() ? '#000000' : plain ? '#FFFFFF' : '#F2F2F7'; // (the bar above the app matches the page)
 }
